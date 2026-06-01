@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.4.5
+// @version      4.5.0
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -212,6 +212,7 @@
         AUTO_OPEN_BOXES: 'tm_aa_auto_open_boxes',
         IR_PER_PAGE: 'tm_aa_ir_per_page',
         EVENT_VISIBILITY: 'tm_aa_ev_vis',
+        NOTIFICATIONS: 'tm_aa_notifications',
     };
     const HISTORY_MAX_ENTRIES = 500;
     const HISTORY_PER_PAGE = 10;
@@ -665,6 +666,105 @@
         }
 
         return parts.join(' / ');
+    };
+
+    // ==================== Уведомления о событиях ====================
+
+    const loadNotificationState = () => {
+        try {
+            const raw = localStorage.getItem(LS_KEYS.NOTIFICATIONS);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return {
+                    enabled: !!parsed.enabled,
+                    events: parsed.events || {},
+                    notified: parsed.notified || {},
+                };
+            }
+        } catch { /* ignore */ }
+        return { enabled: false, events: {}, notified: {} };
+    };
+
+    const saveNotificationState = (state) => {
+        try {
+            localStorage.setItem(LS_KEYS.NOTIFICATIONS, JSON.stringify(state));
+        } catch { /* ignore */ }
+    };
+
+    const getMSKDateString = (utcMs) => {
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+            timeZone: TZ,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        });
+        return fmt.format(new Date(utcMs)); // "YYYY-MM-DD"
+    };
+
+    const cleanOldNotifiedKeys = (state) => {
+        const today = getMSKDateString(getServerNowMs());
+        const keys = Object.keys(state.notified);
+        let changed = false;
+        for (const key of keys) {
+            const datePrefix = key.split('_')[0];
+            if (datePrefix < today) {
+                delete state.notified[key];
+                changed = true;
+            }
+        }
+        if (changed) saveNotificationState(state);
+    };
+
+    const showEventNotification = (ev, entry) => {
+        const timeLabel = entry.timeEnd ? `${entry.timeStart}\u2013${entry.timeEnd}` : entry.timeStart;
+        const location = ev.locations?.length ? ev.locations.join(', ') : '';
+        const body = location ? `${timeLabel} \u2014 ${location}` : timeLabel;
+        try {
+            new Notification(ev.title, { body, icon: 'https://aa.cdn.gmru.net/ms/data/old/9d56835cb7de079738b7e95471186c09.png', tag: `aa-ev-${ev.title}-${entry.timeStart}` });
+        } catch { /* ignore */ }
+    };
+
+    const checkEventNotifications = () => {
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        const state = loadNotificationState();
+        if (!state.enabled) return;
+
+        cleanOldNotifiedKeys(state);
+
+        const visOverrides = loadEventVisibility();
+        const serverNow = getServerNowMs();
+        const nowWd = getMSKWeekday(serverNow);
+        const nowSec = getMSKTimeOfDaySeconds(serverNow);
+        const todayStr = getMSKDateString(serverNow);
+
+        let changed = false;
+
+        for (let i = 0; i < EVENTS.length; i++) {
+            if (!state.events[i]) continue; // только явно включённые
+            if (!isEventVisible(i, visOverrides)) continue; // скрытые — без уведомлений
+            const ev = EVENTS[i];
+
+            for (const entry of ev.schedule) {
+                const isToday = !entry.weekdays?.length || entry.weekdays.includes(nowWd);
+                if (!isToday) continue;
+
+                const { hours, minutes } = parseTime(entry.timeStart);
+                const startSec = hours * 3600 + minutes * 60;
+                const diff = startSec - nowSec;
+
+                // 5 минут = 300 секунд, допуск ±30с для интервала проверки
+                if (diff >= 270 && diff <= 330) {
+                    const key = `${todayStr}_${i}_${entry.timeStart}`;
+                    if (!state.notified[key]) {
+                        showEventNotification(ev, entry);
+                        state.notified[key] = true;
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if (changed) saveNotificationState(state);
     };
 
     /** @param {number|null} seconds */
@@ -1344,6 +1444,8 @@
                 (_, alpha, color, inner) => `<span style="color:#${color}${alpha}">${inner}</span>`)
             .replace(/\|nc;(.*?)\|r/g,
                 (_, inner) => `<span class="orange_text">${inner}</span>`)
+            .replace(/\|nn;(.*?)\|r/g,
+                (_, inner) => `<span class="orange_text">${inner}</span>`)
             .replace(/\|nd;(.*?)\|r/g,
                 (_, inner) => `<span class="light_blue_text">${inner}</span>`)
             .replace(/\|ni;(.*?)\|r/g,
@@ -1443,6 +1545,10 @@
         { id: '55450', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
         { id: '8002410', type: 'equipment', subType: 'cloak', icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', description: 'Неизвестно, в чем причина, но к человеку в таком шарфе окружающие почему-то относятся с особенным уважением (и даже с некоторой опаской).\n\n|nc;Усиливающие эффекты костюма действуют 30 дней. Чтобы активировать их заново, костюм нужно постирать.|r', tempEquipDescription: 'Скорость передвижения +|nc;3|r%\nСкорость плавания +|nc;3|r%\nСкорость занятия ремеслом |nc;+10%|r\nСкорость занятия животноводством |nc;+10%|r\nОпыт при занятии ремеслом |nc;+10|r%' },
         { id: '34685', type: 'equipment', subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', grade: 1, name: 'Укрепленный аргенитовый кларнет' },
+        { id: '417', icon: 'https://archeagecodex.com/items/icon_item_0418.png', grade: 1, name: 'Редкий камень странствий', isPersonal: true, description: 'Необходим для перемещения с помощью книги порталов.', price: 0, reqLevel: 1 },
+        { id: '52701', icon: 'https://archeagecodex.com/items/icon_item_5282.png', grade: 1, name: 'Кристалл изначального анадия', description: 'Эти лиловые кристаллы – достойное подношение духам-хранителям.\nОдновременно в рюкзаке может быть не более пяти кристаллов. Кристаллы исчезнут через один час.', useDescription: 'Поднести кристалл духам-хранителям у древнего тотема или усилить призванного духа-хранителя.', price: 0 },
+        { id: '40491', icon: 'https://archeagecodex.com/items/icon_item_3090.png', grade: 2, name: 'Знак отваги' },
+        { id: '46695', icon: 'https://archeagecodex.com/items/icon_item_4557.png', grade: 3, name: 'Белоснежный олененок' },
         { id: '', type: '', icon: '', grade: 1, name: '' },
     ].map(i => [i.id, i]));
 
@@ -3804,6 +3910,8 @@
         document.body.appendChild(serverClockEl);
         updateServerClockContent();
         setInterval(updateServerClockContent, 1000);
+        setInterval(checkEventNotifications, 30000);
+        checkEventNotifications();
     };
 
     /** Инжектит все стили для страницы марафона (itemIcon + marathon). */
@@ -4287,7 +4395,7 @@
 
             const title = document.createElement('div');
             title.className = 'title';
-            title.textContent = mapped.name || '';
+            title.textContent = mapped.name || mapped.itemBase.name || '';
             nameWrap.appendChild(title);
             entry.appendChild(nameWrap);
 
@@ -4961,13 +5069,20 @@
          * @param {IRItem} item
          * @returns {ItemBase}
          */
-        const toItemBase = (item) => ({
-            id: String(item.type || ''),
-            icon: item.iconurl || '',
-            grade: mapGrade(item.grade),
-            name: item.gi_name || '',
-            description: item.gi_description || '',
-        });
+        const toItemBase = (item) => {
+            const known = ITEMS[`${item.type}`];
+            return {
+                id: String(item.type || ''),
+                icon: item.iconurl || '',
+                grade: mapGrade(item.grade),
+                name: item.gi_name || '',
+                description: item.gi_description || '',
+                ...known,
+                ...(item.iconurl ? { icon: item.iconurl } : {}),
+                ...(item.gi_name ? { name: item.gi_name } : {}),
+                ...(item.gi_description ? { description: item.gi_description } : {}),
+            };
+        };
 
         const addZero = (n) => n < 10 ? '0' + n : '' + n;
 
@@ -5223,8 +5338,13 @@
                     size: 'small',
                 }));
                 const nameText = document.createElement('span');
-                nameText.textContent = item.gi_name || '';
-                if (item.color) nameText.style.color = `#${item.color}`;
+                nameText.textContent = item.gi_name || itemBase.name || '';
+                if (item.color) {
+                    nameText.style.color = `#${item.color}`;
+                }
+                else if (itemBase.grade) {
+                    nameText.style.color = GRADES[itemBase.grade].color;
+                }
                 nameWrap.appendChild(nameText);
                 tdName.appendChild(nameWrap);
                 tr.appendChild(tdName);
@@ -5645,7 +5765,7 @@
                 font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;
             }
             .tm-popup-panel--events {
-                width: 960px;
+                width: 1000px;
                 max-width: 95vw;
             }
             .tm-popup-panel--settings {
@@ -5694,7 +5814,7 @@
                 border-collapse: collapse;
             }
             .tm-events-table th {
-                background: #3a5a7c;
+                background: #3d2a5a;
                 color: #fff;
                 padding: 8px 12px;
                 text-align: left;
@@ -5702,11 +5822,12 @@
                 position: sticky;
                 top: 0;
                 z-index: 1;
+                border-bottom: none;
             }
             .tm-events-table td {
                 padding: 6px 12px;
                 border-bottom: 1px solid #ddd;
-                vertical-align: middle;
+                vertical-align: top;
             }
             .tm-events-table tr:nth-child(even) td {
                 background: #f5f5f5;
@@ -5760,18 +5881,34 @@
             }
             .tm-ev-settings-list li {
                 padding: 4px 0;
+                display: flex;
+                align-items: center;
+                gap: 4px;
             }
             .tm-ev-settings-list label {
                 cursor: pointer;
                 display: flex;
                 align-items: center;
                 gap: 8px;
+                flex: 1;
             }
             .tm-ev-settings-list input[type="checkbox"] {
                 width: 16px;
                 height: 16px;
                 flex-shrink: 0;
             }
+            .tm-popup-btn--bell { font-size: 16px; }
+            .tm-popup-btn--bell-off { opacity: 0.4; }
+            .tm-ev-bell {
+                cursor: pointer;
+                font-size: 14px;
+                padding: 0 4px;
+                user-select: none;
+                border: none;
+                background: none;
+                vertical-align: middle;
+            }
+            .tm-ev-bell--off { opacity: 0.25; }
         `;
         document.head.appendChild(style);
     };
@@ -5836,6 +5973,8 @@
         const ul = document.createElement('ul');
         ul.className = 'tm-ev-settings-list';
 
+        const notifState = loadNotificationState();
+
         for (let i = 0; i < EVENTS.length; i++) {
             const ev = EVENTS[i];
             const li = document.createElement('li');
@@ -5857,6 +5996,45 @@
             label.appendChild(cb);
             label.appendChild(span);
             li.appendChild(label);
+
+            // Колокольчик уведомления
+            const bell = document.createElement('button');
+            bell.className = 'tm-ev-bell' + (notifState.events[i] ? '' : ' tm-ev-bell--off');
+            bell.textContent = '\u{1F514}';
+            bell.title = 'Уведомление за 5 мин';
+            bell.addEventListener('click', () => {
+                if (typeof Notification === 'undefined') {
+                    alert('Ваш браузер не поддерживает уведомления.');
+                    return;
+                }
+                const toggle = () => {
+                    const s = loadNotificationState();
+                    if (s.events[i]) {
+                        delete s.events[i];
+                    } else {
+                        s.enabled = true;
+                        s.events[i] = true;
+                    }
+                    saveNotificationState(s);
+                    bell.classList.toggle('tm-ev-bell--off', !s.events[i]);
+                    const globalBell = document.querySelector('.tm-popup-btn--bell');
+                    if (globalBell) globalBell.classList.toggle('tm-popup-btn--bell-off', !s.enabled);
+                };
+                if (Notification.permission === 'default') {
+                    Notification.requestPermission().then((perm) => {
+                        if (perm === 'granted') toggle();
+                        else alert('Уведомления заблокированы в настройках браузера.\nРазрешите уведомления для этого сайта и попробуйте снова.');
+                    });
+                    return;
+                }
+                if (Notification.permission === 'denied') {
+                    alert('Уведомления заблокированы в настройках браузера.\nРазрешите уведомления для этого сайта и попробуйте снова.');
+                    return;
+                }
+                toggle();
+            });
+            li.appendChild(bell);
+
             ul.appendChild(li);
         }
 
@@ -5897,6 +6075,34 @@
         gearBtn.addEventListener('click', () => openSettingsPopup(renderTable));
         header.appendChild(gearBtn);
 
+        const bellBtn = document.createElement('button');
+        bellBtn.className = 'tm-popup-btn tm-popup-btn--bell';
+        bellBtn.textContent = '\u{1F514}';
+        bellBtn.title = 'Уведомления за 5 минут до событий';
+        const updateBellStyle = () => {
+            const s = loadNotificationState();
+            bellBtn.classList.toggle('tm-popup-btn--bell-off', !s.enabled);
+        };
+        updateBellStyle();
+        bellBtn.addEventListener('click', async () => {
+            if (typeof Notification === 'undefined') {
+                alert('Ваш браузер не поддерживает уведомления.');
+                return;
+            }
+            if (Notification.permission === 'default') {
+                await Notification.requestPermission();
+            }
+            if (Notification.permission === 'denied') {
+                alert('Уведомления заблокированы в настройках браузера.\nРазрешите уведомления для этого сайта и попробуйте снова.');
+                return;
+            }
+            const state = loadNotificationState();
+            state.enabled = !state.enabled;
+            saveNotificationState(state);
+            updateBellStyle();
+        });
+        header.appendChild(bellBtn);
+
         const closeBtn = document.createElement('button');
         closeBtn.className = 'tm-popup-btn';
         closeBtn.textContent = '\u00d7';
@@ -5934,7 +6140,7 @@
 
         /**
          * Собирает все ближайшие вхождения видимых событий.
-         * @returns {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]}
+         * @returns {{ ev: EventEntry, evIndex: number, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]}
          */
         const collectOccurrences = () => {
             const serverNow = getServerNowMs();
@@ -5961,7 +6167,7 @@
                         const endSec = end.hours * 3600 + end.minutes * 60;
                         const isToday = !entry.weekdays?.length || entry.weekdays.includes(nowWd);
                         if (isToday && nowSec >= startSec && nowSec < endSec) {
-                            within.push({ ev, label: timeStr, secondsUntil: -(endSec - nowSec), isActive: true, isBeyond: false });
+                            within.push({ ev, evIndex: i, label: timeStr, secondsUntil: -(endSec - nowSec), isActive: true, isBeyond: false });
                             hasWithin = true;
                             continue;
                         }
@@ -5970,7 +6176,7 @@
                         const activeDur = 300;
                         const isToday = !entry.weekdays?.length || entry.weekdays.includes(nowWd);
                         if (isToday && nowSec >= startSec && nowSec < startSec + activeDur) {
-                            within.push({ ev, label: timeStr, secondsUntil: 0, isActive: true, isBeyond: false });
+                            within.push({ ev, evIndex: i, label: timeStr, secondsUntil: 0, isActive: true, isBeyond: false });
                             hasWithin = true;
                             continue;
                         }
@@ -5979,7 +6185,7 @@
                     if (!entry.weekdays?.length) {
                         let diff = startSec - nowSec;
                         if (diff <= 0) diff += DAY_SEC;
-                        within.push({ ev, label: timeStr, secondsUntil: diff, isActive: false, isBeyond: false });
+                        within.push({ ev, evIndex: i, label: timeStr, secondsUntil: diff, isActive: false, isBeyond: false });
                         hasWithin = true;
                     } else {
                         let minDiff = Infinity;
@@ -5994,10 +6200,10 @@
                         const fullLabel = `${dayName} ${timeStr}`;
 
                         if (minDiff <= DAY_SEC) {
-                            within.push({ ev, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: false });
+                            within.push({ ev, evIndex: i, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: false });
                             hasWithin = true;
                         } else if (!nearest || minDiff < nearest.secondsUntil) {
-                            nearest = { ev, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: true };
+                            nearest = { ev, evIndex: i, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: true };
                         }
                     }
                 }
@@ -6010,6 +6216,7 @@
             within.sort((a, b) => {
                 if (a.isActive && !b.isActive) return -1;
                 if (!a.isActive && b.isActive) return 1;
+                if (a.isActive && b.isActive) return b.secondsUntil - a.secondsUntil;
                 return a.secondsUntil - b.secondsUntil;
             });
             beyond.sort((a, b) => a.secondsUntil - b.secondsUntil);
@@ -6032,12 +6239,31 @@
             return lines;
         };
 
+        const summaryText = (occ) => {
+            if (occ.isActive && occ.secondsUntil < 0) {
+                return `${occ.label} \u2014 ещё ${formatCountdown(-occ.secondsUntil)}`;
+            } else if (occ.isActive) {
+                return occ.label;
+            } else {
+                return `${occ.label} \u2014 через ${formatCountdown(occ.secondsUntil)}`;
+            }
+        };
+
+        const structureKey = (occs) => occs.map(o =>
+            `${o.evIndex}:${o.label}:${o.isActive}:${o.isBeyond}`
+        ).join('|');
+
+        let lastKey = '';
+        let summaryEls = [];
+
         const renderTable = () => {
             const occs = collectOccurrences();
+            lastKey = structureKey(occs);
+            summaryEls = [];
             const frag = document.createDocumentFragment();
 
             for (const occ of occs) {
-                const key = `${EVENTS.indexOf(occ.ev)}:${occ.label}`;
+                const key = `${occ.evIndex}:${occ.label}`;
                 const tr = document.createElement('tr');
                 if (occ.isActive) tr.classList.add('tm-event-active');
                 if (occ.isBeyond) tr.classList.add('tm-event-beyond');
@@ -6056,14 +6282,9 @@
                 });
 
                 const summary = document.createElement('summary');
-                if (occ.isActive && occ.secondsUntil < 0) {
-                    summary.textContent = `${occ.label} \u2014 ещё ${formatCountdown(-occ.secondsUntil)}`;
-                } else if (occ.isActive) {
-                    summary.textContent = occ.label;
-                } else {
-                    summary.textContent = `${occ.label} \u2014 через ${formatCountdown(occ.secondsUntil)}`;
-                }
+                summary.textContent = summaryText(occ);
                 details.appendChild(summary);
+                summaryEls.push(summary);
 
                 const schedDiv = document.createElement('div');
                 schedDiv.className = 'tm-schedule-detail';
@@ -6104,8 +6325,22 @@
             tbody.appendChild(frag);
         };
 
+        const tickTable = () => {
+            const occs = collectOccurrences();
+            const key = structureKey(occs);
+
+            if (key !== lastKey) {
+                renderTable();
+                return;
+            }
+
+            for (let i = 0; i < occs.length; i++) {
+                summaryEls[i].textContent = summaryText(occs[i]);
+            }
+        };
+
         renderTable();
-        eventsInterval = setInterval(renderTable, 1000);
+        eventsInterval = setInterval(tickTable, 1000);
     };
 
     // ============================================================
