@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.8.1
+// @version      4.9.0
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -412,6 +412,7 @@
         IR_PER_PAGE: 'tm_aa_ir_per_page',
         EVENT_VISIBILITY: 'tm_aa_ev_vis',
         VEKSEL_SERVER_ID: 'tm_aa_veksel_server_id',
+        ICON_SEX: 'tm_aa_icon_sex',
         NOTIFICATIONS: 'tm_aa_notifications',
     };
     const HISTORY_MAX_ENTRIES = 500;
@@ -1548,16 +1549,18 @@
     const CODEX_BASE = 'https://archeagecodex.com/ru/quest/';
     const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
     const ICON_QUEST = 'https://archeagecodex.com/images/icon_quest_common.png';
-    const ICON_VEKSEL = 'https://archeagecodex.com/items/icon_item_3493.png';
-    const ICON_VEKSEL_NORTH = 'https://archeagecodex.com/items/icon_item_5054.png';
+    const ICON_VEKSEL = 'https://aa.cdn.gmru.net/ms/data/game-icons/e046763d68cd5d1b2dbd5513fc845e07.png';
+    const ICON_VEKSEL_NORTH = 'https://aa.cdn.gmru.net/ms/data/game-icons/6a0ac94699b0c4d678470feb07f3fa85.png';
     const ICON_GISAA_OVERLAY = 'https://gisaa.ru/img/gisaa.svg?v=1';
     const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
 
     /** @type {Record<number, string>} */
     const SERVERS = {
-        49: 'Ифнир', 42: 'Корвус', 61: 'Ксанатос', 1: 'Луций',
-        65: 'Мираж', 64: 'Нагашар', 63: 'Рейвен', 62: 'Тарон',
-        45: 'Фанем', 66: 'Фесаникс', 46: 'Шаеда',
+        1: 'Луций', 2: 'Кипроза', 3: 'Мелисара',
+        24: 'Невер', 31: 'Гартарейн', 32: 'Левиафан', 33: 'Ария', 34: 'Иштар', 35: 'Хазе',
+        42: 'Корвус', 43: 'Каиль',  44: 'Нуи', 45: 'Фанем', 46: 'Шаеда', 47: 'Ренессанс', 48: 'Кракен', 49: 'Ифнир',
+        51: 'Эрнард', 52: 'Морфеос', 53: 'Марли', 54: 'Ашьяра', 55: 'Гленн', 56: 'Лорея',
+        61: 'Ксанатос', 62: 'Тарон', 63: 'Рейвен', 64: 'Нагашар', 65: 'Мираж', 66: 'Фесаникс',
     };
 
     let vekselUrlResolved = VEKSEL_BASE;
@@ -1729,23 +1732,24 @@
      * @property {string} overlay - URL изображения рамки грейда.
      * @property {string} title - Название грейда.
      * @property {string} color - Цвет грейда (CSS).
+     * @property {RegExp[]} [cartNamePatterns] - Паттерны грейда в названии предмета корзины.
      */
 
     /** @type {Grade[]} */
     const GRADES = [
         /* 0  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade0.png`, title: 'Бесполезный предмет', color: '#949293' },
-        /* 1  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade1.png`, title: 'Обычный предмет', color: '#ba976d' },
-        /* 2  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade2.png`, title: 'Необычный предмет', color: '#77b064' },
-        /* 3  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade3.png`, title: 'Редкий предмет', color: '#558fd7' },
-        /* 4  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade4.png`, title: 'Уникальный предмет', color: '#cb72d8' },
-        /* 5  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade5.png`, title: 'Эпический предмет', color: '#d78b06' },
-        /* 6  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade6.png`, title: 'Легендарный предмет', color: '#e17853' },
-        /* 7  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade7.png`, title: 'Реликвия', color: '#f95252' },
-        /* 8  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade8.png`, title: 'Предмет эпохи чудес', color: '#cf7d5d' },
-        /* 9  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade9.png`, title: 'Предмет эпохи сказаний', color: '#8fa5ca' },
-        /* 10 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade10.png`, title: 'Предмет эпохи легенд', color: '#bf7900' },
-        /* 11 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade11.png`, title: 'Предмет эпохи мифов', color: '#c90b0b' },
-        /* 12 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade12.png`, title: 'Предмет эпохи Двенадцати', color: '#ae98fe' },
+        /* 1  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade1.png`, title: 'Обычный предмет', color: '#ba976d', cartNamePatterns: [/^обычн(?:ый|ая|ое|ые)\s+/] },
+        /* 2  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade2.png`, title: 'Необычный предмет', color: '#77b064', cartNamePatterns: [/^необычн(?:ый|ая|ое|ые)\s+/] },
+        /* 3  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade3.png`, title: 'Редкий предмет', color: '#558fd7', cartNamePatterns: [/^редк(?:ий|ая|ое|ие)\s+/] },
+        /* 4  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade4.png`, title: 'Уникальный предмет', color: '#cb72d8', cartNamePatterns: [/^уникальн(?:ый|ая|ое|ые)\s+/] },
+        /* 5  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade5.png`, title: 'Эпический предмет', color: '#d78b06', cartNamePatterns: [/^эпическ(?:ий|ая|ое|ие)\s+/] },
+        /* 6  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade6.png`, title: 'Легендарный предмет', color: '#e17853', cartNamePatterns: [/^легендарн(?:ый|ая|ое|ые)\s+/] },
+        /* 7  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade7.png`, title: 'Реликвия', color: '#f95252', cartNamePatterns: [/^реликвийн(?:ый|ая|ое|ые)\s+/] },
+        /* 8  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade8.png`, title: 'Предмет эпохи чудес', color: '#cf7d5d', cartNamePatterns: [/\s+эпохи чудес$/] },
+        /* 9  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade9.png`, title: 'Предмет эпохи сказаний', color: '#8fa5ca', cartNamePatterns: [/\s+эпохи сказаний$/] },
+        /* 10 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade10.png`, title: 'Предмет эпохи легенд', color: '#bf7900', cartNamePatterns: [/\s+эпохи легенд$/] },
+        /* 11 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade11.png`, title: 'Предмет эпохи мифов', color: '#c90b0b', cartNamePatterns: [/\s+эпохи мифов$/] },
+        /* 12 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade12.png`, title: 'Предмет эпохи Двенадцати', color: '#ae98fe', cartNamePatterns: [/\s+эпохи двенадцати$/] },
     ];
 
     /**
@@ -1763,7 +1767,13 @@
         'equipment':    { title: 'Снаряжение' },
         'material':     { title: 'Материал' },
         'potion':       { title: 'Микстура' },
-        'other':        { title: 'Прочее' }
+        'other':        { title: 'Прочее' },
+        'rareMaterial': { title: 'Редкий материал' },
+        'mount':        { title: 'Ездовой питомец' },
+        'battlePet':    { title: 'Боевой питомец' },
+        'lightArmor':   { title: 'Легкий доспех' },
+        'furniture':    { title: 'Предмет интерьера' },
+        'craftItem':    { title: 'Ремесленный предмет' },
     };
 
     /**
@@ -1777,9 +1787,36 @@
         'leather':        { title: 'Кожа' },
         'cloth':          { title: 'Ткань' },
         'lumber':         { title: 'Древесина' },
+
         'costume':        { title: 'Костюм' },
         'cloak':          { title: 'Плащ' },
         'windInstrument': { title: 'Духовой инструмент' },
+    };
+
+    /**
+     * @typedef {Object} EquipmentSubType
+     * @property {string} title - Название подтипа снаряжения.
+     */
+
+    /** @type {Record<string, EquipmentSubType>} */
+    const EQUIPMENT_SUB_TYPES = {
+        'helmet':            { title: 'Шлем' },
+        'armor':             { title: 'Нагрудник' },
+        'belt':              { title: 'Пояс' },
+        'bracer':            { title: 'Наручи' },
+        'gloves':            { title: 'Перчатки' },
+        'cloak':             { title: 'Плащ' },
+        'pants':             { title: 'Поножи' },
+        'boots':             { title: 'Обувь' },
+        'underwear':         { title: 'Нижнее бельё' },
+        'necklace':          { title: 'Ожерелье' },
+        'earrings':          { title: 'Серьга' },
+        'ring':              { title: 'Кольцо' },
+        'two_handed_weapon': { title: 'Двуручное оружие' },
+        'ranged weapon':     { title: 'Оружие дальнего боя' },
+        'instrument':        { title: 'Инструмент' },
+        'weight':            { title: 'Груз' },
+        'costume':           { title: 'Костюм' },
     };
 
     /**
@@ -1791,19 +1828,22 @@
     const ICON_OVERLAY = {
         'unconfirmed': { icon: 'https://archeagecodex.com/items/top_unconfirmed.png' },
         'seal':        { icon: 'https://archeagecodex.com/items/top_seal_08.png' },
-        'quest_y':   { icon: 'https://archeagecodex.com/items/top_quest_y.png' },
-        'quest_cash':   { icon: 'https://archeagecodex.com/items/top_quest_cash.png' },
+        'quest_y':     { icon: 'https://archeagecodex.com/items/top_quest_y.png' },
+        'quest_cash':  { icon: 'https://archeagecodex.com/items/top_quest_cash.png' },
     };
 
     /**
      * @typedef {Object} ItemBase
      * @property {number} id - ID предмета (используется для генерации URL на ArcheageCodex).
-     * @property {string} icon - Полный URL иконки.
-     * @property {number} grade - Грейд (индекс в массиве GRADES, 0–12).
+     * @property {string} icon - Полный URL иконки. Может содержать плейсхолдер {sex}.
+     * @property {string} [iconM] - Значение для {sex} при мужском поле.
+     * @property {string} [iconF] - Значение для {sex} при женском поле.
+     * @property {number} [grade] - Грейд (индекс в массиве GRADES, 0–12).
      * @property {string} name - Название предмета.
      * @property {string} [type] - Ключ в ITEM_TYPES.
      * @property {string} [overlay] - Ключ в ICON_OVERLAY.
      * @property {string} [subType] - Ключ в ITEM_SUB_TYPES (например, 'ingot', 'costume').
+     * @property {string} [equipmentSubType] - Ключ в EQUIPMENT_SUB_TYPES (например, 'helmet').
      * @property {string} [vekselName] - Название предмета для таблицы векселей (если отличается от name).
      * @property {string} [vekselType] - Тип для таблицы векселей ('sack' | 'archive' | 'license').
      * @property {boolean} [isPersonal] - Персональный предмет (отображается в секции требований).
@@ -1846,10 +1886,63 @@
     const CODEX_ITEM_URL = 'https://archeagecodex.com/ru/item/';
     const CODEX_ITEM_ICONS = 'https://archeagecodex.com/items/';
     const GMRU_CDN_ICONS = 'https://aa.cdn.gmru.net/ms/data/game-icons/';
+    const ICON_SEX_VALUES = {
+        m: { title: 'Мужской', field: 'iconM' },
+        f: { title: 'Женский', field: 'iconF' },
+    };
 
-    /** @type {Record<string, ItemBase>} */
+    const loadIconSex = () => {
+        try {
+            const sex = localStorage.getItem(LS_KEYS.ICON_SEX);
+            return ICON_SEX_VALUES[sex] ? sex : 'm';
+        } catch {
+            return 'm';
+        }
+    };
 
-    /** @type {Record<string, ItemBase>} */
+    const saveIconSex = (sex) => {
+        try {
+            if (ICON_SEX_VALUES[sex]) {
+                localStorage.setItem(LS_KEYS.ICON_SEX, sex);
+            } else {
+                localStorage.removeItem(LS_KEYS.ICON_SEX);
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    /**
+     * @param {string} icon
+     * @param {string} iconM
+     * @param {string} iconF
+     * @returns {string}
+     */
+    const getItemIconUrlFromParts = (icon, iconM, iconF) => {
+        const sex = loadIconSex();
+        const sexIcon = sex === 'm' ? iconM || iconF || 'm' : iconF || iconM || 'f';
+        return sexIcon ? icon.replace(/\{sex\}/g, sexIcon) : icon;
+    };
+
+    /**
+     * @param {ItemBase} item
+     * @returns {string}
+     */
+    const getItemIconUrl = (item) => (
+        getItemIconUrlFromParts(item?.icon || '', item?.iconM || '', item?.iconF || '')
+    );
+
+    const updateRenderedItemIcons = () => {
+        document.querySelectorAll('.tm-item-icon-img[data-icon-template]').forEach(img => {
+            img.src = getItemIconUrlFromParts(
+                img.dataset.iconTemplate || '',
+                img.dataset.iconM || '',
+                img.dataset.iconF || ''
+            );
+        });
+    };
+
+    /** @type {Record<number, ItemBase>} */
     const ITEMS = Object.fromEntries([
         { id: 8256, type: 'material', subType: 'cloth', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Ткань" }, // icon_item_0356.png
         { id: 8318, type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}9d60cae3016a14b2cfc17a90de8e5f5b.png`, grade: 1, name: "Слиток железа" }, // icon_item_quest053.png
@@ -1890,7 +1983,7 @@
         { id: 49270, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, name: 'Набор больших эфенских кубов' },
         { id: 45160, type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, name: 'Настойка спорыньи' },
         { id: 46623, type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, name: 'Настойка остролиста' },
-        { id: 8001268, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток дельфийской библиотеки' },
+        { id: 8001268, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток дельфийской библиотеки', description: 'Об этом свитке, наделяющем феноменальной памятью, мечтали все студенты знаменитой Библиотеки. В канун экзамена он ценился выше всех дельфийских сокровищ.', useDescription: 'Повышает получаемый опыт на 100% в течение 1 ч.\nЭтот эффект не рассеивается в случае гибели персонажа.' },
         { id: 46181, icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, name: 'Лунный настой' },
         { id: 48546, icon: 'https://archeagecodex.com/items/icon_item_3595.png', grade: 1, name: 'Письмена войны' },
         { id: 47655, icon: 'https://archeagecodex.com/items/icon_item_4709.png', grade: 4, name: 'Фиона Розовый Лепесток' },
@@ -1916,9 +2009,9 @@
         { id: 51236, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундучок с драгоценным украшением эпохи мифов', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов качества эпохи мифов:\n- перстень чемпиона Дома Норьетт,\n- серьга чемпиона Дома Норьетт,\n- ожерелье последнего рубежа,\n- ожерелье доблести воина XIII ранга,\n- ожерелье доблести целителя XIII ранга.' },
         { id: 55783, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, name: 'Сундучок с зачарованной гравировкой для украшений' },
         { id: 50924, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, name: 'Дизайн широкополой шляпы стрелка' },
-        { id: 50925, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, name: 'Дизайн соломенной шляпы' },
-        { id: 8002486, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, name: 'Дизайн костюма хоури эпохи Фарвати' },
-        { id: 51092, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_uniform004.png', grade: 2, name: 'Дизайн одеяния правителя северного Мейра' },
+        { id: 50925, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth519.png', grade: 2, name: 'Дизайн соломенной шляпы' },
+        { id: 8002486, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_{sex}_sk_korean006.png', grade: 1, name: 'Дизайн костюма хоури эпохи Фарвати' },
+        { id: 51092, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_{sex}_sk_uniform004.png', grade: 2, name: 'Дизайн одеяния правителя северного Мейра' },
         { id: 129, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_accessory_0001.png', grade: 1, name: 'Дельфийская руна' },
         { id: 55280, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, name: 'Легендарная руна ифнирского героя' },
         { id: 55683, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями для украшений' },
@@ -1934,9 +2027,10 @@
         { id: 50635, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, isPersonal: true, name: 'Заговоренная гадальная руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для эфенского и рамианского снаряжения; трофеев, полученных за победу над мифическими противниками; ожерелий, полученных на Последнем рубеже; перстней говорящего с духами; а также для костюмов, плащей и украшений чемпионов Порт-Аргенто.|r', useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
         { id: 8002769, icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, isPersonal: true, name: 'Знак «Ключевая фигура»', description: 'Позволяет получить титул «Ключевая фигура».', useDescription: 'Получить титул.' },
         { id: 30604, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x100' },
+        { id: 28814, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x180' },
         { id: 55450, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
         { id: 8002410, type: 'equipment', subType: 'cloak', icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', description: 'Неизвестно, в чем причина, но к человеку в таком шарфе окружающие почему-то относятся с особенным уважением (и даже с некоторой опаской).\n\n|nc;Усиливающие эффекты костюма действуют 30 дней. Чтобы активировать их заново, костюм нужно постирать.|r', tempEquipDescription: 'Скорость передвижения +|nc;3|r%\nСкорость плавания +|nc;3|r%\nСкорость занятия ремеслом |nc;+10%|r\nСкорость занятия животноводством |nc;+10%|r\nОпыт при занятии ремеслом |nc;+10|r%' },
-        { id: 34685, type: 'equipment', subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', grade: 1, name: 'Укрепленный аргенитовый кларнет' },
+        { id: 34685, type: 'equipment', subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', name: 'Укрепленный аргенитовый кларнет' },
         { id: 417, icon: 'https://archeagecodex.com/items/icon_item_0418.png', grade: 1, name: 'Редкий камень странствий', isPersonal: true, description: 'Необходим для перемещения с помощью книги порталов.', price: 0, reqLevel: 1 },
         { id: 52701, icon: 'https://archeagecodex.com/items/icon_item_5282.png', grade: 1, name: 'Кристалл изначального анадия', description: 'Эти лиловые кристаллы – достойное подношение духам-хранителям.\nОдновременно в рюкзаке может быть не более пяти кристаллов. Кристаллы исчезнут через один час.', useDescription: 'Поднести кристалл духам-хранителям у древнего тотема или усилить призванного духа-хранителя.', price: 0 },
         { id: 40491, icon: 'https://archeagecodex.com/items/icon_item_3090.png', grade: 2, name: 'Знак отваги' },
@@ -1945,11 +2039,89 @@
         { id: 48522, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_2069.png', grade: 5, name: 'Большой эфенский куб бронника' },
         { id: 8002273, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_1668.png', grade: 1, name: 'Набор анимага' },
         { id: 8002483, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3261.png', grade: 1, name: 'Коробка с бельем «Ночи Аль-Харбы»' },
-        { id: 45409, type: 'unidentified', overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/costume_ar/nu_m_ar_cloth292.png', grade: 2, name: 'Рамианское матерчатое снаряжение' },
+        { id: 45409, type: 'unidentified', overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth292.png', grade: 2, name: 'Рамианское матерчатое снаряжение' },
         { id: 53586, type: 'unidentified', icon: 'https://archeagecodex.com/items/icon_item_5144.png', grade: 4, name: 'Золотой сундучок со знаками культистов' },
         { id: 46151, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4467.png', grade: 3, name: 'Заготовка огранщика', isPersonal: true },
         { id: 49252, type: 'quest', icon: 'https://archeagecodex.com/items/icon_item_4878.png', grade: 2, name: 'Образцы флоры Сада', isPersonal: true, price: 0, description: 'Пакетик с образцами флоры Сада Матери.' },
         { id: 31151, type: 'other', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 1, name: 'Перевязанный ленточкой подарок', description: 'Похоже, один из снеговиков вместе с украшениями прихватил подарок из тех, что должен был раздавать на улицах города.', useDescription: 'Открыть подарок.\nУдерживая Shift, щелкните правой кнопкой мыши, чтобы открыть все подарки этого вида один за другим.', isPersonal: true, price: 0 },
+        { id: 28188, type: 'rareMaterial', icon: `${GMRU_CDN_ICONS}d2f377e3c3118826089a2caf9e794a50.png`, grade: 3, name: 'Сплав стихий', description: 'Можно изготовить с помощью |ni;тигля стихий|r.\nИспользуется в ремесле.', isPersonal: true, price: 360 },
+        { id: 55516, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 5, name: 'Эпическая руна ифнирского героя', isPersonal: true },
+        { id: 55490, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Серьга ифнирского героя эпохи чудес', isPersonal: true },
+        { id: 55255, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийная серьга ифнирского героя', isPersonal: true },
+        { id: 52808, type: 'unidentified', overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_teleport.png', grade: 1, name: 'Книга порталов (7 д.)', isPersonal: true },
+        { id: 8001169, type: 'magical', icon: `${GMRU_CDN_ICONS}626e30241f505645e987c2d2cb77d1a9.png`, grade: 1, name: 'Свиток опыта V', description: 'Этот свиток позволит вам получать больше опыта при занятии ремеслом и сражении с монстрами.', isPersonal: true },
+        { id: 34702, type: 'equipment', subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0049.png', name: 'Зеркальный аргенитовый кларнет' },
+        { id: 51723, type: 'mount', icon: 'https://archeagecodex.com/items/icon_item_5149.png', grade: 4, name: 'Ящик с Мару, покорителем просторов', isPersonal: true },
+        { id: 8002771, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с глайдером', isPersonal: true },
+        { id: 39363, type: 'battlePet', icon: 'https://archeagecodex.com/items/icon_item_2275.png', grade: 1, name: 'Осенний Лоскутик' },
+        { id: 34972, icon: 'https://archeagecodex.com/items/doll_pet_hm_001.png', grade: 1, name: 'Красные очки-сердечки' },
+        { id: 34975, icon: 'https://archeagecodex.com/items/doll_pet_bo_001.png', grade: 1, name: 'Кулинарные перчатки в красный горошек' },
+        { id: 36183, icon: 'https://archeagecodex.com/items/doll_pet_ar_007.png', grade: 1, name: 'Красный заводной ключик' },
+        { id: 34981, type: 'battlePet', icon: 'https://archeagecodex.com/items/icon_item_2720.png', grade: 1, name: 'Детеныш Гартарейн' },
+        { id: 37018, type: 'lightArmor', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth560.png', grade: 3, name: 'Вязаная шапочка' },
+        { id: 49630, type: 'furniture', icon: 'https://archeagecodex.com/items/icon_item_4862.png', grade: 5, name: 'Статуэтка «Аранзеб»' },
+        { id: 31787, type: 'lightArmor', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth550.png', grade: 3, name: 'Ободок со снеговичками' },
+        { id: 28242, type: 'craftItem', icon: 'https://archeagecodex.com/items/icon_item_1243.png', grade: 1, name: 'Мыло' },
+        { id: 43298, type: 'craftItem', icon: 'https://archeagecodex.com/items/icon_item_3952.png', grade: 1, name: 'Теневой делец' },
+        { id: 8001169, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток опыта V' },
+        { id: 8002004, type: 'mount', icon: 'https://archeagecodex.com/items/icon_item_2774.png', grade: 1, name: 'Призрачный конь (30 д.)' },
+        { id: 8000315, type: 'lightArmor', icon: 'https://archeagecodex.com/items/costume_cp/nu_f_cp_leather002.png', grade: 1, name: 'Накидка из грифоньих перьев' },
+        { id: 8000127, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_party001.png', grade: 2, name: 'Бальный наряд Двух Корон' },
+        { id: 55495, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 9, name: 'Кольцо ифнирского героя эпохи сказаний' },
+
+        { id: 33156, type: 'equipment', equipmentSubType: 'helmet', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth554.png', name: 'Вишневая шляпа-торт' },
+
+        { id: 45373, type: 'furniture', icon: 'https://archeagecodex.com/items/icon_item_4353.png', grade: 2, name: 'Фонтан «Лесная гармония»' },
+        { id: 8000346, icon: 'https://archeagecodex.com/items/icon_item_1360.png', grade: 2, name: 'Белая субмарина (30 д.)' },
+        { id: 8000309, type: 'mount', icon: 'https://archeagecodex.com/items/icon_item_1502.png', grade: 3, name: 'Цирковой медведь (на 30 дней)' },
+        { id: 31878, type: 'furniture', icon: 'https://archeagecodex.com/items/icon_item_1670.png', grade: 2, name: 'Неверинский патефон' },
+        { id: 8002069, icon: 'https://archeagecodex.com/items/icon_item_moonstone05.png', grade: 1, name: 'Дар жрицы Нуи' },
+        { id: 39551, type: 'furniture', icon: 'https://archeagecodex.com/items/icon_item_2847.png', grade: 2, name: 'Песчаная скульптура Победы' },
+        { id: 8000310, icon: 'https://archeagecodex.com/items/icon_item_2979.png', grade: 1, name: 'Жетон на покупку оружия' },
+        { id: 8000311, icon: 'https://archeagecodex.com/items/icon_item_2980.png', grade: 1, name: 'Жетон на покупку доспехов' },
+        { id: 8000441, icon: 'https://archeagecodex.com/items/icon_item_2993.png', grade: 1, name: 'Иферийская монетка' },
+        { id: 8000442, icon: 'https://archeagecodex.com/items/icon_item_2982.png', grade: 1, name: 'Заколдованная монетка' },
+
+        { id: 45880, type: 'equipment', equipmentSubType: 'helmet', icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png', name: 'Диадема эрнардского мнемоника', isPersonal: true },
+        { id: 45881, type: 'equipment', equipmentSubType: 'armor', icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png', name: 'Матерчатый камзол эрнардского мнемоника', isPersonal: true },
+        { id: 45882, type: 'equipment', equipmentSubType: 'pants', icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png', name: 'Матерчатые поножи эрнардского мнемоника', isPersonal: true },
+        { id: 45883, type: 'equipment', equipmentSubType: 'gloves', icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png', name: 'Матерчатые перчатки эрнардского мнемоника', isPersonal: true },
+        { id: 45884, type: 'equipment', equipmentSubType: 'boots', icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png', name: 'Матерчатые сапоги эрнардского мнемоника', isPersonal: true },
+        { id: 45885, type: 'equipment', equipmentSubType: 'bracer', icon: 'https://archeagecodex.com/items/icon_item_arm_cloth_0020.png', name: 'Матерчатые наручи эрнардского мнемоника', isPersonal: true },
+        { id: 45886, type: 'equipment', equipmentSubType: 'belt', icon: 'https://archeagecodex.com/items/icon_item_belt_cloth_0021.png', name: 'Матерчатый пояс эрнардского мнемоника', isPersonal: true },
+
+        { id: 45991, type: 'equipment', equipmentSubType: 'helmet', icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png', name: 'Диадема смотрителя тайных архивов', isPersonal: true },
+        { id: 45990, type: 'equipment', equipmentSubType: 'armor', icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png', name: 'Матерчатый камзол смотрителя тайных архивов', isPersonal: true },
+        { id: 45989, type: 'equipment', equipmentSubType: 'pants', icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png', name: 'Матерчатые поножи смотрителя тайных архивов', isPersonal: true },
+        { id: 45988, type: 'equipment', equipmentSubType: 'gloves', icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png', name: 'Матерчатые перчатки смотрителя тайных архивов', isPersonal: true },
+        { id: 45987, type: 'equipment', equipmentSubType: 'boots', icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png', name: 'Матерчатые сапоги смотрителя тайных архивов', isPersonal: true },
+        { id: 45986, type: 'equipment', equipmentSubType: 'bracer', icon: 'https://archeagecodex.com/items/icon_item_arm_cloth_0020.png', name: 'Матерчатые наручи смотрителя тайных архивов', isPersonal: true },
+        { id: 45985, type: 'equipment', equipmentSubType: 'belt', icon: 'https://archeagecodex.com/items/icon_item_belt_cloth_0021.png', name: 'Матерчатый пояс смотрителя тайных архивов', isPersonal: true },
+
+        { id: 45887, type: 'equipment', equipmentSubType: 'helmet', icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png', name: 'Фибула заклинателя гримуаров', isPersonal: true },
+        { id: 45888, type: 'equipment', equipmentSubType: 'armor', icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png', name: 'Кожаная куртка заклинателя гримуаров', isPersonal: true },
+        { id: 45889, type: 'equipment', equipmentSubType: 'pants', icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png', name: 'Кожаные поножи заклинателя гримуаров', isPersonal: true },
+        { id: 45890, type: 'equipment', equipmentSubType: 'gloves', icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png', name: 'Кожаные перчатки заклинателя гримуаров', isPersonal: true },
+        { id: 47047, type: 'equipment', equipmentSubType: 'boots', icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png', name: 'Кожаные сапоги заклинателя гримуаров', isPersonal: true },
+        { id: 47048, type: 'equipment', equipmentSubType: 'bracer', icon: 'https://archeagecodex.com/items/icon_item_arm_leather_0020.png', name: 'Кожаные наручи заклинателя гримуаров', isPersonal: true },
+        { id: 47049, type: 'equipment', equipmentSubType: 'belt', icon: 'https://archeagecodex.com/items/icon_item_belt_leather_0021.png', name: 'Кожаный пояс заклинателя гримуаров', isPersonal: true },
+
+        { id: 47043, type: 'equipment', equipmentSubType: 'helmet', icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png', name: 'Фибула укротителя гримуаров', isPersonal: true },
+        { id: 47044, type: 'equipment', equipmentSubType: 'armor', icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png', name: 'Кожаная куртка укротителя гримуаров', isPersonal: true },
+        { id: 47045, type: 'equipment', equipmentSubType: 'pants', icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png', name: 'Кожаные поножи укротителя гримуаров', isPersonal: true },
+        { id: 47046, type: 'equipment', equipmentSubType: 'gloves', icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png', name: 'Кожаные перчатки укротителя гримуаров', isPersonal: true },
+        { id: 45891, type: 'equipment', equipmentSubType: 'boots', icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png', name: 'Кожаные сапоги укротителя гримуаров', isPersonal: true },
+        { id: 45892, type: 'equipment', equipmentSubType: 'bracer', icon: 'https://archeagecodex.com/items/icon_item_arm_leather_0020.png', name: 'Кожаные наручи укротителя гримуаров', isPersonal: true },
+        { id: 45893, type: 'equipment', equipmentSubType: 'belt', icon: 'https://archeagecodex.com/items/icon_item_belt_leather_0021.png', name: 'Кожаный пояс укротителя гримуаров', isPersonal: true },
+
+        { id: 45894, type: 'equipment', equipmentSubType: 'helmet', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_metal295.png', name: 'Латный шлем эрнардского архивариуса', isPersonal: true },
+        { id: 45895, type: 'equipment', equipmentSubType: 'armor', icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_metal295.png', name: 'Латный нагрудник эрнардского архивариуса', isPersonal: true },
+        { id: 45896, type: 'equipment', equipmentSubType: 'pants', icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_metal295.png', name: 'Латные поножи эрнардского архивариуса', isPersonal: true },
+        { id: 45897, type: 'equipment', equipmentSubType: 'gloves', icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_metal295.png', name: 'Латные перчатки эрнардского архивариуса', isPersonal: true },
+        { id: 45898, type: 'equipment', equipmentSubType: 'boots', icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_metal295.png', name: 'Латные сапоги эрнардского архивариуса', isPersonal: true },
+        { id: 45899, type: 'equipment', equipmentSubType: 'bracer', icon: 'https://archeagecodex.com/items/icon_item_arm_metal_0020.png', name: 'Латные наручи эрнардского архивариуса', isPersonal: true },
+        { id: 45900, type: 'equipment', equipmentSubType: 'belt', icon: 'https://archeagecodex.com/items/icon_item_belt_metal_0021.png', name: 'Латный пояс эрнардского архивариуса', isPersonal: true },
+
         { id: 1, type: '', icon: '', grade: 1, name: '' },
     ].map(i => [i.id, i]));
 
@@ -1998,7 +2170,7 @@
         { marathonId: [8286, 8842], id: 8000131, title: "Вдали от обезумевшего мира", short: "Квест Нуи на 500 очков работы" },
         { marathonId: [8288, 8844], id: 10508, title: "Расшитые жемчугом кошельки I", short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 25 } },
         { marathonId: [8290, 8846], id: 10509, title: "Расшитые жемчугом кошельки II", short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 75 } },
-        { marathonId: [8292, 8848], id: 5092, title: "Отличные фитили", short: "" },
+        { marathonId: [8292, 8848], id: 5092, title: "Отличные фитили", short: `<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/261-kvesty-ot-parfyumera-na-dz-vostok-arheidj#porychenie" target="_blank">Парфюмер на востоке</a>` },
         { marathonId: [8294, 8850], id: 7659, title: "Требуются работники (героич.)", short: "" },
         { marathonId: [8296, 8852], id: 7817, title: "Опасности окольных дорог", short: "" },
         { marathonId: [8298, 8854], id: 8000058, title: "Лицензия на убийство: Баррага Безумный", short: "Нагашар (только обычка)", slot: { item: ITEMS[8000749] } },
@@ -2022,7 +2194,7 @@
         { marathonId: [8354, 8910], id: 8000136, title: "В гармонии с собой", short: "Квест Нуи на 2500 ремесленки" },
         { marathonId: [8356, 8912], id: 10506, title: "Резные сундучки со всякой всячиной I", short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 10 } },
         { marathonId: [8358, 8914], id: 10507, title: "Резные сундучки со всякой всячиной II", short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 30 } },
-        { marathonId: [8360, 8916], id: 5091, title: "Взрывоопасное поручение", short: "" },
+        { marathonId: [8360, 8916], id: 5091, title: "Взрывоопасное поручение", short: `<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/260-kvesty-ot-parfyumera-na-dz-v-arheidj#porychenie" target="_blank">Парфюмер на западе</a>` },
         { marathonId: [8362, 8918], id: 9101, title: "Неприступная башня", short: "Библа, 3-ий босс" },
         { marathonId: [8364, 8920], id: 7656, title: "Разыскивается: Акмит (героич.)", short: "" },
         { marathonId: [8366, 8922], id: 9320, title: "Война во имя славы союза", short: "" },
@@ -2058,7 +2230,7 @@
         { marathonId: [8504, 9042], id: 9296, title: "Орды Сангемара", short: "", availableWeekdays: [2, 5] },
         { marathonId: [8506, 9044], id: 5969, title: "Кольцо Лореи", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
         { marathonId: [8508, 9062], id: 8641, title: "Наступление кир'феров", short: "Эфен - жаба (через 5 минут после начала войны)" },
-        { marathonId: [8510, 9048], id: 5077, title: "Аромат для важной особы", short: "" },
+        { marathonId: [8510, 9048], id: 5077, title: "Аромат для важной особы", short: `Парфюмер (<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/260-kvesty-ot-parfyumera-na-dz-v-arheidj#aroma" target="_blank">запад</a>/<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/261-kvesty-ot-parfyumera-na-dz-vostok-arheidj#aroma" target="_blank">восток</a>)` },
         { marathonId: [8512, 9038], id: 8605, title: "Битва в Бухте китобоев", short: "" },
         { marathonId: [8514, 9052], id: 11096, title: "Турнир в честь Отца-Солнца", short: "Луг - Битва хранителей", schedule: [{ timeStart: "18:00", weekdays: [6, 0] }] },
         { marathonId: [8516, 9054], id: 8000129, title: "Во славу Орхидны", short: "" },
@@ -2066,7 +2238,7 @@
         { marathonId: [8520, 9058], id: 5970, title: "Кольцо капитана Гленна", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
         { marathonId: [8522, 9060], id: 10188, title: "Образцы флоры Сада", short: "", slot: { item: ITEMS[49252], count: 20 } },
         { marathonId: [8524, 9046], id: 8618, title: "Битва за Эфен'Хал", short: "Эфен - мобы" },
-        { marathonId: [9064], id: 8000311, title: "Охота на призраков", short: "Предпоследнее испытания для осколков предела" },
+        { marathonId: [9064], id: 8000311, title: "Охота на призраков", short: "Предпоследнее испытание для осколков предела" },
     ];
 
     /** @param {string} value */
@@ -2584,6 +2756,18 @@
             tooltip.appendChild(reqSection);
         }
 
+        const equipmentSubTypeInfo = EQUIPMENT_SUB_TYPES[item.equipmentSubType];
+        if (equipmentSubTypeInfo?.title) {
+            const sep = document.createElement('div');
+            sep.className = 'tm-item-tooltip-sep';
+            tooltip.appendChild(sep);
+
+            const equipmentSubTypeSection = document.createElement('div');
+            equipmentSubTypeSection.className = 'tm-item-tooltip-equipment-subtype';
+            equipmentSubTypeSection.textContent = equipmentSubTypeInfo.title;
+            tooltip.appendChild(equipmentSubTypeSection);
+        }
+
         // Секция: описание (если есть)
         if (item.description || item.useDescription || item.tempEquipDescription) {
             const sep = document.createElement('div');
@@ -2725,12 +2909,20 @@
      * @param {boolean} [params.noTooltip=false] - Не добавлять всплывашку (для иконки внутри тултипа).
      * @returns {HTMLElement} `.tm-item-icon`
      */
+    /**
+     * @param {ItemBase} item
+     * @returns {string}
+     */
+    const getItemCodexUrl = (item) => (
+        `${CODEX_ITEM_URL}${item.id}/${item.isGradeInferred ? `?grade=${item.grade}` : ''}`
+    );
+
     const makeItemIconLink = ({ item, linked = false, size = 'medium', count, noTooltip = false }) => {
         const icon = document.createElement(linked ? 'a' : 'div');
         icon.className = `tm-item-icon tm-item-icon--${size}`;
 
         if (linked) {
-            icon.href = `${CODEX_ITEM_URL}${item.id}/`;
+            icon.href = getItemCodexUrl(item);
             icon.target = '_blank';
             icon.rel = 'noopener noreferrer';
             icon.addEventListener('click', (e) => e.stopPropagation());
@@ -2738,7 +2930,11 @@
 
         const itemImg = document.createElement('img');
         itemImg.className = 'tm-item-icon-img';
-        itemImg.src = item.icon;
+        itemImg.src = getItemIconUrl(item);
+        itemImg.dataset.itemId = item.id;
+        itemImg.dataset.iconTemplate = item.icon || '';
+        itemImg.dataset.iconM = item.iconM || '';
+        itemImg.dataset.iconF = item.iconF || '';
 
         icon.appendChild(itemImg);
 
@@ -2752,12 +2948,13 @@
         }
 
         const gradeInfo = GRADES[item.grade];
-        const gradeImg = document.createElement('img');
-        gradeImg.className = 'tm-item-icon-grade';
-        gradeImg.src = gradeInfo?.overlay || `${CODEX_IMAGES_BASE}icon_grade${item.grade}.png`;
-        gradeImg.alt = gradeInfo?.title || '';
-
-        icon.appendChild(gradeImg);
+        if (gradeInfo) {
+            const gradeImg = document.createElement('img');
+            gradeImg.className = 'tm-item-icon-grade';
+            gradeImg.src = gradeInfo.overlay;
+            gradeImg.alt = gradeInfo.title || '';
+            icon.appendChild(gradeImg);
+        }
 
         if (count && count > 1) {
             const countEl = document.createElement('div');
@@ -2876,7 +3073,7 @@
                 // Без иконки - показываем название ссылкой
                 const nameLink = document.createElement('a');
                 nameLink.className = 'tm-item-name-link';
-                nameLink.href = `${CODEX_ITEM_URL}${item.id}/`;
+                nameLink.href = getItemCodexUrl(item);
                 nameLink.target = '_blank';
                 nameLink.rel = 'noopener noreferrer';
                 nameLink.textContent = item.name;
@@ -3711,6 +3908,11 @@
             }
 
             .tm-item-tooltip-req {
+                padding: 0 3px;
+                letter-spacing: 0.03em;
+            }
+
+            .tm-item-tooltip-equipment-subtype {
                 padding: 0 3px;
                 letter-spacing: 0.03em;
             }
@@ -5070,15 +5272,113 @@
     // ============================================================
 
     /**
+     * Нормализует название предмета из таблицы корзины.
+     * @param {string} itemName
+     * @returns {string}
+     */
+    const normalizeCartItemName = (itemName) => (
+        (itemName || '').trim().replace(/\*$/, '').trim().toLowerCase().replace(/\bc\b/g, 'с').replace(/\s+/g, ' ')
+    );
+
+    /**
+     * Пытается определить грейд предмета по названию из таблицы корзины.
+     * @param {string} itemName
+     * @returns {number|null}
+     */
+    const inferGradeFromCartItemName = (itemName) => {
+        const normalized = normalizeCartItemName(itemName);
+        if (!normalized) return null;
+
+        for (let grade = GRADES.length - 1; grade >= 0; grade--) {
+            const patterns = GRADES[grade].cartNamePatterns || [];
+            if (patterns.some(pattern => pattern.test(normalized))) return grade;
+        }
+
+        return null;
+    };
+
+    const CART_GRADE_BY_CAMPAIGN = [
+        {
+            itemId: [
+                45880, 45881, 45882, 45883, 45884, 45885, 45886, // эрнардский мнемоник
+                45985, 45986, 45987, 45988, 45989, 45990, 45991, // смотритель тайных архивов
+                45887, 45888, 45889, 45890, 47047, 47048, 47049, // заклинатель гримуаров
+                47043, 47044, 47045, 47046, 45891, 45892, 45893, // укротитель гримуаров
+                45894, 45895, 45896, 45897, 45898, 45899, 45900, // эрнардский архивариус
+            ],
+            campaign: 'Марафон героев, руру',
+            grade: 12,
+        },
+    ];
+
+    /**
+     * Пытается определить грейд предмета по названию акции в корзине.
+     * @param {ItemBase} item
+     * @param {string} campaign
+     * @returns {number|null}
+     */
+    const inferGradeFromCartCampaign = (item, campaign) => {
+        const normalizedCampaign = normalizeCartItemName(campaign);
+        if (!normalizedCampaign) return null;
+
+        const rule = CART_GRADE_BY_CAMPAIGN.find(entry => {
+            if (!entry.itemId.includes(item.id)) return false;
+
+            const normalizedRuleCampaign = normalizeCartItemName(entry.campaign);
+            return normalizedRuleCampaign && normalizedCampaign.includes(normalizedRuleCampaign);
+        });
+
+        return rule?.grade ?? null;
+    };
+
+    /**
+     * Убирает грейдовую часть из названия предмета корзины для поиска базового имени в ITEMS.
+     * @param {string} itemName
+     * @returns {string}
+     */
+    const stripGradeFromCartItemName = (itemName) => {
+        let normalized = normalizeCartItemName(itemName);
+        if (!normalized) return '';
+
+        for (const grade of GRADES) {
+            for (const pattern of grade.cartNamePatterns || []) {
+                normalized = normalized.replace(pattern, '');
+            }
+        }
+
+        return normalized.trim();
+    };
+
+    /**
+     * Возвращает предмет с грейдом, выведенным из названия корзины, если в ITEMS грейд не задан.
+     * @param {ItemBase} item
+     * @param {string} itemName
+     * @param {string} [campaign]
+     * @returns {ItemBase}
+     */
+    const withInferredCartGrade = (item, itemName, campaign = '') => {
+        if (item.grade != null) return item;
+
+        const inferredGrade = inferGradeFromCartItemName(itemName) ?? inferGradeFromCartCampaign(item, campaign);
+        return {
+            ...item,
+            grade: inferredGrade ?? 1,
+            ...(inferredGrade == null ? {} : { isGradeInferred: true }),
+        };
+    };
+
+    /**
      * Находит предмет в ITEMS по названию (name).
      * @param {string} itemName
+     * @param {string} [campaign]
      * @returns {ItemBase|null}
      */
-    const findItemByName = (itemName) => {
-        const normalized = itemName.trim().replace(/\*$/, '').trim().toLowerCase().replace(/\bc\b/g, 'с');
+    const findItemByName = (itemName, campaign = '') => {
+        const normalized = normalizeCartItemName(itemName);
+        const normalizedWithoutGrade = stripGradeFromCartItemName(itemName);
         for (const item of Object.values(ITEMS)) {
-            const name = (item.name || '').toLowerCase();
-            if (name === normalized) return item;
+            const name = normalizeCartItemName(item.name || '');
+            if (name === normalized || name === normalizedWithoutGrade) return withInferredCartGrade(item, itemName, campaign);
         }
         return null;
     };
@@ -5210,7 +5510,7 @@
         const nameContainer = document.createElement('div');
         nameContainer.className = 'tm-cart-item-name';
 
-        const itemData = findItemByName(cartItem.title);
+        const itemData = findItemByName(cartItem.title, cartItem.campaign);
         if (itemData) {
             const iconEl = makeItemIconLink({
                 item: itemData,
@@ -5462,7 +5762,7 @@
                 emptyText: 'Выберите предметы для передачи из списка слева',
                 onRemove: (cartItem) => deselectItem(cartItem.itemId),
                 mapItem: (cartItem) => {
-                    const itemData = findItemByName(cartItem.title);
+                    const itemData = findItemByName(cartItem.title, cartItem.campaign);
                     return {
                         iconUrl: '',
                         name: !itemData && cartItem.count > 1 ? `${cartItem.title} ${cartItem.count}×` : cartItem.title,
@@ -5735,16 +6035,22 @@
          */
         const toItemBase = (item) => {
             const known = ITEMS[item.type];
+            const apiGrade = item.grade != null ? mapGrade(item.grade) : null;
+            const inferredGrade = inferGradeFromCartItemName(item.gi_name || known?.name || '');
+            const grade = known?.grade ?? apiGrade ?? inferredGrade ?? 1;
+            const isGradeInferred = known?.grade == null && apiGrade == null && inferredGrade != null;
             return {
                 id: String(item.type || ''),
                 icon: item.iconurl || '',
-                grade: mapGrade(item.grade),
+                grade,
                 name: item.gi_name || '',
                 description: item.gi_description || '',
                 ...known,
                 ...(item.iconurl ? { icon: item.iconurl } : {}),
                 ...(item.gi_name ? { name: item.gi_name } : {}),
                 ...(item.gi_description ? { description: item.gi_description } : {}),
+                grade,
+                ...(isGradeInferred ? { isGradeInferred: true } : {}),
             };
         };
 
@@ -6689,6 +6995,33 @@
         });
         serverSection.appendChild(serverSelect);
         body.appendChild(serverSection);
+
+        const sexSection = document.createElement('div');
+        sexSection.className = 'tm-settings-section';
+
+        const sexTitle = document.createElement('div');
+        sexTitle.className = 'tm-settings-section-title';
+        sexTitle.textContent = 'Пол';
+        sexSection.appendChild(sexTitle);
+
+        const sexSelect = document.createElement('select');
+        sexSelect.className = 'tm-settings-server-select';
+
+        Object.entries(ICON_SEX_VALUES).forEach(([value, info]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = info.title;
+            sexSelect.appendChild(option);
+        });
+
+        sexSelect.value = loadIconSex();
+        sexSelect.addEventListener('change', () => {
+            saveIconSex(sexSelect.value);
+            updateRenderedItemIcons();
+            onChanged();
+        });
+        sexSection.appendChild(sexSelect);
+        body.appendChild(sexSection);
 
         const eventsSection = document.createElement('div');
         eventsSection.className = 'tm-settings-section';
