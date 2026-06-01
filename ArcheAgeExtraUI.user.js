@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
+// @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      3.9
+// @version      4.0.0
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -1240,7 +1240,9 @@
     const ITEM_TYPES = {
         'unconfirmed': { icon: 'https://wiki.archerage.to/static/images/icons/top_unconfirmed.dds.png', title: 'Неопознанный предмет' },
         'quest':       { icon: 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png', title: 'Задание' },
-        'magical':     { title: 'Магический предмет' }
+        'magical':     { title: 'Магический предмет' },
+        'costume':     { title: 'Костюм' },
+        'box':         { title: 'Ящик' },
     };
 
     /**
@@ -1254,7 +1256,7 @@
      * @property {string} [description] - Описание предмета (отображается во второй секции всплывашки).
      */
 
-    const CODEX_ITEMS = 'https://archeagecodex.com/items/';
+    const CODEX_ITEM_ICONS = 'https://archeagecodex.com/items/';
     const GMRU_CDN_ICONS = 'https://aa.cdn.gmru.net/ms/data/game-icons/';
 
     /** @type {Record<string, ItemBase>} */
@@ -1274,7 +1276,65 @@
         "8000752": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" },
         "8000753": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" },
 
-        "codex_48894": { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, url: 'https://archeagecodex.com/ru/item/48894/', name: 'Драгоценная эфенская сфера бронника' }
+        "48894":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, url: 'https://archeagecodex.com/ru/item/48894/', name: 'Драгоценная эфенская сфера бронника' },
+        "54915":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, url: 'https://archeagecodex.com/ru/item/54915/', name: 'Свиток чар ифнирского героя' },
+        "45508":   { icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, url: 'https://archeagecodex.com/ru/item/45508/', name: 'Сфера анимага' },
+        "8001565": { icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001565/', name: 'Новенькая кирка' },
+        "8002452": { icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002452/', name: 'Универсальный алхимический кристалл' },
+        "8002449": { icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002449/', name: 'Дополнительная сумка' },
+        "47943":   { icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47943/', name: 'Настойка усердного ремесленника' },
+        "39424":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, url: 'https://archeagecodex.com/ru/item/39424/', name: 'Ирамийская гадальная руна' },
+        "46180":   { icon: 'https://archeagecodex.com/items/icon_item_1395.png', grade: 3, url: 'https://archeagecodex.com/ru/item/46180/', name: 'Солнечный настой' },
+        "47130":   { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, url: 'https://archeagecodex.com/ru/item/47130/', name: 'Хрустальная руна' },
+        "47104":   { icon: 'https://archeagecodex.com/items/icon_item_4570.png', grade: 2, url: 'https://archeagecodex.com/ru/item/47104/', name: 'Парниковый купол' },
+        "48903":   { icon: 'https://archeagecodex.com/items/icon_item_3282.png', grade: 1, url: 'https://archeagecodex.com/ru/item/48903/', name: 'Набор сверкающих эфенских сфер' },
+        "48474":   { icon: 'https://archeagecodex.com/items/icon_item_3275.png', grade: 11, url: 'https://archeagecodex.com/ru/item/48474/', name: 'Большой набор мифических эссенций' },
+        "8002297": { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, url: 'https://archeagecodex.com/ru/item/8002297/', name: 'Королевский лунный изумруд' },
+        "35727":   { icon: 'https://archeagecodex.com/items/icon_item_1982.png', grade: 2, url: 'https://archeagecodex.com/ru/item/35727/', name: 'Буровая установка' },
+        "47082":   { icon: 'https://archeagecodex.com/items/icon_item_3369.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47082/', name: 'Патент на транспортное средство' },
+        "55783":   { icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, url: 'https://archeagecodex.com/ru/item/55783/', name: 'Сундучок с зачарованной гравировкой для украшений' },
+        "31892":   { icon: 'https://archeagecodex.com/items/icon_item_1733.png', grade: 1, url: 'https://archeagecodex.com/ru/item/31892/', name: 'Земельный вексель' },
+        "55722":   { icon: 'https://archeagecodex.com/items/icon_item_5864.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55722/', name: 'Искусная цитриновая гравировка' },
+        "48886":   { icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, url: 'https://archeagecodex.com/ru/item/48886/', name: 'Сверкающая эфенская сфера бронника' },
+        "55723":   { icon: 'https://archeagecodex.com/items/icon_item_5865.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55723/', name: 'Искусная аквамариновая гравировка' },
+        "45747":   { icon: 'https://archeagecodex.com/items/icon_item_4385.png', grade: 5, url: 'https://archeagecodex.com/ru/item/45747/', name: 'Драгоценный флакон с зельем охотника' },
+        "49270":   { icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, url: 'https://archeagecodex.com/ru/item/49270/', name: 'Набор больших эфенских кубов' },
+        "45160":   { icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, url: 'https://archeagecodex.com/ru/item/45160/', name: 'Настойка спорыньи' },
+        "46623":   { icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, url: 'https://archeagecodex.com/ru/item/46623/', name: 'Настойка остролиста' },
+        "8001268": { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001268/', name: 'Свиток дельфийской библиотеки' },
+        "46181":   { icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, url: 'https://archeagecodex.com/ru/item/46181/', name: 'Лунный настой' },
+        "48546":   { icon: 'https://archeagecodex.com/items/icon_item_3595.png', grade: 1, url: 'https://archeagecodex.com/ru/item/48546/', name: 'Письмена войны' },
+        "8002486": { icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002486/', name: 'Дизайн костюма хоури эпохи Фарвати' },
+        "47655":   { icon: 'https://archeagecodex.com/items/icon_item_4709.png', grade: 4, url: 'https://archeagecodex.com/ru/item/47655/', name: 'Фиона Розовый Лепесток' },
+        "47581":   { icon: 'https://archeagecodex.com/items/icon_item_4211.png', grade: 3, url: 'https://archeagecodex.com/ru/item/47581/', name: 'Лиловое эмалевое стекло' },
+        "47479":   { icon: 'https://archeagecodex.com/items/icon_item_3519.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47479/', name: 'Инкрустированный флакон с целебным эликсиром' },
+        "47480":   { icon: 'https://archeagecodex.com/items/icon_item_3520.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47480/', name: 'Инкрустированный флакон с эликсиром маны' },
+        "8003072": { icon: 'https://archeagecodex.com/items/icon_item_6002.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8003072/', name: 'Осколок предела' },
+        "8001288": { icon: 'https://archeagecodex.com/items/icon_item_0966.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001288/', name: 'Цитрусовая карамелька' },
+        "8002649": { icon: 'https://archeagecodex.com/items/icon_item_3259.png', grade: 4, url: 'https://archeagecodex.com/ru/item/8002649/', name: 'Набор неверинских фейерверков' },
+        "8000540": { icon: 'https://archeagecodex.com/items/icon_item_3207.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8000540/', name: 'Пушистая неверинская елочка' },
+        "49769":   { icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, url: 'https://archeagecodex.com/ru/item/49769/', name: 'Зачарованный свиток пробуждения хранителя знаний' },
+        "54653":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, url: 'https://archeagecodex.com/ru/item/54653/', name: 'Сундук с обновленным рамианским снаряжением' },
+        "51236":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, url: 'https://archeagecodex.com/ru/item/51236/', name: 'Сундучок с драгоценным украшением эпохи мифов' },
+        "53515":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, url: 'https://archeagecodex.com/ru/item/53515/', name: 'Заговоренная рамианская руна' },
+        "52207":   { icon: 'https://archeagecodex.com/items/icon_item_3022.png', grade: 1, url: 'https://archeagecodex.com/ru/item/52207/', name: 'Мешочек с микстурами', description: 'Содержимое:<br/>- инкрустированный флакон с эликсиром маны (300 шт.),<br/>- инкрустированный флакон с целебным эликсиром (300 шт.),<br/>- солнечный настой (30 шт.),<br/>- лунный настой (30 шт.)' },
+        "54655":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, url: 'https://archeagecodex.com/ru/item/54655/', name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
+        "54654":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, url: 'https://archeagecodex.com/ru/item/54654/', name: 'Сундук с обновленным рамианским оружием эпохи Двенадцати' },
+        "51239":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, url: 'https://archeagecodex.com/ru/item/51239/', name: 'Сундук с изначальным рамианским оружием эпохи мифов' },
+        "50924":   { type: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, url: 'https://archeagecodex.com/ru/item/50924/', name: 'Дизайн широкополой шляпы стрелка' },
+        "51940":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, url: 'https://archeagecodex.com/ru/item/51940/', name: 'Сундучок с ценным украшением эпохи чудес' },
+        "129":     { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_accessory_0001.png', grade: 1, url: 'https://archeagecodex.com/ru/item/129/', name: 'Дельфийская руна' },
+        "50925":   { type: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, url: 'https://archeagecodex.com/ru/item/50925/', name: 'Дизайн соломенной шляпы' },
+        "55280":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, url: 'https://archeagecodex.com/ru/item/55280/', name: 'Легендарная руна ифнирского героя' },
+        "55683":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, url: 'https://archeagecodex.com/ru/item/55683/', name: 'Мешочек с магистериями для украшений' },
+        "8001148": { icon: 'https://archeagecodex.com/items/icon_item_3807.png', grade: 2, url: 'https://archeagecodex.com/ru/item/8001148/', name: 'Статуя «Орхидна на троне»' },
+        "8001203": { icon: 'https://archeagecodex.com/items/icon_item_3277.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001203/', name: 'Сундучок с фамильными ценностями' },
+        "54933":   { icon: 'https://archeagecodex.com/items/icon_item_5809.png', grade: 2, url: 'https://archeagecodex.com/ru/item/54933/', name: 'Замерзший пруд' },
+        "48860":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48860/', name: 'Большая эфенская сфера оружейника' },
+        "48861":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48861/', name: 'Большая эфенская сфера бронника' },
+        "44359":   { icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, url: 'https://archeagecodex.com/ru/item/44359/', name: 'Походный фиал славы' },
+        "47941":   { type: '', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, url: 'https://archeagecodex.com/ru/item/47941/', name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
+        "":   { type: '', icon: '', grade: 1, url: '', name: '' },
     };
 
     /**
@@ -1673,73 +1733,38 @@
         return a;
     };
 
+    // ==================== Глобальный тултип ====================
+
+    /** @type {HTMLElement|null} */
+    let globalTooltip = null;
+
+    /** Создаёт или возвращает глобальный контейнер тултипа. */
+    const getTooltipContainer = () => {
+        if (globalTooltip) return globalTooltip;
+
+        globalTooltip = document.createElement('div');
+        globalTooltip.className = 'tm-item-tooltip';
+        document.body.appendChild(globalTooltip);
+        return globalTooltip;
+    };
+
     /**
-     * Создаёт иконку предмета с рамкой редкости, overlay типа и всплывашкой.
-     * Иконка состоит из слоёв: изображение предмета → overlay типа → рамка грейда.
-     *
-     * @param {Object} params
-     * @param {ItemBase} params.item - Предмет.
-     * @param {string} [params.overlay] - URL overlay-изображения типа предмета (из ITEM_TYPES).
-     * @param {boolean} [params.linked=false] - Оборачивать в `<a>` со ссылкой item.url.
-     * @param {'small'|'medium'} [params.size='medium'] - Размер иконки: `'small'` (30px) или `'medium'` (42px).
-     * @param {number} [params.count] - Количество предмета (бейдж снизу-справа, показывается при > 1).
-     * @param {boolean} [params.iconOnly=false] - Вернуть только `.tm-item-icon` без обёртки и всплывашки.
-     * @returns {HTMLElement} `.tm-item` (обёртка) или `.tm-item-icon` (при `iconOnly`).
+     * Заполняет тултип данными предмета.
+     * @param {ItemBase} item
+     * @param {string} [overlay]
      */
-    const makeItemIconLink = ({ item, overlay, linked = false, size = 'medium', count, iconOnly = false }) => {
-        const icon = document.createElement('div');
-        icon.className = `tm-item-icon tm-item-icon--${size}`;
-
-        const itemImg = document.createElement('img');
-        itemImg.className = 'tm-item-icon-img';
-        itemImg.src = item.icon;
-
-        icon.appendChild(itemImg);
-
-        // Overlay слой (между иконкой и рамкой редкости)
-        if (overlay) {
-            const overlayImg = document.createElement('img');
-            overlayImg.className = 'tm-item-icon-overlay';
-            overlayImg.src = overlay;
-            icon.appendChild(overlayImg);
-        }
+    const populateTooltip = (item, overlay) => {
+        const tooltip = getTooltipContainer();
+        tooltip.innerHTML = '';
 
         const gradeInfo = GRADES[item.grade];
-        const gradeImg = document.createElement('img');
-        gradeImg.className = 'tm-item-icon-grade';
-        gradeImg.src = gradeInfo?.overlay || `${CODEX_IMAGES_BASE}icon_grade${item.grade}.png`;
-        gradeImg.alt = gradeInfo?.title || '';
-
-        icon.appendChild(gradeImg);
-
-        if (count && count > 1) {
-            const countEl = document.createElement('span');
-            countEl.className = 'tm-item-icon-count';
-            countEl.textContent = count;
-            icon.appendChild(countEl);
-        }
-
-        if (iconOnly) return icon;
-
-        const el = document.createElement(linked ? 'a' : 'div');
-        el.className = 'tm-item';
-        if (linked) {
-            el.href = item.url;
-            el.target = '_blank';
-            el.rel = 'noopener noreferrer';
-        }
-
-        el.appendChild(icon);
-
-        // Всплывашка
-        const tooltip = document.createElement('div');
-        tooltip.className = 'tm-item-tooltip';
 
         // Секция 1: иконка + мета
         const headerSection = document.createElement('div');
         headerSection.className = 'tm-item-tooltip-header';
 
-        headerSection.appendChild(makeItemIconLink({ item, overlay, iconOnly: true, linked: true }));
+        const iconEl = makeItemIconLink({ item, overlay, noTooltip: true });
+        headerSection.appendChild(iconEl);
 
         const tipMeta = document.createElement('div');
         tipMeta.className = 'tm-item-tooltip-meta';
@@ -1777,12 +1802,117 @@
 
             const descriptionSection = document.createElement('div');
             descriptionSection.className = 'tm-item-tooltip-desc';
-            descriptionSection.textContent = item.description;
+            descriptionSection.innerHTML = item.description;
             tooltip.appendChild(descriptionSection);
         }
+    };
 
-        el.appendChild(tooltip);
-        return el;
+    /**
+     * Показывает тултип рядом с элементом.
+     * @param {HTMLElement} anchorEl
+     * @param {ItemBase} item
+     * @param {string} [overlay]
+     */
+    const TOOLTIP_VISIBLE_CLASS = 'tm-item-tooltip--visible';
+    const TOOLTIP_RIGHT_CLASS = 'tm-item-tooltip--right';
+    const TOOLTIP_WIDTH = 248;
+
+    const showTooltip = (anchorEl, item, overlay) => {
+        populateTooltip(item, overlay);
+
+        const tooltip = getTooltipContainer();
+        const rect = anchorEl.getBoundingClientRect();
+        const screenScale = getSystemScale();
+        const scale = 1 / screenScale;
+
+        // Проверяем, поместится ли тултип слева
+        const tooltipLeftEdge = rect.left + 8 - TOOLTIP_WIDTH * scale;
+        const showOnRight = tooltipLeftEdge < 0;
+
+        tooltip.style.setProperty('--tm-tooltip-top', `${rect.bottom - 8}px`);
+        tooltip.style.setProperty('--tm-tooltip-scale', `${scale}`);
+
+        if (showOnRight) {
+            // Справа от иконки: левый край тултипа = правый край иконки - 8px
+            tooltip.style.setProperty('--tm-tooltip-left', `${rect.right - 8}px`);
+            tooltip.classList.add(TOOLTIP_RIGHT_CLASS);
+        } else {
+            // Слева от иконки: правый край тултипа = левый край иконки + 8px
+            tooltip.style.setProperty('--tm-tooltip-left', `${rect.left + 8}px`);
+            tooltip.classList.remove(TOOLTIP_RIGHT_CLASS);
+        }
+
+        tooltip.classList.add(TOOLTIP_VISIBLE_CLASS);
+    };
+
+    /** Скрывает тултип. */
+    const hideTooltip = () => {
+        if (globalTooltip) {
+            globalTooltip.classList.remove(TOOLTIP_VISIBLE_CLASS, TOOLTIP_RIGHT_CLASS);
+        }
+    };
+
+    // ==================== Иконка предмета ====================
+
+    /**
+     * Создаёт иконку предмета с рамкой редкости, overlay типа и всплывашкой.
+     * Иконка состоит из слоёв: изображение предмета → overlay типа → рамка грейда.
+     *
+     * @param {Object} params
+     * @param {ItemBase} params.item - Предмет.
+     * @param {string} [params.overlay] - URL overlay-изображения типа предмета (из ITEM_TYPES).
+     * @param {boolean} [params.linked=false] - Создать как `<a>` со ссылкой item.url.
+     * @param {'small'|'medium'} [params.size='medium'] - Размер иконки: `'small'` (30px) или `'medium'` (42px).
+     * @param {number} [params.count] - Количество предмета (бейдж снизу-справа, показывается при > 1).
+     * @param {boolean} [params.noTooltip=false] - Не добавлять всплывашку (для иконки внутри тултипа).
+     * @returns {HTMLElement} `.tm-item-icon`
+     */
+    const makeItemIconLink = ({ item, overlay, linked = false, size = 'medium', count, noTooltip = false }) => {
+        const icon = document.createElement(linked ? 'a' : 'div');
+        icon.className = `tm-item-icon tm-item-icon--${size}`;
+
+        if (linked) {
+            icon.href = item.url;
+            icon.target = '_blank';
+            icon.rel = 'noopener noreferrer';
+            icon.addEventListener('click', (e) => e.stopPropagation());
+        }
+
+        const itemImg = document.createElement('img');
+        itemImg.className = 'tm-item-icon-img';
+        itemImg.src = item.icon;
+
+        icon.appendChild(itemImg);
+
+        // Overlay слой (между иконкой и рамкой редкости)
+        if (overlay) {
+            const overlayImg = document.createElement('img');
+            overlayImg.className = 'tm-item-icon-overlay';
+            overlayImg.src = overlay;
+            icon.appendChild(overlayImg);
+        }
+
+        const gradeInfo = GRADES[item.grade];
+        const gradeImg = document.createElement('img');
+        gradeImg.className = 'tm-item-icon-grade';
+        gradeImg.src = gradeInfo?.overlay || `${CODEX_IMAGES_BASE}icon_grade${item.grade}.png`;
+        gradeImg.alt = gradeInfo?.title || '';
+
+        icon.appendChild(gradeImg);
+
+        if (count && count > 1) {
+            const countEl = document.createElement('span');
+            countEl.className = 'tm-item-icon-count';
+            countEl.textContent = count;
+            icon.appendChild(countEl);
+        }
+
+        if (!noTooltip) {
+            icon.addEventListener('mouseenter', () => showTooltip(icon, item, overlay));
+            icon.addEventListener('mouseleave', hideTooltip);
+        }
+
+        return icon;
     };
 
     /**
@@ -2493,14 +2623,10 @@
                 --tm-screen-scale: ${1 / screenScale};
             }
 
-            .tm-item {
+            .tm-item-icon {
                 position: relative;
                 display: inline-block;
                 flex-shrink: 0;
-            }
-
-            .tm-item-icon {
-                position: relative;
             }
 
             .tm-item-icon--small {
@@ -2526,7 +2652,7 @@
                     inset 0 0 4px rgba(255, 255, 255, 0.6);
             }
 
-            .tm-item:hover .tm-item-icon::after {
+            .tm-item-icon:hover::after {
                 opacity: 1;
             }
 
@@ -2569,13 +2695,13 @@
                 z-index: 3;
             }
 
-            /* Всплывашка предмета */
+            /* Всплывашка предмета (глобальная, в body) */
             .tm-item-tooltip {
                 display: none;
-                position: absolute;
-                top: calc(100% - 8px);
-                right: calc(100% - 8px);
-                z-index: 100;
+                position: fixed;
+                top: var(--tm-tooltip-top, 0);
+                left: var(--tm-tooltip-left, 0);
+                z-index: 10000;
                 width: 248px;
                 padding: 15px 16px;
                 background: rgba(0, 8, 24, 0.85);
@@ -2585,12 +2711,17 @@
                 font-size: 14px;
                 line-height: 18px;
                 color: #cfd6e0;
-                transform: scale(var(--tm-screen-scale, 1));
+                transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));
                 transform-origin: top right;
             }
 
-            .tm-item:hover .tm-item-tooltip {
+            .tm-item-tooltip--visible {
                 display: block;
+            }
+
+            .tm-item-tooltip--right {
+                transform: scale(var(--tm-tooltip-scale, 1));
+                transform-origin: top left;
             }
 
             .tm-item-tooltip-header {
@@ -3096,13 +3227,31 @@
      * @returns {string}
      */
     const getCartStyles = () => `
+        .guild_tab.cart_items .gh_1 {
+            width: 0%;
+        }
+
+        .guild_tab.cart_items .gh_3 {
+            width: 1px;
+            min-width: 170px;
+        }
+
+        .guild_tab.cart_items .gh_4 {
+            white-space: nowrap;
+            width: 0%;
+        }
+
+        .guild_tab.cart_items .gс_4 {
+            white-space: nowrap;
+        }
+
         .cart_items .js-cart-item.disabled {
             opacity: 1;
             color: rgba(34, 34, 34, 0.5);
         }
 
         .tm-cart-item-name {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
         }
@@ -3522,7 +3671,7 @@
      * @returns {ItemBase|null}
      */
     const findItemByName = (itemName) => {
-        const normalized = itemName.trim().toLowerCase();
+        const normalized = itemName.trim().replace(/\*$/, '').trim().toLowerCase().replace(/\bc\b/g, 'с');
         for (const item of Object.values(ITEMS)) {
             const name = (item.name || '').toLowerCase();
             if (name === normalized) return item;
@@ -3558,7 +3707,7 @@
 
             // Очищаем ячейку и вставляем flex-контейнер с иконкой и текстом
             nameCell.textContent = '';
-            const container = document.createElement('span');
+            const container = document.createElement('div');
             container.className = 'tm-cart-item-name';
             container.appendChild(iconEl);
             container.appendChild(document.createTextNode(itemName));
