@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.0.1
+// @version      4.1.0
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -1356,7 +1356,7 @@
         "54933":   { icon: 'https://archeagecodex.com/items/icon_item_5809.png', grade: 2, url: 'https://archeagecodex.com/ru/item/54933/', name: 'Замерзший пруд' },
         "48860":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48860/', name: 'Большая эфенская сфера оружейника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в <span class="orange_text">2</span> раза.' },
         "48861":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48861/', name: 'Большая эфенская сфера бронника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в <span class="orange_text">2</span> раза.' },
-        "44359":   { icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, url: 'https://archeagecodex.com/ru/item/44359/', name: 'Походный фиал славы' },
+        "44359":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, url: 'https://archeagecodex.com/ru/item/44359/', name: 'Походный фиал славы' },
         "47941":   { type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, url: 'https://archeagecodex.com/ru/item/47941/', name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
         "55800":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55800/', name: 'Сундучок с фрагментами судьбы', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:<br>- пыль судьбы (25 шт.),<br>- слиток судьбы<br> (5 шт.),<br>- призма судьбы.' },
         "":   { type: '', icon: '', grade: 1, url: '', name: '' },
@@ -1927,7 +1927,7 @@
         icon.appendChild(gradeImg);
 
         if (count && count > 1) {
-            const countEl = document.createElement('span');
+            const countEl = document.createElement('div');
             countEl.className = 'tm-item-icon-count';
             countEl.textContent = count;
             icon.appendChild(countEl);
@@ -3252,16 +3252,29 @@
 
     /**
      * Стили для страницы корзины.
-     * @returns {string}
      */
     const getCartStyles = () => `
+        #block_content {
+            overflow: unset;
+        }
+
+        .cart_right {
+            position: sticky;
+            top: 0;
+        }
+
         .guild_tab.cart_items .gh_1 {
             width: 0%;
+        }
+
+        .guild_tab.cart_items .gh_2 {
+            border-left: none;
         }
 
         .guild_tab.cart_items .gh_3 {
             width: 1px;
             min-width: 170px;
+            border-right: none;
         }
 
         .guild_tab.cart_items .gh_4 {
@@ -3269,19 +3282,101 @@
             width: 0%;
         }
 
-        .guild_tab.cart_items .gс_4 {
-            white-space: nowrap;
+        .guild_tab.cart_items .gс_2 {
+            border-left: none;
         }
 
-        .cart_items .js-cart-item.disabled {
-            opacity: 1;
-            color: rgba(34, 34, 34, 0.5);
+        .guild_tab.cart_items .gс_4 {
+            white-space: nowrap;
+            text-align: right;
+            padding-right: 0;
+            border-right: none;
+        }
+
+        .cart_items .item {
+            cursor: pointer;
+        }
+
+        .cart_items .item:hover {
+            background: #edf4fa;
+        }
+
+        .cart_items .item.disabled {
+            cursor: default;
+        }
+
+        .cart_items .item.disabled:hover {
+            background: transparent;
+        }
+
+        .cart_items .item.tm-selected {
+            display: none;
         }
 
         .tm-cart-item-name {
             display: inline-flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .cart_items_selected .item_list {
+            max-height: 182px;
+            display: flex;
+            flex-direction: column;
+            overflow: auto;
+        }
+
+        .cart_items_selected .item_list > .js-selected-item {
+            padding-top: 2px;
+            padding-bottom: 3px;
+        }
+
+        .tm-cart-timer {
+            display: block;
+        }
+
+        .js-selected-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .js-selected-item .tm-cart-item-name {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .js-selected-item .tm-cart-item-name span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tm-char-face {
+            width: 100%;
+            height: 100%;
+            /*border-radius: 50%;*/
+            opacity: 0;
+            -webkit-mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent),
+                                linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);
+            -webkit-mask-composite: destination-in;
+            mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent),
+                        linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);
+            mask-composite: intersect;
+            filter: brightness(1.1);
+            mix-blend-mode: multiply;
+        }
+
+        .tm-char-face--loaded {
+            opacity: 1;
+        }
+
+        .tm-char-face--error {
+            opacity: 0;
+        }
+
+        .tm-char-face-ready div {
+            background: none !important;
         }
     `;
 
@@ -3708,54 +3803,558 @@
     };
 
     /**
-     * Добавляет иконки предметов в таблицу корзины.
+     * @typedef {Object} CartItem
+     * @property {string} title - Название предмета.
+     * @property {number} count - Количество.
+     * @property {string} date - Дата получения (строка из HTML).
+     * @property {string} itemId - ID предмета (из data-item чекбокса).
+     * @property {string} campaign - Название акции.
+     * @property {boolean} disabled - Заблокирован (таймер передачи).
+     * @property {string} timerText - Текст таймера ("Можно передать через: XXX мин.").
      */
-    const enhanceCartTable = () => {
-        const rows = document.querySelectorAll('.cart_items .js-cart-item');
-        if (rows.length === 0) return;
+
+    /**
+     * @typedef {Object} CartCharacter
+     * @property {string} name - Имя персонажа.
+     * @property {string} server - Название сервера.
+     * @property {string} value - Значение radio (для отправки формы).
+     * @property {boolean} enabled - Доступен для выбора.
+     */
+
+    /**
+     * Парсит строки таблицы корзины из DOM.
+     * @param {Element} layout - Корневой элемент .cart_layout
+     * @returns {CartItem[]}
+     */
+    const parseCartItems = (layout) => {
+        const rows = layout.querySelectorAll('.js-cart-item');
+        /** @type {CartItem[]} */
+        const items = [];
 
         for (const row of rows) {
+            const checkbox = row.querySelector('input[data-item]');
+            if (!checkbox) continue;
+
             const nameCell = row.querySelector('.js-cart-item-name');
-            if (!nameCell) continue;
+            const title = nameCell?.textContent?.trim() || '';
 
-            // Пропускаем если уже обработано
-            if (nameCell.querySelector('.tm-cart-item-name')) continue;
+            const countCell = row.querySelector('td:last-child');
+            const countText = (countCell?.textContent?.trim() || '1').replace(/[^\d]/g, '');
+            const count = parseInt(countText, 10) || 1;
 
-            const itemName = nameCell.textContent.trim();
-            const item = findItemByName(itemName);
-            if (!item) continue;
+            const dateCell = row.querySelector('td:first-child');
+            const date = dateCell?.textContent?.trim() || '';
 
-            const typeInfo = item.type ? ITEM_TYPES[item.type] : null;
+            const itemId = checkbox.getAttribute('data-item') || '';
+
+            const campaignCell = row.querySelector('td:nth-child(3)');
+            // Текст акции — всё до input; текст таймера — после input
+            let campaign = '';
+            let timerText = '';
+            if (campaignCell) {
+                for (const node of campaignCell.childNodes) {
+                    if (node === checkbox) continue;
+                    const t = (node.textContent || '').trim();
+                    if (!t) continue;
+                    if (t.startsWith('(') && t.includes('мин.')) {
+                        timerText = t;
+                    } else {
+                        campaign = t;
+                    }
+                }
+            }
+
+            const disabled = row.classList.contains('js-disabled');
+
+            items.push({ title, count, date, itemId, campaign, disabled, timerText });
+        }
+
+        return items;
+    };
+
+    /**
+     * Парсит персонажей из DOM.
+     * @param {Element} layout - Корневой элемент .cart_layout
+     * @returns {CartCharacter[]}
+     */
+    const parseCartCharacters = (layout) => {
+        const labels = layout.querySelectorAll('.char_select label');
+        /** @type {CartCharacter[]} */
+        const chars = [];
+
+        for (const label of labels) {
+            const radio = label.querySelector('input[name="shard_char"]');
+            if (!radio) continue;
+
+            const name = label.querySelector('.name')?.textContent?.trim() || '';
+            const server = label.querySelector('.info')?.textContent?.trim() || '';
+            const value = radio.value || '';
+            const enabled = !radio.disabled;
+
+            if (!enabled) continue; // Пропускаем "Нет персонажа"
+
+            chars.push({ name, server, value, enabled });
+        }
+
+        return chars;
+    };
+
+    /**
+     * Создаёт строку таблицы для предмета корзины.
+     * @param {CartItem} cartItem
+     * @returns {HTMLTableRowElement}
+     */
+    const makeCartRow = (cartItem) => {
+        const tr = document.createElement('tr');
+        tr.className = 'item';
+        if (cartItem.disabled) tr.classList.add('disabled');
+
+        // Ячейка: дата
+        const tdDate = document.createElement('td');
+        tdDate.className = 'gс_1';
+        tdDate.textContent = cartItem.date;
+        tr.appendChild(tdDate);
+
+        // Ячейка: количество
+        const tdCount = document.createElement('td');
+        tdCount.className = 'gс_4';
+        tdCount.textContent = cartItem.count > 1 ? `${cartItem.count}×` : '';
+        tr.appendChild(tdCount);
+
+        // Ячейка: иконка + название
+        const tdName = document.createElement('td');
+        tdName.className = 'gс_2';
+        const nameContainer = document.createElement('div');
+        nameContainer.className = 'tm-cart-item-name';
+
+        const itemData = findItemByName(cartItem.title);
+        if (itemData) {
+            const typeInfo = itemData.type ? ITEM_TYPES[itemData.type] : null;
             const iconEl = makeItemIconLink({
-                item,
+                item: itemData,
                 overlay: typeInfo?.icon,
                 linked: true,
                 size: 'small',
             });
-
-            // Очищаем ячейку и вставляем flex-контейнер с иконкой и текстом
-            nameCell.textContent = '';
-            const container = document.createElement('div');
-            container.className = 'tm-cart-item-name';
-            container.appendChild(iconEl);
-            container.appendChild(document.createTextNode(itemName));
-            nameCell.appendChild(container);
+            nameContainer.appendChild(iconEl);
         }
+
+        nameContainer.appendChild(document.createTextNode(cartItem.title));
+        tdName.appendChild(nameContainer);
+
+        tr.appendChild(tdName);
+
+        // Ячейка: акция
+        const tdCampaign = document.createElement('td');
+        tdCampaign.className = 'gс_3';
+        tdCampaign.textContent = cartItem.campaign;
+        if (cartItem.disabled && cartItem.timerText) {
+            const timer = document.createElement('span');
+            timer.className = 'tm-cart-timer';
+            timer.textContent = cartItem.timerText;
+            tdCampaign.appendChild(timer);
+        }
+        tr.appendChild(tdCampaign);
+
+        return tr;
+    };
+
+    /**
+     * Показывает модальное окно в стиле сайта.
+     * @param {Object} params
+     * @param {string} params.title
+     * @param {string} params.body - HTML-содержимое.
+     * @param {{ label: string, icon: string, action: function|null }[]} params.buttons
+     */
+    const showCartPopup = ({ title, body, buttons }) => {
+        // Подготавливаем скрытый div-источник для popup_open
+        let src = document.getElementById('tm_cart_popup_src');
+        if (!src) {
+            src = document.createElement('div');
+            src.id = 'tm_cart_popup_src';
+            src.style.display = 'none';
+            document.body.appendChild(src);
+        }
+
+        src.innerHTML = `
+            <div class="main_popup_block">
+                <div class="header blue">${title}</div>
+                <div class="inner_cont">${body}</div>
+                <div class="popup_buttons">
+                    ${buttons.map((btn, i) =>
+            `<a href="#" class="guild_button1 ${btn.icon}" data-tm-btn="${i}"><em></em>${btn.label}</a>`
+        ).join('')}
+                </div>
+            </div>`;
+
+        // Используем нативную функцию сайта
+        popup_open(false, 'tm_cart_popup_src');
+
+        // Навешиваем обработчики на кнопки внутри попапа
+        const popupBlock = document.getElementById('popup_block');
+        if (popupBlock) {
+            popupBlock.querySelectorAll('a[data-tm-btn]').forEach(a => {
+                const btn = buttons[parseInt(a.dataset.tmBtn)];
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    popup_close();
+                    btn.action?.();
+                });
+            });
+        }
+    };
+
+    /**
+     * Строит и инжектит полный UI корзины, используя родные классы сайта.
+     * @param {CartItem[]} cartItems
+     * @param {CartCharacter[]} characters
+     * @param {Element} container - #mr_block_cart
+     * @param {Element} origLayout - оригинальный .cart_layout для извлечения разметки персонажей
+     */
+    const buildCartUI = (cartItems, characters, container, origLayout) => {
+        container.innerHTML = '';
+
+        const layout = document.createElement('div');
+        layout.className = 'cart_layout';
+
+        const form = document.createElement('form');
+        form.id = 'cart_items_form';
+        form.onsubmit = () => false;
+
+        // === Состояние ===
+        /** @type {Set<string>} */
+        const selectedIds = new Set();
+        let selectedChar = '';
+
+        /** @type {Map<string, HTMLTableRowElement>} */
+        const rowMap = new Map();
+
+        // === Левая панель ===
+        const left = document.createElement('div');
+        left.className = 'cart_left';
+
+        const leftHeader = document.createElement('div');
+        leftHeader.className = 'guild_header2 blue';
+        leftHeader.textContent = 'Список доступных предметов';
+        left.appendChild(leftHeader);
+
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'guild_tab_wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'guild_tab no_lines cart_items';
+        table.cellSpacing = '0';
+        table.cellPadding = '0';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        for (const [cls, text] of [['gh_1', 'Дата получения'], ['gh_4', ''], ['gh_2', 'Предмет'], ['gh_3', 'Акция']]) {
+            const th = document.createElement('th');
+            th.className = cls;
+            th.textContent = text;
+            headerRow.appendChild(th);
+        }
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        for (const cartItem of cartItems) {
+            const tr = makeCartRow(cartItem);
+            rowMap.set(cartItem.itemId, tr);
+            tbody.appendChild(tr);
+        }
+
+        table.appendChild(tbody);
+        tableWrapper.appendChild(table);
+        left.appendChild(tableWrapper);
+
+        // === Правая панель ===
+        const right = document.createElement('div');
+        right.className = 'cart_right';
+
+        // Выбранные предметы
+        const selectedHeader = document.createElement('div');
+        selectedHeader.className = 'guild_header2 blue';
+        selectedHeader.textContent = 'Список выбранных предметов';
+        right.appendChild(selectedHeader);
+
+        const selectedOuter = document.createElement('div');
+        selectedOuter.className = 'cart_items_selected';
+        const selectedInner1 = document.createElement('div');
+        const selectedInner2 = document.createElement('div');
+        const selectedWrap = document.createElement('div');
+        selectedWrap.className = 'item_list';
+        selectedWrap.id = 'selected_items';
+        selectedInner2.appendChild(selectedWrap);
+        selectedInner1.appendChild(selectedInner2);
+        selectedOuter.appendChild(selectedInner1);
+        right.appendChild(selectedOuter);
+
+        // Персонажи — берём оригинальный блок .char_select из ответа
+        const charsHeader = document.createElement('div');
+        charsHeader.className = 'guild_header2 blue';
+        charsHeader.textContent = 'Выберите персонажа';
+        right.appendChild(charsHeader);
+
+        const origCharSelect = origLayout.querySelector('.char_select');
+        if (origCharSelect) {
+            right.appendChild(origCharSelect);
+
+            // Навешиваем свой обработчик выбора
+            origCharSelect.querySelectorAll('.js-char').forEach(label => {
+                const radio = label.querySelector('input[name="shard_char"]');
+                if (!radio || radio.disabled) return;
+
+                label.addEventListener('click', () => {
+                    selectedChar = radio.value;
+                    radio.checked = true;
+                    updateTransferBtn();
+                });
+            });
+
+            // Подгружаем аватары персонажей из char_list
+            (async () => {
+                try {
+                    const uid = await getUidFromCheckUser();
+                    const html = await fetchText(`/dynamic/user/?a=char_list&u=${encodeURIComponent(uid)}`);
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+                    /** @type {Map<string, string>} имя → URL лица */
+                    const faceMap = new Map();
+                    for (const li of doc.querySelectorAll('li[data-face]')) {
+                        const name = li.querySelector('strong')?.textContent?.trim();
+                        const face = li.getAttribute('data-face');
+                        if (name && face) faceMap.set(name, face);
+                    }
+
+                    origCharSelect.querySelectorAll('label.js-char').forEach(label => {
+                        const name = label.querySelector('.name')?.textContent?.trim();
+                        const face = faceMap.get(name);
+                        if (!face) return;
+
+                        const iconDiv = label.querySelector('div');
+                        if (!iconDiv) return;
+
+                        const img = document.createElement('img');
+                        img.className = 'tm-char-face';
+                        img.addEventListener('load', () => {
+                            img.classList.add('tm-char-face--loaded');
+                            label.classList.add('tm-char-face-ready');
+                        }, { once: true });
+                        img.addEventListener('error', () => { img.classList.add('tm-char-face--error'); });
+                        img.src = face;
+                        iconDiv.appendChild(img);
+                    });
+                } catch {
+                    // не критично — аватары просто не появятся
+                }
+            })();
+        }
+
+        // Кнопка "Передать"
+        const transferBtn = document.createElement('span');
+        transferBtn.className = 'guild_button1 ico_done';
+        transferBtn.innerHTML = '<em></em>Передать';
+        transferBtn.style.opacity = '0.5';
+        transferBtn.style.pointerEvents = 'none';
+        right.appendChild(document.createElement('br'));
+        right.appendChild(transferBtn);
+
+        form.appendChild(left);
+        form.appendChild(right);
+
+        const clear = document.createElement('div');
+        clear.className = 'clear';
+        form.appendChild(clear);
+
+        layout.appendChild(form);
+        container.appendChild(layout);
+
+        // === Логика ===
+
+        const updateTransferBtn = () => {
+            const enabled = selectedIds.size > 0 && !!selectedChar;
+            transferBtn.style.opacity = enabled ? '' : '0.5';
+            transferBtn.style.pointerEvents = enabled ? '' : 'none';
+        };
+
+        const renderSelectedList = () => {
+            selectedWrap.innerHTML = '';
+
+            if (selectedIds.size === 0) {
+                const p = document.createElement('p');
+                p.textContent = 'Выберите предметы для передачи из списка слева';
+                selectedWrap.appendChild(p);
+                return;
+            }
+
+            for (const id of selectedIds) {
+                const cartItem = cartItems.find(i => i.itemId === id);
+                if (!cartItem) continue;
+
+                const el = document.createElement('div');
+                el.className = 'js-selected-item';
+
+                const nameWrap = document.createElement('div');
+                nameWrap.className = 'tm-cart-item-name';
+
+                const itemData = findItemByName(cartItem.title);
+                if (itemData) {
+                    const typeInfo = itemData.type ? ITEM_TYPES[itemData.type] : null;
+                    const icon = makeItemIconLink({
+                        item: itemData,
+                        overlay: typeInfo?.icon,
+                        size: 'small',
+                        count: cartItem.count,
+                    });
+                    nameWrap.appendChild(icon);
+                }
+
+                const nameText = document.createElement('span');
+                nameText.textContent = cartItem.title;
+                nameWrap.appendChild(nameText);
+                el.appendChild(nameWrap);
+
+                const closeBtn = document.createElement('span');
+                closeBtn.className = 'close';
+                closeBtn.addEventListener('click', () => {
+                    deselectItem(id);
+                });
+                el.appendChild(closeBtn);
+
+                selectedWrap.appendChild(el);
+            }
+        };
+
+        const selectItem = (id) => {
+            selectedIds.add(id);
+            const row = rowMap.get(id);
+            if (row) row.classList.add('tm-selected');
+            renderSelectedList();
+            updateTransferBtn();
+        };
+
+        const deselectItem = (id) => {
+            selectedIds.delete(id);
+            const row = rowMap.get(id);
+            if (row) row.classList.remove('tm-selected');
+            renderSelectedList();
+            updateTransferBtn();
+        };
+
+        // Клик по строке — выбрать предмет
+        for (const cartItem of cartItems) {
+            if (cartItem.disabled) continue;
+            const row = rowMap.get(cartItem.itemId);
+            if (!row) continue;
+
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('a')) return;
+                if (selectedIds.has(cartItem.itemId)) return;
+                selectItem(cartItem.itemId);
+            });
+        }
+
+        // Кнопка "Передать" — подтверждение + отправка
+        transferBtn.addEventListener('click', () => {
+            showCartPopup({
+                title: 'Вы уверены?',
+                body: '<p>Предметы будут переданы выбранному персонажу</p>',
+                buttons: [
+                    {
+                        label: 'Передать',
+                        icon: 'ico_done',
+                        action: async () => {
+                            const allIds = [...selectedIds];
+                            const chunks = [];
+                            for (let i = 0; i < allIds.length; i += 5) {
+                                chunks.push(allIds.slice(i, i + 5));
+                            }
+
+                            const messages = [];
+                            const transferred = [];
+
+                            try {
+                                for (const chunk of chunks) {
+                                    const fd = new FormData();
+                                    for (const id of chunk) {
+                                        fd.append(`items[${id}]`, 'on');
+                                    }
+                                    fd.append('shard_char', selectedChar);
+
+                                    const res = await fetch('/dynamic/cart/?a=item_process', {
+                                        method: 'POST',
+                                        body: fd,
+                                    });
+                                    const json = await res.json();
+
+                                    if (json.result === 1) {
+                                        transferred.push(...chunk);
+                                        if (json.msg) messages.push(json.msg);
+                                    } else {
+                                        showCartPopup({
+                                            title: 'Ошибка',
+                                            body: `<p>${json.msg || 'Неизвестная ошибка'}</p>`,
+                                            buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+                                        });
+                                        break;
+                                    }
+                                }
+
+                                for (const id of transferred) {
+                                    const row = rowMap.get(id);
+                                    if (row) row.remove();
+                                    rowMap.delete(id);
+                                    selectedIds.delete(id);
+                                    const idx = cartItems.findIndex(i => i.itemId === id);
+                                    if (idx !== -1) cartItems.splice(idx, 1);
+                                }
+                                renderSelectedList();
+                                updateTransferBtn();
+
+                                if (messages.length > 0) {
+                                    showCartPopup({
+                                        title: 'Результат передачи',
+                                        body: `<p>${messages.join('&nbsp;')}</p>`,
+                                        buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+                                    });
+                                }
+                            } catch (e) {
+                                showCartPopup({
+                                    title: 'Ошибка',
+                                    body: `<p>Не удалось выполнить запрос: ${e.message}</p>`,
+                                    buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+                                });
+                            }
+                        },
+                    },
+                    { label: 'Отмена', icon: 'ico_cancel', action: null },
+                ],
+            });
+        });
+
+        renderSelectedList();
     };
 
     const initCart = () => {
         injectItemIconStyles();
         injectCartStyles();
 
-        // Таблица загружается динамически через AJAX после загрузки страницы
         const cartObserver = new MutationObserver((mutations, obs) => {
-            const rows = document.querySelectorAll('.cart_items .js-cart-item');
-            if (rows.length > 0) {
-                enhanceCartTable();
-            }
+            const layout = document.querySelector('.cart_layout');
+            if (!layout) return;
+
+            obs.disconnect();
+
+            const cartItems = parseCartItems(layout);
+            const characters = parseCartCharacters(layout);
+            const container = document.getElementById('mr_block_cart');
+            if (!container) return;
+
+            buildCartUI(cartItems, characters, container, layout);
         });
 
-        // Наблюдаем за всем body, т.к. cart_layout ещё может не существовать
         cartObserver.observe(document.body, { childList: true, subtree: true });
     };
 
