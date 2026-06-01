@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.7
+// @version      1.8
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -189,6 +189,9 @@
     let MIN_SEG = null;
     let MAX_SEG = null;
 
+    // Смещение серверного времени относительно локального (мс)
+    let SERVER_TIME_OFFSET = null;
+
     // ==================== DOM-кэш ====================
 
     const DOM = {
@@ -361,6 +364,170 @@
         const w = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' })
             .format(new Date(dayUtcMs));
         return w === 'Thu';
+    };
+
+    // ==================== Обратный отсчёт до событий ====================
+
+    // Маппинг русских названий дней недели на номер (0 = воскресенье, 1 = понедельник, ...)
+    const WEEKDAY_MAP = {
+        'воскресенье': 0, 'понедельник': 1, 'вторник': 2, 'среда': 3,
+        'среду': 3, 'четверг': 4, 'пятница': 5, 'пятницу': 5,
+        'суббота': 6, 'субботу': 6,
+    };
+
+    // Получить текущее серверное время (с учётом смещения)
+    const getServerNowMs = () => {
+        if (SERVER_TIME_OFFSET == null) return Date.now();
+        return Date.now() + SERVER_TIME_OFFSET;
+    };
+
+    // Инициализировать смещение серверного времени
+    const initServerTimeOffset = () => {
+        if (NOW_MS != null && SERVER_TIME_OFFSET == null) {
+            SERVER_TIME_OFFSET = NOW_MS - Date.now();
+        }
+    };
+
+    // Получить день недели в МСК (0 = воскресенье)
+    const getMSKWeekday = (utcMs) => {
+        const fmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' });
+        const dayStr = fmt.format(new Date(utcMs));
+        const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+        return map[dayStr] ?? 0;
+    };
+
+    // Получить текущее время МСК в секундах от начала дня
+    const getMSKTimeOfDaySeconds = (utcMs) => {
+        const fmt = new Intl.DateTimeFormat('ru-RU', {
+            timeZone: TZ,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        });
+        const str = fmt.format(new Date(utcMs));
+        const [h, m, s] = str.split(':').map(Number);
+        return h * 3600 + m * 60 + s;
+    };
+
+    // Парсит события из строки short
+    // Возвращает массив { weekdays: number[] | null, hours, minutes }
+    const parseEventsFromShort = (short) => {
+        if (!short) return [];
+
+        const events = [];
+        const weekdayPattern = /(?:^|\/)\s*((?:(?:понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?:\s*(?:и|,)\s*)?)+)\s*в\s*(\d{1,2}:\d{2})/gi;
+
+        let hasWeekdayEvents = false;
+        let match;
+
+        // Ищем форматы с днями недели: "Пятница в 22:00", "Суббота и Воскресенье в 18:00"
+        while ((match = weekdayPattern.exec(short)) !== null) {
+            hasWeekdayEvents = true;
+            const daysStr = match[1].toLowerCase();
+            const timeStr = match[2];
+            const [h, m] = timeStr.split(':').map(Number);
+
+            // Извлекаем все дни недели из строки
+            const weekdays = [];
+            for (const [name, num] of Object.entries(WEEKDAY_MAP)) {
+                if (daysStr.includes(name)) {
+                    if (!weekdays.includes(num)) weekdays.push(num);
+                }
+            }
+
+            if (weekdays.length > 0) {
+                events.push({ weekdays, hours: h, minutes: m });
+            }
+        }
+
+        // Если нет событий с днями недели, ищем простые времена (ежедневные)
+        if (!hasWeekdayEvents) {
+            const timePattern = /\b(\d{1,2}:\d{2})\b/g;
+            while ((match = timePattern.exec(short)) !== null) {
+                const [h, m] = match[1].split(':').map(Number);
+                events.push({ weekdays: null, hours: h, minutes: m }); // null = каждый день
+            }
+        }
+
+        return events;
+    };
+
+    // Вычисляет секунды до ближайшего события
+    const getSecondsUntilNextEvent = (events) => {
+        if (!events.length) return null;
+
+        const serverNow = getServerNowMs();
+        const nowWeekday = getMSKWeekday(serverNow);
+        const nowSeconds = getMSKTimeOfDaySeconds(serverNow);
+
+        let minDiff = Infinity;
+
+        for (const event of events) {
+            const targetTimeSeconds = event.hours * 3600 + event.minutes * 60;
+
+            if (event.weekdays === null) {
+                // Ежедневное событие
+                let diff = targetTimeSeconds - nowSeconds;
+                if (diff <= 0) diff += 24 * 3600;
+                if (diff < minDiff) minDiff = diff;
+            } else {
+                // Событие в определённые дни недели
+                for (const targetWeekday of event.weekdays) {
+                    let daysUntil = targetWeekday - nowWeekday;
+                    if (daysUntil < 0) daysUntil += 7;
+
+                    let diff = daysUntil * 24 * 3600 + (targetTimeSeconds - nowSeconds);
+                    if (diff <= 0) diff += 7 * 24 * 3600; // Следующая неделя
+
+                    if (diff < minDiff) minDiff = diff;
+                }
+            }
+        }
+
+        return minDiff === Infinity ? null : minDiff;
+    };
+
+    // Форматирует секунды: 2 самых крупных показателя
+    const formatCountdown = (seconds) => {
+        if (seconds == null || seconds < 0) return '';
+
+        const d = Math.floor(seconds / 86400);
+        const h = Math.floor((seconds % 86400) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+
+        if (d > 0) {
+            return `${d}д ${h}ч`;
+        } else if (h > 0) {
+            return `${h}ч ${m}м`;
+        } else if (m > 0) {
+            return `${m}м ${s}с`;
+        } else {
+            return `${s}с`;
+        }
+    };
+
+    // Обновляет все countdown элементы на странице
+    const updateAllCountdowns = () => {
+        document.querySelectorAll('.tm-countdown').forEach(el => {
+            const eventsJson = el.dataset.events;
+            if (!eventsJson) return;
+            try {
+                const events = JSON.parse(eventsJson);
+                const seconds = getSecondsUntilNextEvent(events);
+                el.textContent = seconds != null ? ` (через ${formatCountdown(seconds)})` : '';
+            } catch {
+                // ignore
+            }
+        });
+    };
+
+    // Запуск интервала обновления countdown
+    let countdownIntervalId = null;
+    const startCountdownInterval = () => {
+        if (countdownIntervalId != null) return;
+        countdownIntervalId = setInterval(updateAllCountdowns, 1000);
     };
 
     // ==================== LocalStorage для "Скрыть выполненные" ====================
@@ -599,7 +766,7 @@
     const QUEST_META = {
         "8246": { codexId: 10559, short: "" },
         "8248": { codexId: 9142, short: "" },
-        "8250": { codexId: 9318, short: "" },
+        "8250": { codexId: 9318, short: 'Квест на Взрослого ольхона (портал "Укромный утес")' },
         "8252": { codexId: 10512, short: "Бухта Китобоев или Эфен'Хал - 20 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
         "8254": { codexId: 10513, short: "Бухта Китобоев или Эфен'Хал - 60 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
         "8256": { codexId: 9100, short: "" },
@@ -617,10 +784,10 @@
         "8294": { codexId: 7659, short: "" },
         "8296": { codexId: 7817, short: "" },
         "8298": { codexId: 8000058, short: "Лицуха в Нагашар (только обычка)" },
-        "8300": { codexId: 5971, short: "" },
-        "8314": { codexId: 10564, short: "" },
+        "8300": { codexId: 5971, short: "03:20 / 07:20 / 11:20 / 15:20 / 19:20 / 23:20" },
+        "8314": { codexId: 10564, short: "Ифнир - змея<br/>Пятница в 22:00 / Суббота в 16:00" },
         "8316": { codexId: 8000061, short: "" },
-        "8318": { codexId: 9317, short: "Квест на Космача" },
+        "8318": { codexId: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
         "8320": { codexId: 9152, short: "60 <a href='https://archeagecodex.com/ru/item/16327/' target='_blank'>Сыромятная кожа</a>" },
         "8322": { codexId: 8435, short: 'Портал "Лягушачьи пруды"' },
         "8324": { codexId: 10510, short: "Бездна / Солнечные поля - 8 <a href='https://archeagecodex.com/ru/item/42077/' target='_blank'>фермерских сундучков</a>" },
@@ -628,10 +795,10 @@
         "8328": { codexId: 7657, short: "" },
         "8330": { codexId: 7813, short: "" },
         "8336": { codexId: 5144, short: "" },
-        "8338": { codexId: 5885, short: "Анталлон на Солнечных полях" },
+        "8338": { codexId: 5885, short: "Анталлон на Солнечных полях<br/>01:20 / 05:20 / 09:20 / 13:20 / 17:20 / 21:20" },
         "8340": { codexId: 8000060, short: 'Изи Сады наслаждений с лицухой' },
         "8346": { codexId: 10056, short: "" },
-        "8348": { codexId: 11154, short: "Лиловый (армия фантомов)" },
+        "8348": { codexId: 11154, short: "Лиловый (армия фантомов)<br/>01:50 / 05:50 / 09:50 / 13:50 / 17:50 / 21:50" },
         "8350": { codexId: 11227, short: "Превратиться в руру и получить билет (в данж идти необязательно)" },
         "8352": { codexId: 9147, short: "60 <a href='https://archeagecodex.com/ru/item/8256/' target='_blank'>Ткань</a>" },
         "8354": { codexId: 8000136, short: "Квест Нуи на 2500 ремесленки" },
@@ -642,8 +809,8 @@
         "8364": { codexId: 7656, short: "" },
         "8366": { codexId: 9320, short: "" },
         "8372": { codexId: 9297, short: "" },
-        "8380": { codexId: 7815, short: "Изи Сады наслаждений" },
-        "8382": { codexId: 10735, short: "Эншака на Солнечных полях" },
+        "8380": { codexId: 7815, short: "Изи/нормал Сады наслаждений" },
+        "8382": { codexId: 10735, short: "Эншака на Солнечных полях<br/>01:20 / 05:20 / 09:20 / 13:20 / 17:20 / 21:20" },
         "8388": { codexId: 9153, short: "100 <a href='https://archeagecodex.com/ru/item/16327/' target='_blank'>Сыромятная кожа</a>" },
         "8390": { codexId: 5062, short: "" },
         "8392": { codexId: 10514, short: "Бухта китобоев / Эфен'Хал - 7 <a href='https://archeagecodex.com/ru/item/43177/' target='_blank'>эфенских сундучков</a>" },
@@ -660,25 +827,25 @@
         "8434": { codexId: 10504, short: "Замок Ош - 30 <a href='https://archeagecodex.com/ru/item/35461/' target='_blank'>полновесных мешочков с серебром</a>" },
         "8436": { codexId: 10505, short: "Замок Ош - 90 <a href='https://archeagecodex.com/ru/item/35461/' target='_blank'>полновесных мешочков с серебром</a>" },
         "8438": { codexId: 8000062, short: "Аль-Харба / Ферма Хадира / Колыбель разрушений / Воющая Бездна / Копи пронизывающего ветра / Арсенал Сожженной крепости" },
-        "8448": { codexId: 2943, short: "Кровавый (дневной) разлом - 3-я волна" },
+        "8448": { codexId: 2943, short: "Кровавый (дневной) разлом - 3-я волна<br/>00:20 / 04:20 / 08:20 / 12:20 / 16:20 / 20:20" },
         "8450": { codexId: 7935, short: "" },
         "8452": { codexId: 7660, short: "" },
-        "8470": { codexId: 10739, short: "Призрачный (ночной) разлом - Эншака" },
+        "8470": { codexId: 10739, short: "Призрачный (ночной) разлом - Эншака<br/>02:20 / 06:20 / 10:20 / 14:20 / 18:20 / 22:20" },
         "8478": { codexId: 10423, short: "" },
         "8494": { codexId: 8635, short: "" },
         "8496": { codexId: 9295, short: "" },
         "8498": { codexId: 9294, short: "" },
         "8500": { codexId: 8637, short: "Бухта - Жакар" },
-        "8502": { codexId: 7327, short: "" },
+        "8502": { codexId: 7327, short: "50 мобов (100 очков) на Сверкающем побережье" },
         "8504": { codexId: 9296, short: "" },
-        "8506": { codexId: 5969, short: "" },
+        "8506": { codexId: 5969, short: "03:20 / 07:20 / 11:20 / 15:20 / 19:20 / 23:20" },
         "8508": { codexId: 8641, short: "Эфен - жаба" },
         "8510": { codexId: 5077, short: "" },
         "8512": { codexId: 8605, short: "" },
-        "8514": { codexId: 11096, short: "Луг" },
+        "8514": { codexId: 11096, short: "Луг - Битва хранителей<br/>Суббота и Воскресенье в 18:00" },
         "8516": { codexId: 8000129, short: "" },
         "8518": { codexId: 1415, short: "" },
-        "8520": { codexId: 5970, short: "" },
+        "8520": { codexId: 5970, short: "03:20 / 07:20 / 11:20 / 15:20 / 19:20 / 23:20" },
         "8522": { codexId: 10188, short: "" },
         "8524": { codexId: 8618, short: "" },
     };
@@ -846,6 +1013,18 @@
             const d = document.createElement('div');
             d.className = 'tm-short';
             d.innerHTML = short;
+
+            // Если в short есть время, добавляем countdown
+            const events = parseEventsFromShort(short);
+            if (events.length > 0) {
+                const countdown = document.createElement('span');
+                countdown.className = 'tm-countdown';
+                countdown.dataset.events = JSON.stringify(events);
+                const seconds = getSecondsUntilNextEvent(events);
+                countdown.textContent = seconds != null ? ` (через ${formatCountdown(seconds)})` : '';
+                d.appendChild(countdown);
+            }
+
             row.appendChild(d);
         }
 
@@ -1307,6 +1486,12 @@
                 opacity: 0.85;
             }
 
+            .tm-countdown {
+                color: #7cb342;
+                font-weight: 500;
+                white-space: nowrap;
+            }
+
             .tm-icons {
                 display: flex;
                 flex-direction: row-reverse;
@@ -1431,6 +1616,10 @@
             console.warn(e);
             return;
         }
+
+        // Инициализируем смещение серверного времени и запускаем countdown
+        initServerTimeOffset();
+        startCountdownInterval();
 
         if (!selectedDayUtcMs) selectedDayUtcMs = getTodayUtcMsByTZ();
 
