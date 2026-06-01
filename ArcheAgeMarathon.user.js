@@ -1,16 +1,168 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.5
+// @version      1.6
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
+// @match        *://gisaa.ru/veksel/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=archeage.ru
 // @grant        none
 // ==/UserScript==
 
 (() => {
     'use strict';
+
+    const isGisaaSite = location.hostname.includes('gisaa.ru');
+    const isArcheageSite = location.hostname.includes('archeage.ru');
+
+    // ============================================================
+    // ====================== GISAA.RU ============================
+    // ============================================================
+
+    if (isGisaaSite) {
+        const GISAA_HIGHLIGHT_CLASS = 'tm-gisaa-highlight';
+
+        const injectGisaaStyles = () => {
+            const style = document.createElement('style');
+            style.textContent = `
+                .${GISAA_HIGHLIGHT_CLASS} {
+                    background-color: rgba(60, 180, 90, 0.25) !important;
+                    box-shadow: inset 0 0 0 2px rgba(60, 180, 90, 0.5);
+                }
+                tr.${GISAA_HIGHLIGHT_CLASS},
+                td.${GISAA_HIGHLIGHT_CLASS} {
+                    background-color: rgba(60, 180, 90, 0.25) !important;
+                }
+                button.${GISAA_HIGHLIGHT_CLASS} {
+                    background-color: rgba(60, 180, 90, 0.4) !important;
+                    border-color: rgba(60, 180, 90, 0.8) !important;
+                }
+            `;
+            document.head.appendChild(style);
+        };
+
+        // Выделяет строку в таблицах Запад/Восток по названию ресурса и значению max
+        const highlightWestEastRow = (resourceName, amount) => {
+            const blocks = ['#table-block-west', '#table-block-east'];
+            for (const blockId of blocks) {
+                const block = document.querySelector(blockId);
+                if (!block) continue;
+                const tables = block.querySelectorAll('table');
+                for (const table of tables) {
+                    const header = table.querySelector('th.table__name');
+                    if (!header) continue;
+                    if (header.textContent.trim() !== resourceName) continue;
+                    const rows = table.querySelectorAll('.row-table');
+                    for (const row of rows) {
+                        const maxCell = row.querySelector('.row__cell-max');
+                        if (!maxCell) continue;
+                        const maxVal = parseInt(maxCell.textContent.trim(), 10);
+                        if (maxVal === amount) {
+                            row.classList.add(GISAA_HIGHLIGHT_CLASS);
+                            row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_HIGHLIGHT_CLASS));
+                        }
+                    }
+                }
+            }
+        };
+
+        // Выделяет строку/кнопку в таблице Север
+        const highlightNorthRow = (locations, amount, iconType) => {
+            const block = document.querySelector('#table-block-north');
+            if (!block) return;
+            const rows = block.querySelectorAll('.row-table');
+            for (const row of rows) {
+                const nameEl = row.querySelector('.name.fix_size');
+                if (!nameEl) continue;
+                // Извлекаем текст локации (убираем иконки)
+                const rowLocation = nameEl.textContent.trim();
+
+                // Если указаны локации, проверяем совпадение
+                if (locations && locations.length > 0) {
+                    const locationMatch = locations.some(loc =>
+                        rowLocation.toLowerCase().includes(loc.toLowerCase()) ||
+                        loc.toLowerCase().includes(rowLocation.toLowerCase())
+                    );
+                    if (!locationMatch) continue;
+                }
+
+                // Проверяем ячейку .row__cell-max - там указан максимум и его тип
+                const maxCell = row.querySelector('.row__cell-max');
+                if (!maxCell) continue;
+
+                const maxHasIcon = iconType === 'archive'
+                    ? maxCell.querySelector('.fa-archive')
+                    : maxCell.querySelector('.fa-sack');
+                if (!maxHasIcon) continue;
+
+                const maxText = maxCell.textContent.trim();
+                const maxMatch = maxText.match(/^(\d+)/);
+                if (!maxMatch) continue;
+                const maxAmount = parseInt(maxMatch[1], 10);
+                if (maxAmount !== amount) continue;
+
+                // Нашли нужную строку - подсвечиваем
+                row.classList.add(GISAA_HIGHLIGHT_CLASS);
+                row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_HIGHLIGHT_CLASS));
+
+                // Также подсвечиваем соответствующую кнопку
+                const buttons = row.querySelectorAll('.btn_vote');
+                for (const btn of buttons) {
+                    const btnHasIcon = iconType === 'archive'
+                        ? btn.querySelector('.fa-archive')
+                        : btn.querySelector('.fa-sack');
+                    if (!btnHasIcon) continue;
+                    const btnText = btn.textContent.trim();
+                    const btnMatch = btnText.match(/^(\d+)/);
+                    if (!btnMatch) continue;
+                    const btnAmount = parseInt(btnMatch[1], 10);
+                    if (btnAmount === amount) {
+                        btn.classList.add(GISAA_HIGHLIGHT_CLASS);
+                    }
+                }
+            }
+        };
+
+        const applyHighlightsFromUrl = () => {
+            const params = new URLSearchParams(location.search);
+
+            // Западные/восточные ресурсы: ?res=Слиток железа&amount=60
+            const res = params.get('res');
+            const amount = parseInt(params.get('amount'), 10);
+            if (res && amount) {
+                highlightWestEastRow(res, amount);
+            }
+
+            // Северные локации: ?loc=Бездна,Солнечные поля&amount=25&icon=sack
+            const locParam = params.get('loc');
+            const icon = params.get('icon');
+            if (locParam && amount && icon) {
+                const locations = locParam.split(',').map(s => s.trim()).filter(Boolean);
+                highlightNorthRow(locations, amount, icon);
+            }
+        };
+
+        const initGisaa = () => {
+            injectGisaaStyles();
+            // Даём странице время загрузиться
+            setTimeout(applyHighlightsFromUrl, 500);
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initGisaa);
+        } else {
+            initGisaa();
+        }
+
+        return; // Выходим из IIFE, не выполняем код для archeage.ru
+    }
+
+    // ============================================================
+    // ===================== ARCHEAGE.RU ==========================
+    // ============================================================
+
+    if (!isArcheageSite) return;
 
     // ==================== Константы ====================
 
@@ -21,7 +173,7 @@
     const DEFAULT_HOUR = 16;  // 16:00 МСК — после профработ
     const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
     const LS_HIDE_DONE_KEY = 'tm_aa_hide_done';
-    const DAY_RESET_HOUR = 2; // 02:00 МСК — начало нового дня для сброса галочки
+    const DAY_RESET_HOUR = 0; // 00:00 МСК — начало нового дня для сброса галочки
 
     // ==================== Состояние ====================
 
@@ -215,7 +367,7 @@
 
     const getHideDoneDayKey = () => {
         const ms = nowMs();
-        // Вычитаем 2 часа, чтобы граница дня была в 02:00 МСК
+        // Вычитаем 2 часа, чтобы граница дня была в 00:00 МСК
         const shiftedMs = ms - DAY_RESET_HOUR * 3600 * 1000;
         const { y, m, d } = getMSKDatePartsFromUtcMs(shiftedMs);
         return `${y}-${pad2(m)}-${pad2(d)}`;
@@ -391,12 +543,65 @@
 
     let VEkselUrlResolved = VEKSEL_BASE;
 
+    // Парсит short и возвращает URL-параметры для gisaa
+    const parseShortToVekselParams = (short, isWestVeksel) => {
+        if (!short) return null;
+
+        if (isWestVeksel) {
+            // Формат: "60 <a href='...'>Слиток железа</a>"
+            const match = short.match(/^(\d+)\s*<a[^>]*>([^<]+)<\/a>/i);
+            if (!match) return null;
+            const amount = match[1];
+            const resourceName = match[2].trim();
+            return `res=${encodeURIComponent(resourceName)}&amount=${amount}`;
+        } else {
+            // Северные локации
+            // Формат: "Бездна / Солнечные поля - 25 <a>кошельков</a>" или "20 <a>котомок</a>"
+            const itemMatch = short.match(/<a[^>]*>([^<]+)<\/a>/i);
+            if (!itemMatch) return null;
+            const itemName = itemMatch[1].trim().toLowerCase();
+            const iconType = itemName.includes('сундуч') ? 'archive' : 'sack';
+
+            // С локацией
+            const locMatch = short.match(/^([^<]+?)\s*-\s*(\d+)\s*<a/i);
+            if (locMatch) {
+                const locationsStr = locMatch[1].trim();
+                const amount = locMatch[2];
+                // Разбиваем по " / " или " или "
+                const locations = locationsStr.split(/\s*(?:\/|или)\s*/i).map(s => s.trim()).filter(Boolean);
+                return `loc=${encodeURIComponent(locations.join(','))}&amount=${amount}&icon=${iconType}`;
+            }
+
+            // Без локации
+            const simpleMatch = short.match(/^(\d+)\s*<a/i);
+            if (simpleMatch) {
+                const amount = simpleMatch[1];
+                return `amount=${amount}&icon=${iconType}`;
+            }
+
+            return null;
+        }
+    };
+
+    // Формирует URL для gisaa с параметрами
+    const buildVekselUrl = (baseUrl, officialId, short) => {
+        const isWest = VEKSEL_OFFICIAL_IDS.has(officialId);
+        const isEast = EAST_VEKSEL_OFFICIAL_IDS.has(officialId);
+        if (!isWest && !isEast) return baseUrl;
+
+        const params = parseShortToVekselParams(short, isWest);
+        if (!params) return baseUrl;
+
+        const separator = baseUrl.includes('?') ? '&' : '?';
+        return baseUrl + separator + params;
+    };
+
     const QUEST_META = {
         "8246": { codexId: 10559, short: "" },
         "8248": { codexId: 9142, short: "" },
         "8250": { codexId: 9318, short: "" },
-        "8252": { codexId: 10512, short: "20 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
-        "8254": { codexId: 10513, short: "60 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
+        "8252": { codexId: 10512, short: "Бухта Китобоев или Эфен'Хал - 20 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
+        "8254": { codexId: 10513, short: "Бухта Китобоев или Эфен'Хал - 60 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
         "8256": { codexId: 9100, short: "" },
         "8258": { codexId: 7658, short: "" },
         "8260": { codexId: 6797, short: "" },
@@ -404,7 +609,7 @@
         "8268": { codexId: 5972, short: "" },
         "8274": { codexId: 10480, short: "" },
         "8282": { codexId: 7154, short: "" },
-        "8284": { codexId: 9137, short: "60 <a href='https://archeagecodex.com/ru/item/8318/' target='_blank'>Железный слиток</a>" },
+        "8284": { codexId: 9137, short: "60 <a href='https://archeagecodex.com/ru/item/8318/' target='_blank'>Слиток железа</a>" },
         "8286": { codexId: 8000131, short: "Квест Нуи на 500 очков работы" },
         "8288": { codexId: 10508, short: "Бездна / Солнечные поля - 25 <a href='https://archeagecodex.com/ru/item/40928/' target='_blank'>расшитых жемчугом кошельков</a>" },
         "8290": { codexId: 10509, short: "Бездна / Солнечные поля - 75 <a href='https://archeagecodex.com/ru/item/40928/' target='_blank'>расшитых жемчугом кошельков</a>" },
@@ -579,7 +784,9 @@
 
             // Обновляем href всех уже отрендеренных ссылок на вексель
             document.querySelectorAll('.tm-veksel-link').forEach(link => {
-                link.href = VEkselUrlResolved;
+                const officialId = parseInt(link.dataset.officialId, 10);
+                const short = link.dataset.short || '';
+                link.href = buildVekselUrl(VEkselUrlResolved, officialId, short);
             });
         } catch {
             VEkselUrlResolved = VEKSEL_BASE;
@@ -658,21 +865,27 @@
         }));
 
         if (typeof officialId === 'number' && VEKSEL_OFFICIAL_IDS.has(officialId)) {
-            icons.appendChild(makeIconLink({
-                href: VEkselUrlResolved,
+            const link = makeIconLink({
+                href: buildVekselUrl(VEkselUrlResolved, officialId, short),
                 iconSrc: ICON_VEKSEL,
                 title: 'Открыть таблицу векселей',
                 className: 'tm-veksel-link',
-            }));
+            });
+            link.dataset.officialId = officialId;
+            link.dataset.short = short || '';
+            icons.appendChild(link);
         }
 
         if (typeof officialId === 'number' && EAST_VEKSEL_OFFICIAL_IDS.has(officialId)) {
-            icons.appendChild(makeIconLink({
-                href: VEkselUrlResolved,
+            const link = makeIconLink({
+                href: buildVekselUrl(VEkselUrlResolved, officialId, short),
                 iconSrc: ICON_VEKSEL_EAST,
                 title: 'Открыть таблицу векселей',
                 className: 'tm-veksel-link',
-            }));
+            });
+            link.dataset.officialId = officialId;
+            link.dataset.short = short || '';
+            icons.appendChild(link);
         }
 
         return row;
