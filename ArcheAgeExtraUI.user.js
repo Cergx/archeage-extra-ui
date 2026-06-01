@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.2.1
+// @version      4.2.2
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
+// @match        *://archeage.ru/promo/marathon
 // @match        *://archeage.ru/promo/marathon/
 // @match        *://archeage.ru/cart
 // @match        *://archeage.ru/cart/
+// @match        *://archeage.ru/itemrestore
 // @match        *://archeage.ru/itemrestore/
 // @match        *://gisaa.ru/veksel/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=archeage.ru
@@ -19,7 +21,7 @@
     const isGisaaSite = location.hostname.includes('gisaa.ru');
     const isArcheageSite = location.hostname.includes('archeage.ru');
     const isCartPage = isArcheageSite && (location.pathname === '/cart' || location.pathname === '/cart/');
-    const isItemRestorePage = isArcheageSite && location.pathname === '/itemrestore/';
+    const isItemRestorePage = isArcheageSite && (location.pathname === '/itemrestore' || location.pathname === '/itemrestore/');
 
     // ============================================================
     // ====================== GISAA.RU ============================
@@ -302,6 +304,7 @@
     /** @type {ApiInfoResponse|null} */
     let API_INFO_CACHE = null;
     let API_INFO_PROMISE = null;
+    /** @type {number|null} */
     let NOW_MS = null;
 
     // Автообновление API
@@ -1247,7 +1250,7 @@
 
     /**
      * @typedef {Object} ItemType
-     * @property {string} icon - URL overlay-изображения типа.
+     * @property {string|undefined} icon - URL overlay-изображения типа.
      * @property {string} title - Название типа предмета.
      */
 
@@ -1287,7 +1290,7 @@
     /**
      * Парсит игровую разметку цвета (WoW/XLGames-формат) в HTML.
      * |cAARRGGBB...text...|r → <span style="color:#RRGGBB">text</span>
-     * |nc;...text...|r       → <span style="color:#ff9c27">text</span>
+     * |nc;...text...|r       → <span class="orange_text">text</span>
      * \n                     → <br>
      * @param {string} text
      * @returns {string} HTML-строка
@@ -1383,6 +1386,7 @@
         "44359":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, url: 'https://archeagecodex.com/ru/item/44359/', name: 'Походный фиал славы' },
         "47941":   { type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, url: 'https://archeagecodex.com/ru/item/47941/', name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
         "55800":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55800/', name: 'Сундучок с фрагментами судьбы', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:<br>- пыль судьбы (25 шт.),<br>- слиток судьбы<br> (5 шт.),<br>- призма судьбы.' },
+        "8002772": { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, url: 'https://archeagecodex.com/ru/item/8002772/', name: 'Окованный сталью ящик с боевым питомцем', description: 'Сняв печать, вы получите Квадрума, Мистериона или Мистериона, Ужаса Ночи (на выбор).' },
         "":   { type: '', icon: '', grade: 1, url: '', name: '' },
     };
 
