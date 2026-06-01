@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.5.7
+// @version      4.5.8
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -1513,7 +1513,6 @@
         { id: 8002297, type: 'unidentified', overlay: 'seal', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, name: 'Королевский лунный изумруд' },
         { id: 35727, icon: 'https://archeagecodex.com/items/icon_item_1982.png', grade: 2, name: 'Буровая установка' },
         { id: 47082, icon: 'https://archeagecodex.com/items/icon_item_3369.png', grade: 1, name: 'Патент на транспортное средство' },
-        { id: 55783, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, name: 'Сундучок с зачарованной гравировкой для украшений' },
         { id: 31892, icon: 'https://archeagecodex.com/items/icon_item_1733.png', grade: 1, name: 'Земельный вексель' },
         { id: 55722, icon: 'https://archeagecodex.com/items/icon_item_5864.png', grade: 4, name: 'Искусная цитриновая гравировка' },
         { id: 48886, icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, name: 'Сверкающая эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r.' },
@@ -1543,11 +1542,14 @@
         { id: 54655, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
         { id: 47941, type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
         { id: 51243, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с магистерским эрнардским оружием эпохи Двенадцати' },
+        { id: 55501, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5850.png', grade: 6, name: 'Сундучок с легендарным украшением ифнирского героя', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:\n- легендарная серьга ифнирского героя,\n- легендарное кольцо ифнирского героя.' },
         { id: 51940, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Сундучок с ценным украшением эпохи чудес' },
         { id: 51236, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундучок с драгоценным украшением эпохи мифов', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов качества эпохи мифов:\n- перстень чемпиона Дома Норьетт,\n- серьга чемпиона Дома Норьетт,\n- ожерелье последнего рубежа,\n- ожерелье доблести воина XIII ранга,\n- ожерелье доблести целителя XIII ранга.' },
+        { id: 55783, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, name: 'Сундучок с зачарованной гравировкой для украшений' },
         { id: 50924, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, name: 'Дизайн широкополой шляпы стрелка' },
         { id: 50925, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, name: 'Дизайн соломенной шляпы' },
         { id: 8002486, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, name: 'Дизайн костюма хоури эпохи Фарвати' },
+        { id: 51092, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_uniform004.png', grade: 2, name: 'Дизайн одеяния правителя северного Мейра' },
         { id: 129, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_accessory_0001.png', grade: 1, name: 'Дельфийская руна' },
         { id: 55280, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, name: 'Легендарная руна ифнирского героя' },
         { id: 55683, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями для украшений' },
@@ -3687,10 +3689,6 @@
             width: 1%;
         }
 
-        .cart_items .item {
-            user-select: none;
-        }
-
         .cart_items .item:hover {
             background: #edf4fa;
         }
@@ -3903,6 +3901,7 @@
                 font-size: 13px;
                 font-family: monospace;
                 color: rgba(255, 255, 255, 0.85);
+                max-width: 150px;
                 white-space: nowrap;
                 user-select: none;
                 line-height: 1.4;
@@ -3910,8 +3909,39 @@
                 display: block;
                 cursor: pointer;
             }
+            .tm-server-clock-event {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-top: 5px;
+            }
         `;
         document.head.appendChild(style);
+    };
+
+    /** Находит ближайшее видимое событие из таблицы «Расписание событий». */
+    const getNextVisibleEventInfo = () => {
+        const visOverrides = loadEventVisibility();
+        let bestActive = null;
+        let bestUpcoming = null;
+
+        for (const ev of EVENTS) {
+            if (!isEventVisible(ev, visOverrides)) continue;
+            const sec = getSecondsUntilNextEvent(ev.schedule);
+            if (sec == null) continue;
+
+            if (sec < 0) {
+                if (!bestActive || sec > bestActive.secondsUntil) {
+                    bestActive = { title: ev.title, secondsUntil: sec };
+                }
+            } else {
+                if (!bestUpcoming || sec < bestUpcoming.secondsUntil) {
+                    bestUpcoming = { title: ev.title, secondsUntil: sec };
+                }
+            }
+        }
+
+        return bestActive || bestUpcoming;
     };
 
     const updateServerClockContent = () => {
@@ -3927,7 +3957,18 @@
         });
         const mskTime = fmt.format(d);
         const gameTime = getGameTime(serverNow);
-        serverClockEl.innerHTML = `мск: ${mskTime}<br>игровое: ${gameTime}`;
+
+        let eventLine = '';
+        const nextEv = getNextVisibleEventInfo();
+        if (nextEv) {
+            if (nextEv.secondsUntil < 0) {
+                eventLine = `<div class="tm-server-clock-event">${nextEv.title}</div><span style="color:#4f8">ещё ${formatCountdown(-nextEv.secondsUntil)}</span>`;
+            } else {
+                eventLine = `<div class="tm-server-clock-event">${nextEv.title}</div>через ${formatCountdown(nextEv.secondsUntil)}`;
+            }
+        }
+
+        serverClockEl.innerHTML = `мск: ${mskTime}<br>игровое: ${gameTime}${eventLine}`;
     };
 
     const initServerClock = async () => {
