@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.9
+// @version      2.0
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -701,11 +701,11 @@
     // ==================== Внешние ссылки (Codex, Veksel) ====================
 
     const CODEX_BASE = 'https://archeagecodex.com/ru/quest/';
+    const CODEX_ITEMS_BASE = 'https://archeagecodex.com/items/';
+    const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
     const ICON_QUEST = 'https://archeagecodex.com/images/icon_quest_common.png';
     const ICON_VEKSEL = 'https://archeagecodex.com/items/icon_item_3493.png';
-    const ICON_VEKSEL_EAST = 'https://archeagecodex.com/items/icon_item_5054.png';
-    const VEKSEL_OFFICIAL_IDS = new Set([8426, 8388, 8352, 8320, 8284, 8248]);
-    const EAST_VEKSEL_OFFICIAL_IDS = new Set([8252, 8254, 8288, 8290, 8324, 8326, 8356, 8358, 8392, 8394, 8434, 8436]);
+    const ICON_VEKSEL_NORTH = 'https://archeagecodex.com/items/icon_item_5054.png';
     const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
 
     const SERVER_TO_VEKSEL_ID = {
@@ -717,10 +717,10 @@
     let VEkselUrlResolved = VEKSEL_BASE;
 
     // Парсит short и возвращает URL-параметры для gisaa
-    const parseShortToVekselParams = (short, isWestVeksel) => {
+    const parseShortToVekselParams = (short, isBlueSaltVeksel) => {
         if (!short) return null;
 
-        if (isWestVeksel) {
+        if (isBlueSaltVeksel) {
             // Формат: "60 <a href='...'>Слиток железа</a>"
             const match = short.match(/^(\d+)\s*<a[^>]*>([^<]+)<\/a>/i);
             if (!match) return null;
@@ -757,12 +757,51 @@
     };
 
     // Формирует URL для gisaa с параметрами
-    const buildVekselUrl = (baseUrl, officialId, short) => {
-        const isWest = VEKSEL_OFFICIAL_IDS.has(officialId);
-        const isEast = EAST_VEKSEL_OFFICIAL_IDS.has(officialId);
-        if (!isWest && !isEast) return baseUrl;
+    // veksel: 'blue_salt' | 'north' | undefined
+    // vekselType: 'sack' | 'archive' | undefined (только для north)
+    const buildVekselUrl = (baseUrl, veksel, vekselType, short, item) => {
+        const isBlueSalt = veksel === 'blue_salt';
+        const isNorth = veksel === 'north';
+        if (!isBlueSalt && !isNorth) return baseUrl;
 
-        const params = parseShortToVekselParams(short, isWest);
+        let params = null;
+
+        // Пробуем получить параметры из item
+        if (item?.count && item?.name) {
+            if (isBlueSalt) {
+                params = `res=${encodeURIComponent(item.name)}&amount=${item.count}`;
+            } else {
+                // Для северных - тип иконки берём из vekselType
+                const iconType = vekselType || 'sack';
+                // Локация в short (может быть "Loc1 / Loc2" или "Loc - item" (старый формат))
+                if (short) {
+                    // Проверяем старый формат с дефисом
+                    const dashMatch = short.match(/^([^-<]+?)\s*-/i);
+                    let locationsStr;
+                    if (dashMatch) {
+                        locationsStr = dashMatch[1].trim();
+                    } else {
+                        // Новый формат: short содержит только локации
+                        locationsStr = short.replace(/<[^>]*>/g, '').trim();
+                    }
+                    if (locationsStr) {
+                        const locations = locationsStr.split(/\s*(?:\/|или)\s*/i).map(s => s.trim()).filter(Boolean);
+                        if (locations.length > 0) {
+                            params = `loc=${encodeURIComponent(locations.join(','))}&amount=${item.count}&icon=${iconType}`;
+                        }
+                    }
+                }
+                if (!params) {
+                    params = `amount=${item.count}&icon=${iconType}`;
+                }
+            }
+        }
+
+        // Fallback на парсинг short
+        if (!params) {
+            params = parseShortToVekselParams(short, isBlueSalt);
+        }
+
         if (!params) return baseUrl;
 
         const separator = baseUrl.includes('?') ? '&' : '?';
@@ -771,10 +810,10 @@
 
     const QUEST_META = {
         "8246": { codexId: 10559, short: "" },
-        "8248": { codexId: 9142, short: "" },
+        "8248": { codexId: 9142, short: "", veksel: 'blue_salt' },
         "8250": { codexId: 9318, short: 'Квест на Взрослого ольхона (портал "Укромный утес")' },
-        "8252": { codexId: 10512, short: "Бухта Китобоев или Эфен'Хал - 20 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
-        "8254": { codexId: 10513, short: "Бухта Китобоев или Эфен'Хал - 60 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
+        "8252": { codexId: 10512, short: "Бухта Китобоев / Эфен'Хал", veksel: 'north', vekselType: 'sack', item: { icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника", count: 20 } },
+        "8254": { codexId: 10513, short: "Бухта Китобоев / Эфен'Хал", veksel: 'north', vekselType: 'sack', item: { icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника", count: 60 } },
         "8256": { codexId: 9100, short: "" },
         "8258": { codexId: 7658, short: "" },
         "8260": { codexId: 6797, short: "" },
@@ -782,45 +821,45 @@
         "8268": { codexId: 5972, short: "" },
         "8274": { codexId: 10480, short: "" },
         "8282": { codexId: 7154, short: "" },
-        "8284": { codexId: 9137, short: "60 <a href='https://archeagecodex.com/ru/item/8318/' target='_blank'>Слиток железа</a>" },
+        "8284": { codexId: 9137, short: "", veksel: 'blue_salt', item: { icon: "quest/icon_item_quest053.png", grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа", count: 60 } },
         "8286": { codexId: 8000131, short: "Квест Нуи на 500 очков работы" },
-        "8288": { codexId: 10508, short: "Бездна / Солнечные поля - 25 <a href='https://archeagecodex.com/ru/item/40928/' target='_blank'>расшитых жемчугом кошельков</a>" },
-        "8290": { codexId: 10509, short: "Бездна / Солнечные поля - 75 <a href='https://archeagecodex.com/ru/item/40928/' target='_blank'>расшитых жемчугом кошельков</a>" },
+        "8288": { codexId: 10508, short: "Бездна / Солнечные поля", veksel: 'north', vekselType: 'sack', item: { icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк", count: 25 } },
+        "8290": { codexId: 10509, short: "Бездна / Солнечные поля", veksel: 'north', vekselType: 'sack', item: { icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк", count: 75 } },
         "8292": { codexId: 5092, short: "" },
         "8294": { codexId: 7659, short: "" },
         "8296": { codexId: 7817, short: "" },
-        "8298": { codexId: 8000058, short: "Лицуха в Нагашар (только обычка)" },
+        "8298": { codexId: 8000058, short: "Лицензия в Нагашар (только обычка)", item: { icon: "icon_item_2762.png", grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный" } },
         "8300": { codexId: 5971, short: "03:20 / 07:20 / 11:20 / 15:20 / 19:20 / 23:20" },
         "8314": { codexId: 10564, short: "Ифнир - змея<br/>Пятница в 22:00 / Суббота в 16:00" },
-        "8316": { codexId: 8000061, short: "" },
+        "8316": { codexId: 8000061, short: "Лицензия в Сады наслаждений (только хард)", item: { icon: "icon_item_2762.png", grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" } },
         "8318": { codexId: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
-        "8320": { codexId: 9152, short: "60 <a href='https://archeagecodex.com/ru/item/16327/' target='_blank'>Сыромятная кожа</a>" },
+        "8320": { codexId: 9152, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа", count: 60 } },
         "8322": { codexId: 8435, short: 'Портал "Лягушачьи пруды"' },
-        "8324": { codexId: 10510, short: "Бездна / Солнечные поля - 8 <a href='https://archeagecodex.com/ru/item/42077/' target='_blank'>фермерских сундучков</a>" },
-        "8326": { codexId: 10511, short: "Бездна / Солнечные поля - 25 <a href='https://archeagecodex.com/ru/item/42077/' target='_blank'>фермерских сундучков</a>" },
+        "8324": { codexId: 10510, short: "Бездна / Солнечные поля", veksel: 'north', vekselType: 'archive', item: { icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной", count: 8 } },
+        "8326": { codexId: 10511, short: "Бездна / Солнечные поля", veksel: 'north', vekselType: 'archive', item: { icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной", count: 25 } },
         "8328": { codexId: 7657, short: "" },
         "8330": { codexId: 7813, short: "" },
         "8336": { codexId: 5144, short: "" },
         "8338": { codexId: 5885, short: "Анталлон на Солнечных полях<br/>01:20 / 05:20 / 09:20 / 13:20 / 17:20 / 21:20" },
-        "8340": { codexId: 8000060, short: 'Изи Сады наслаждений с лицухой' },
+        "8340": { codexId: 8000060, short: "Лицензия в Сады наслаждений (изи или нормал)", item: { icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы" } },
         "8346": { codexId: 10056, short: "" },
         "8348": { codexId: 11154, short: "Лиловый (армия фантомов)<br/>01:50 / 05:50 / 09:50 / 13:50 / 17:50 / 21:50" },
         "8350": { codexId: 11227, short: "Превратиться в руру и получить билет (в данж идти необязательно)" },
-        "8352": { codexId: 9147, short: "60 <a href='https://archeagecodex.com/ru/item/8256/' target='_blank'>Ткань</a>" },
+        "8352": { codexId: 9147, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0356.png", grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань", count: 60 } },
         "8354": { codexId: 8000136, short: "Квест Нуи на 2500 ремесленки" },
-        "8356": { codexId: 10506, short: "" },
-        "8358": { codexId: 10507, short: "Замок Ош - 10 <a href='https://archeagecodex.com/ru/item/42076/' target='_blank'>резных сундучков</a>" },
-        "8360": { codexId: 5091, short: "Замок Ош - 30 <a href='https://archeagecodex.com/ru/item/42076/' target='_blank'>резных сундучков</a>" },
+        "8356": { codexId: 10506, short: "Замок Ош", veksel: 'north', vekselType: 'archive', item: { icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 10 } },
+        "8358": { codexId: 10507, short: "Замок Ош", veksel: 'north', vekselType: 'archive', item: { icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 30 } },
+        "8360": { codexId: 5091, short: "" },
         "8362": { codexId: 9101, short: "Библа, 3-ий босс" },
         "8364": { codexId: 7656, short: "" },
         "8366": { codexId: 9320, short: "" },
         "8372": { codexId: 9297, short: "" },
         "8380": { codexId: 7815, short: "Изи/нормал Сады наслаждений" },
         "8382": { codexId: 10735, short: "Эншака на Солнечных полях<br/>01:20 / 05:20 / 09:20 / 13:20 / 17:20 / 21:20" },
-        "8388": { codexId: 9153, short: "100 <a href='https://archeagecodex.com/ru/item/16327/' target='_blank'>Сыромятная кожа</a>" },
+        "8388": { codexId: 9153, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа", count: 100 } },
         "8390": { codexId: 5062, short: "" },
-        "8392": { codexId: 10514, short: "Бухта китобоев / Эфен'Хал - 7 <a href='https://archeagecodex.com/ru/item/43177/' target='_blank'>эфенских сундучков</a>" },
-        "8394": { codexId: 10515, short: "Бухта китобоев / Эфен'Хал - 20 <a href='https://archeagecodex.com/ru/item/43177/' target='_blank'>эфенских сундучков</a>" },
+        "8392": { codexId: 10514, short: "Бухта Китобоев / Эфен'Хал", veksel: 'north', vekselType: 'archive', item: { icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной", count: 7 } },
+        "8394": { codexId: 10515, short: "Бухта Китобоев / Эфен'Хал", veksel: 'north', vekselType: 'archive', item: { icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной", count: 20 } },
         "8396": { codexId: 7155, short: "Нагашар обычка" },
         "8398": { codexId: 9398, short: "100 мобов на Пустоши Корвуса" },
         "8400": { codexId: 7152, short: "" },
@@ -829,10 +868,10 @@
         "8414": { codexId: 10952, short: "" },
         "8422": { codexId: 10304, short: "" },
         "8424": { codexId: 9099, short: "Библа, первый босс" },
-        "8426": { codexId: 9143, short: "100 <a href='https://archeagecodex.com/ru/item/8337/' target='_blank'>Строительная древесина</a>" },
-        "8434": { codexId: 10504, short: "Замок Ош - 30 <a href='https://archeagecodex.com/ru/item/35461/' target='_blank'>полновесных мешочков с серебром</a>" },
-        "8436": { codexId: 10505, short: "Замок Ош - 90 <a href='https://archeagecodex.com/ru/item/35461/' target='_blank'>полновесных мешочков с серебром</a>" },
-        "8438": { codexId: 8000062, short: "Аль-Харба / Ферма Хадира / Колыбель разрушений / Воющая Бездна / Копи пронизывающего ветра / Арсенал Сожженной крепости" },
+        "8426": { codexId: 9143, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0041.png", grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Строительная древесина", count: 100 } },
+        "8434": { codexId: 10504, short: "Замок Ош", veksel: 'north', vekselType: 'sack', item: { icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 30 } },
+        "8436": { codexId: 10505, short: "Замок Ош", veksel: 'north', vekselType: 'sack', item: { icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 90 } },
+        "8438": { codexId: 8000062, short: "Лицензия в Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", item: { icon: "icon_item_2762.png", grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" } },
         "8448": { codexId: 2943, short: "Кровавый (дневной) разлом - 3-я волна<br/>00:20 / 04:20 / 08:20 / 12:20 / 16:20 / 20:20" },
         "8450": { codexId: 7935, short: "" },
         "8452": { codexId: 7660, short: "" },
@@ -957,9 +996,12 @@
 
             // Обновляем href всех уже отрендеренных ссылок на вексель
             document.querySelectorAll('.tm-veksel-link').forEach(link => {
-                const officialId = parseInt(link.dataset.officialId, 10);
+                const veksel = link.dataset.veksel;
+                const vekselType = link.dataset.vekselType;
                 const short = link.dataset.short || '';
-                link.href = buildVekselUrl(VEkselUrlResolved, officialId, short);
+                let item = null;
+                try { item = link.dataset.item ? JSON.parse(link.dataset.item) : null; } catch {}
+                link.href = buildVekselUrl(VEkselUrlResolved, veksel, vekselType, short, item);
             });
         } catch {
             VEkselUrlResolved = VEKSEL_BASE;
@@ -980,6 +1022,30 @@
         img.src = iconSrc;
         img.alt = title;
         a.appendChild(img);
+        return a;
+    };
+
+    // Создаёт иконку предмета с рамкой редкости
+    const makeItemIconLink = ({ itemIcon, grade, itemUrl, title }) => {
+        const a = document.createElement('a');
+        a.className = 'tm-item-icon-link';
+        a.href = itemUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        if (title) a.title = title;
+
+        const itemImg = document.createElement('img');
+        itemImg.className = 'tm-item-icon-img';
+        itemImg.src = `${CODEX_ITEMS_BASE}${itemIcon}`;
+        itemImg.alt = 'item';
+
+        const gradeImg = document.createElement('img');
+        gradeImg.className = 'tm-item-icon-grade';
+        gradeImg.src = `${CODEX_IMAGES_BASE}icon_grade${grade}.png`;
+        gradeImg.alt = 'grade';
+
+        a.appendChild(itemImg);
+        a.appendChild(gradeImg);
         return a;
     };
 
@@ -1011,9 +1077,44 @@
         return t;
     };
 
-    const makeLinksRow = ({ codexId, officialId, short, questTitle }) => {
+    const makeLinksRow = ({ codexId, short, questTitle, item, veksel, vekselType }) => {
         const row = document.createElement('div');
         row.className = 'tm-links-row';
+
+        // Левая часть: иконка предмета + short-описание
+        const leftPart = document.createElement('div');
+        leftPart.className = 'tm-links-left';
+
+        // Предмет с количеством и иконкой (если есть данные)
+        if (item?.url) {
+            const hasIcon = item.icon && item.grade;
+            const hasCount = item.count && item.count > 1;
+
+            if (hasCount) {
+                const countEl = document.createElement('span');
+                countEl.className = 'tm-item-count';
+                countEl.textContent = `${item.count} ×`;
+                leftPart.appendChild(countEl);
+            }
+
+            if (hasIcon) {
+                leftPart.appendChild(makeItemIconLink({
+                    itemIcon: item.icon,
+                    grade: item.grade,
+                    itemUrl: item.url,
+                    title: item.name || 'Открыть предмет в ArcheageCodex',
+                }));
+            } else if (item.name) {
+                // Без иконки - показываем название ссылкой
+                const nameLink = document.createElement('a');
+                nameLink.className = 'tm-item-name-link';
+                nameLink.href = item.url;
+                nameLink.target = '_blank';
+                nameLink.rel = 'noopener noreferrer';
+                nameLink.textContent = item.name;
+                leftPart.appendChild(nameLink);
+            }
+        }
 
         if (short) {
             const d = document.createElement('div');
@@ -1031,8 +1132,10 @@
                 d.appendChild(countdown);
             }
 
-            row.appendChild(d);
+            leftPart.appendChild(d);
         }
+
+        row.appendChild(leftPart);
 
         const icons = document.createElement('div');
         icons.className = 'tm-icons';
@@ -1042,6 +1145,7 @@
             ? `${formatQuestTitle(questTitle)} - ArcheageCodex`
             : 'Открыть задание в ArcheageCodex';
 
+        // Иконка квеста (всегда справа, добавляем первой из-за row-reverse)
         icons.appendChild(makeIconLink({
             href: `${CODEX_BASE}${codexId}/`,
             iconSrc: ICON_QUEST,
@@ -1049,39 +1153,29 @@
             className: 'tm-codex-link',
         }));
 
-        if (typeof officialId === 'number' && VEKSEL_OFFICIAL_IDS.has(officialId)) {
+        if (veksel === 'blue_salt' || veksel === 'north') {
             const link = makeIconLink({
-                href: buildVekselUrl(VEkselUrlResolved, officialId, short),
-                iconSrc: ICON_VEKSEL,
+                href: buildVekselUrl(VEkselUrlResolved, veksel, vekselType, short, item),
+                iconSrc: veksel === 'blue_salt' ? ICON_VEKSEL : ICON_VEKSEL_NORTH,
                 title: 'Открыть таблицу векселей',
                 className: 'tm-veksel-link',
             });
-            link.dataset.officialId = officialId;
+            link.dataset.veksel = veksel;
+            if (vekselType) link.dataset.vekselType = vekselType;
             link.dataset.short = short || '';
-            icons.appendChild(link);
-        }
-
-        if (typeof officialId === 'number' && EAST_VEKSEL_OFFICIAL_IDS.has(officialId)) {
-            const link = makeIconLink({
-                href: buildVekselUrl(VEkselUrlResolved, officialId, short),
-                iconSrc: ICON_VEKSEL_EAST,
-                title: 'Открыть таблицу векселей',
-                className: 'tm-veksel-link',
-            });
-            link.dataset.officialId = officialId;
-            link.dataset.short = short || '';
+            if (item) link.dataset.item = JSON.stringify(item);
             icons.appendChild(link);
         }
 
         return row;
     };
 
-    const makeTaskCard = ({ q, amount, codexId, officialId, short, isDone, showLastDone }) => {
-        const item = document.createElement('div');
-        item.className = `tasks__item tasks__item--${amount || 1}`;
+    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, item, veksel, vekselType }) => {
+        const card = document.createElement('div');
+        card.className = `tasks__item tasks__item--${amount || 1}`;
 
         if (isDone) {
-            item.classList.add(DONE_CLASS);
+            card.classList.add(DONE_CLASS);
 
             const done = document.createElement('div');
             done.className = 'tasks__item-done';
@@ -1118,14 +1212,14 @@
                 }
             }
 
-            item.appendChild(done);
+            card.appendChild(done);
         }
 
-        item.appendChild(makeRewardBlock(amount, isDone));
-        item.appendChild(makeTaskText(q.description));
-        item.appendChild(makeLinksRow({ codexId, officialId, short, questTitle: q.title }));
+        card.appendChild(makeRewardBlock(amount, isDone));
+        card.appendChild(makeTaskText(q.description));
+        card.appendChild(makeLinksRow({ codexId, short, questTitle: q.title, item, veksel, vekselType }));
 
-        return item;
+        return card;
     };
 
     // ==================== UI: навигация по датам ====================
@@ -1420,8 +1514,8 @@
         listEl.innerHTML = '';
 
         for (const q of active) {
-            const officialId = Number(q.id);
-            const meta = QUEST_META?.[officialId] || QUEST_META?.[String(officialId)];
+            const questId = Number(q.id);
+            const meta = QUEST_META?.[questId] || QUEST_META?.[String(questId)];
             if (!meta?.codexId) continue;
 
             const codexId = Number(meta.codexId);
@@ -1430,9 +1524,12 @@
             const doneInSlot = isDoneInSelectedSlot(q, selectedDayUtcMs, selectedSegment);
 
             const card = makeTaskCard({
-                q, amount, codexId, officialId, short,
+                q, amount, codexId, short,
                 isDone: doneInSlot,
                 showLastDone: doneInSlot,
+                item: meta.item,
+                veksel: meta.veksel,
+                vekselType: meta.vekselType,
             });
 
             listEl.appendChild(card);
@@ -1486,6 +1583,31 @@
                 align-items: center;
             }
 
+            .tm-links-left {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .tm-item-count {
+                font-size: 12px;
+                font-weight: 500;
+                opacity: 0.9;
+                white-space: nowrap;
+            }
+
+            .tm-item-name-link {
+                font-size: 12px;
+                color: inherit;
+                opacity: 0.85;
+                text-decoration: none;
+            }
+
+            .tm-item-name-link:hover {
+                opacity: 1;
+                text-decoration: underline;
+            }
+
             .tm-short {
                 font-size: 12px;
                 line-height: 1.25;
@@ -1523,6 +1645,38 @@
             .tm-icon-link img {
                 width: 30px;
                 display: block;
+            }
+
+            .tm-item-icon-link {
+                position: relative;
+                display: inline-block;
+                width: 30px;
+                height: 30px;
+                flex-shrink: 0;
+                transition: transform 120ms ease, opacity 120ms ease;
+            }
+
+            .tm-item-icon-link:hover {
+                transform: translateY(-1px);
+                opacity: 1;
+            }
+
+            .tm-item-icon-img {
+                position: relative;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: block;
+            }
+
+            .tm-item-icon-grade {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
             }
 
             .tm-nav-wrapper {
