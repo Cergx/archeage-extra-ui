@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.7.0
+// @version      4.8.0
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -18,6 +18,7 @@
     const pageWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
     const pageDocument = pageWindow.document || document;
     const GISAA_VEKSEL_INFO_KEY = 'tm_aa_gisaa_veksel_info_v1';
+    const GISAA_VEKSEL_TABLE_KEY = 'tm_aa_gisaa_veksel_table_v1';
 
     const getMskDateKey = () => {
         const parts = new Intl.DateTimeFormat('en-CA', {
@@ -99,9 +100,74 @@
         return info;
     };
 
-    const getRowLabel = (row) => {
-        const el = row.querySelector('.name.fix_size, .name, .row__cell-name, td:first-child');
-        return (el?.textContent || '').trim().replace(/\s+/g, ' ');
+    const getSavedGisaaTablesSnapshot = () => {
+        const snapshot = readSharedJson(GISAA_VEKSEL_TABLE_KEY, null);
+        if (!snapshot || snapshot.date !== getMskDateKey()) return null;
+        return snapshot;
+    };
+
+    const cleanGisaaText = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+
+    const parseGisaaMaxCell = (maxCell) => {
+        const text = cleanGisaaText(maxCell?.textContent);
+        const amount = parseInt(text, 10);
+        const iconType = maxCell?.querySelector('.fa-archive')
+            ? 'archive'
+            : maxCell?.querySelector('.fa-sack')
+                ? 'sack'
+                : null;
+
+        return {
+            text,
+            unknown: !text || text.includes('?') || !Number.isFinite(amount),
+            amount: Number.isFinite(amount) ? amount : null,
+            iconType,
+        };
+    };
+
+    const parseGisaaRow = (row) => {
+        const location = cleanGisaaText(row.querySelector('.row__cell-name .name.fix_size, .name.fix_size')?.textContent);
+        const max = parseGisaaMaxCell(row.querySelector('.row__cell-max'));
+        return { location, ...max };
+    };
+
+    const readGisaaTableRows = (table) => (
+        Array.from(table.querySelectorAll('.row-table'))
+            .map(parseGisaaRow)
+            .filter(row => row.location)
+    );
+
+    const readGisaaTablesSnapshot = () => {
+        const resources = {};
+
+        for (const blockId of ['#table-block-west', '#table-block-east']) {
+            const block = document.querySelector(blockId);
+            if (!block) continue;
+
+            for (const table of block.querySelectorAll('table')) {
+                const resourceName = cleanGisaaText(table.querySelector('th.table__name')?.textContent);
+                if (!resourceName) continue;
+                resources[resourceName] = [
+                    ...(resources[resourceName] || []),
+                    ...readGisaaTableRows(table),
+                ];
+            }
+        }
+
+        const northBlock = document.querySelector('#table-block-north');
+        const north = northBlock
+            ? Array.from(northBlock.querySelectorAll('.row-table')).map(parseGisaaRow).filter(row => row.location)
+            : [];
+
+        return { resources, north };
+    };
+
+    const saveGisaaTablesSnapshot = (snapshot) => {
+        writeSharedJson(GISAA_VEKSEL_TABLE_KEY, {
+            date: getMskDateKey(),
+            updatedAt: Date.now(),
+            ...snapshot,
+        });
     };
 
     const isGisaaSite = location.hostname.includes('gisaa.ru');
@@ -161,21 +227,20 @@
                     for (const row of rows) {
                         const maxCell = row.querySelector('.row__cell-max');
                         if (!maxCell) continue;
-                        const maxText = maxCell.textContent.trim();
-                        const maxVal = parseInt(maxText, 10);
-                        const rowLabel = getRowLabel(row);
-                        if (isNaN(maxVal) || maxText.includes('?')) {
+                        const parsedRow = parseGisaaRow(row);
+                        if (!parsedRow.location) continue;
+                        if (parsedRow.unknown) {
                             // В таблице неизвестное значение - жёлтым
                             row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_UNKNOWN_CLASS));
-                            if (rowLabel) result.unknown.push(rowLabel);
-                        } else if (maxVal === amount) {
+                            result.unknown.push(parsedRow.location);
+                        } else if (parsedRow.amount === amount) {
                             // Подходит - зелёным
                             row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_MATCH_CLASS));
-                            if (rowLabel) result.match.push(rowLabel);
+                            result.match.push(parsedRow.location);
                         } else {
                             // Не подходит - красным
                             row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_EXCLUDE_CLASS));
-                            if (rowLabel) result.exclude.push(rowLabel);
+                            result.exclude.push(parsedRow.location);
                         }
                     }
                 }
@@ -213,11 +278,11 @@
                 const maxCell = row.querySelector('.row__cell-max');
                 if (!maxCell) continue;
 
-                const maxText = maxCell.textContent.trim();
-                const rowLabel = getRowLabel(row) || rowLocation;
+                const parsedRow = parseGisaaRow(row);
+                const rowLabel = parsedRow.location || rowLocation;
 
                 // Сначала проверяем на неизвестное значение
-                if (maxText.includes('?')) {
+                if (parsedRow.unknown) {
                     row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_UNKNOWN_CLASS));
                     if (rowLabel) result.unknown.push(rowLabel);
                     continue;
@@ -225,17 +290,8 @@
 
                 // Проверяем, подходит ли по amount и iconType
                 let isFullMatch = false;
-                const maxHasIcon = iconType === 'archive'
-                    ? maxCell.querySelector('.fa-archive')
-                    : maxCell.querySelector('.fa-sack');
-                if (maxHasIcon) {
-                    const maxMatch = maxText.match(/^(\d+)/);
-                    if (maxMatch) {
-                        const maxAmount = parseInt(maxMatch[1], 10);
-                        if (maxAmount === amount) {
-                            isFullMatch = true;
-                        }
-                    }
+                if (parsedRow.iconType === iconType && parsedRow.amount === amount) {
+                    isFullMatch = true;
                 }
 
                 if (isFullMatch) {
@@ -277,6 +333,9 @@
         };
 
         const applyHighlightsFromUrl = ({ scrollNorth = true } = {}) => {
+            const snapshot = readGisaaTablesSnapshot();
+            saveGisaaTablesSnapshot(snapshot);
+
             const params = new URLSearchParams(location.search);
 
             // Западные/восточные ресурсы: ?res=Слиток железа&amount=60
@@ -352,6 +411,7 @@
         AUTO_OPEN_BOXES: 'tm_aa_auto_open_boxes',
         IR_PER_PAGE: 'tm_aa_ir_per_page',
         EVENT_VISIBILITY: 'tm_aa_ev_vis',
+        VEKSEL_SERVER_ID: 'tm_aa_veksel_server_id',
         NOTIFICATIONS: 'tm_aa_notifications',
     };
     const HISTORY_MAX_ENTRIES = 500;
@@ -1501,6 +1561,50 @@
     };
 
     let vekselUrlResolved = VEKSEL_BASE;
+    let vekselAutoDetectedServerId = '';
+
+    const loadVekselServerIdOverride = () => {
+        try {
+            const id = localStorage.getItem(LS_KEYS.VEKSEL_SERVER_ID);
+            return id && SERVERS[id] ? id : '';
+        } catch {
+            return '';
+        }
+    };
+
+    const saveVekselServerIdOverride = (serverId) => {
+        try {
+            if (serverId && SERVERS[serverId]) {
+                localStorage.setItem(LS_KEYS.VEKSEL_SERVER_ID, serverId);
+            } else {
+                localStorage.removeItem(LS_KEYS.VEKSEL_SERVER_ID);
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    const getVekselAutoOptionText = () => {
+        const serverName = SERVERS[vekselAutoDetectedServerId];
+        return `Автоопределение${serverName ? ` (${serverName})` : ''}`;
+    };
+
+    const updateVekselServerAutoOptionText = () => {
+        document.querySelectorAll('[data-veksel-server-auto-option="1"]').forEach(option => {
+            option.textContent = getVekselAutoOptionText();
+        });
+    };
+
+    const updateRenderedVekselLinks = () => {
+        document.querySelectorAll('.tm-veksel-link').forEach(link => {
+            const veksel = link.dataset.veksel;
+            let slot = null;
+            let locations = null;
+            try { slot = link.dataset.slot ? JSON.parse(link.dataset.slot) : null; } catch {}
+            try { locations = link.dataset.locations ? JSON.parse(link.dataset.locations) : null; } catch {}
+            link.href = buildVekselUrl(veksel, slot, locations);
+        });
+    };
 
     /**
      * Формирует URL для gisaa с параметрами.
@@ -1560,6 +1664,65 @@
 
         return null;
     };
+
+    const makeGisaaInfoFromRows = (rows) => {
+        const unique = (values) => [...new Set((values || []).filter(Boolean))];
+        const matches = unique(rows.filter(row => row.status === 'match').map(row => row.location));
+        const unknown = unique(rows.filter(row => row.status === 'unknown').map(row => row.location));
+        const excludes = unique(rows.filter(row => row.status === 'exclude').map(row => row.location));
+
+        if (matches.length) {
+            return { status: 'available', locations: matches, unknownLocations: unknown, excludedLocations: excludes };
+        }
+
+        if (!unknown.length && excludes.length) {
+            return { status: 'unavailable', locations: [], unknownLocations: unknown, excludedLocations: excludes };
+        }
+
+        return null;
+    };
+
+    const getGisaaVekselInfoFromSavedTable = (veksel, slot, locations) => {
+        const snapshot = getSavedGisaaTablesSnapshot();
+        if (!snapshot) return null;
+
+        const item = slot?.item;
+        const amount = Number(slot?.count || 0);
+        if (!item || !amount) return null;
+
+        if (veksel === 'blue_salt') {
+            const resourceName = item.vekselName || item.name;
+            const rows = snapshot.resources?.[resourceName];
+            if (!rows?.length) return null;
+
+            return makeGisaaInfoFromRows(rows.map(row => ({
+                location: row.location,
+                status: row.unknown ? 'unknown' : row.amount === amount ? 'match' : 'exclude',
+            })));
+        }
+
+        if (veksel === 'north') {
+            const iconType = item.vekselType || 'sack';
+            const wantedLocations = locations || [];
+            const rows = (snapshot.north || []).filter(row => wantedLocations.some(loc =>
+                row.location.toLowerCase().includes(loc.toLowerCase()) ||
+                loc.toLowerCase().includes(row.location.toLowerCase())
+            ));
+            if (!rows.length) return null;
+
+            return makeGisaaInfoFromRows(rows.map(row => ({
+                location: row.location,
+                status: row.unknown ? 'unknown' : row.amount === amount && row.iconType === iconType ? 'match' : 'exclude',
+            })));
+        }
+
+        return null;
+    };
+
+    const getGisaaVekselInfoForQuest = (veksel, slot, locations) => (
+        getGisaaVekselInfoFromSavedTable(veksel, slot, locations)
+        || getSavedGisaaVekselInfo(getGisaaVekselKeyForQuest(veksel, slot, locations))
+    );
 
     /**
      * @typedef {Object} Grade
@@ -1888,11 +2051,11 @@
         { marathonId: [8470, 9028], id: 10739, title: "Призрачный предводитель", short: "Призрачный (ночной) разлом - Эншака", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
         { marathonId: [8478, 9030], id: 10423, title: "Голиаф, механический скарабей", short: "" },
         { marathonId: [8494, 9032], id: 8635, title: "Срочная доставка", short: "" },
-        { marathonId: [8496, 9034], id: 9295, title: "Орды Сальфимара", short: "", availableWeekdays: [4, 1] },
-        { marathonId: [8498, 9036], id: 9294, title: "Орды Нуимара", short: "", availableWeekdays: [3, 0] },
+        { marathonId: [8496, 9034], id: 9295, title: "Орды Сальфимара", short: "", availableWeekdays: [1, 4] },
+        { marathonId: [8498, 9036], id: 9294, title: "Орды Нуимара", short: "", availableWeekdays: [0, 3] },
         { marathonId: [8500, 9050], id: 8637, title: "Старый друг – новый враг", short: "Бухта - Жакар" },
         { marathonId: [8502, 9040], id: 7327, title: "Взгляд слепца", short: "50 мобов (100 очков) на Сверкающем побережье" },
-        { marathonId: [8504, 9042], id: 9296, title: "Орды Сангемара", short: "", availableWeekdays: [5, 2] },
+        { marathonId: [8504, 9042], id: 9296, title: "Орды Сангемара", short: "", availableWeekdays: [2, 5] },
         { marathonId: [8506, 9044], id: 5969, title: "Кольцо Лореи", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
         { marathonId: [8508, 9062], id: 8641, title: "Наступление кир'феров", short: "Эфен - жаба (через 5 минут после начала войны)" },
         { marathonId: [8510, 9048], id: 5077, title: "Аромат для важной особы", short: "" },
@@ -2260,30 +2423,37 @@
 
     const resolveVekselUrl = async () => {
         try {
+            const serverIdOverride = loadVekselServerIdOverride();
+            if (serverIdOverride) {
+                vekselUrlResolved = `${VEKSEL_BASE}${serverIdOverride}`;
+                updateRenderedVekselLinks();
+                updateVekselServerAutoOptionText();
+                return;
+            }
+
             const uid = await getUidFromCheckUser();
             const html = await fetchText(`/dynamic/user/?a=char_list&u=${encodeURIComponent(uid)}`);
             const servers = parseServersFromCharListHtml(html);
             const mainServer = pickMainServer(servers);
 
             if (!mainServer) {
+                vekselAutoDetectedServerId = '';
                 vekselUrlResolved = VEKSEL_BASE;
+                updateVekselServerAutoOptionText();
                 return;
             }
 
             const vekselId = Object.keys(SERVERS).find(id => SERVERS[id] === mainServer);
+            vekselAutoDetectedServerId = vekselId || '';
             vekselUrlResolved = vekselId ? `${VEKSEL_BASE}${vekselId}` : VEKSEL_BASE;
 
             // Обновляем href всех уже отрендеренных ссылок на вексель
-            document.querySelectorAll('.tm-veksel-link').forEach(link => {
-                const veksel = link.dataset.veksel;
-                let slot = null;
-                let locations = null;
-                try { slot = link.dataset.slot ? JSON.parse(link.dataset.slot) : null; } catch {}
-                try { locations = link.dataset.locations ? JSON.parse(link.dataset.locations) : null; } catch {}
-                link.href = buildVekselUrl(veksel, slot, locations);
-            });
+            updateRenderedVekselLinks();
+            updateVekselServerAutoOptionText();
         } catch {
+            vekselAutoDetectedServerId = '';
             vekselUrlResolved = VEKSEL_BASE;
+            updateVekselServerAutoOptionText();
         }
     };
 
@@ -2644,7 +2814,9 @@
         line.className = `tm-gisaa-status tm-gisaa-status--${info.status}`;
 
         if (info.status === 'available') {
-            const places = (info.locations || []).join(' / ');
+            const places = (info.locations || [])
+                .filter(location => !/^copy$/i.test(String(location).trim()))
+                .join(' / ');
             line.textContent = places
                 ? `Сегодня можно выполнить: ${places}`
                 : 'Сегодня можно выполнить';
@@ -2718,7 +2890,7 @@
         const availableWeekdaysStatus = formatAvailableWeekdaysStatus(availableWeekdays);
         const hasAvailableWeekdays = !!availableWeekdaysStatus;
         const hasSchedule = schedule && schedule.length > 0;
-        const gisaaInfo = getSavedGisaaVekselInfo(getGisaaVekselKeyForQuest(veksel, slot, locations));
+        const gisaaInfo = getGisaaVekselInfoForQuest(veksel, slot, locations);
 
         if (hasLocations || hasShort || hasAvailableWeekdays || hasSchedule || gisaaInfo) {
             const infoWrapper = document.createElement('div');
@@ -6301,6 +6473,26 @@
             .tm-popup-body--settings {
                 padding: 12px 16px;
             }
+            .tm-settings-section {
+                margin-bottom: 14px;
+            }
+            .tm-settings-section:last-child {
+                margin-bottom: 0;
+            }
+            .tm-settings-section-title {
+                font-weight: bold;
+                margin-bottom: 8px;
+            }
+            .tm-settings-server-select {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 5px 6px;
+                border: 1px solid #bbb;
+                border-radius: 4px;
+                background: #fff;
+                color: #2D364E;
+                font: inherit;
+            }
             /* Events table */
             .tm-events-table {
                 width: 100%;
@@ -6451,7 +6643,7 @@
         header.className = 'tm-popup-header';
         const title = document.createElement('div');
         title.className = 'tm-popup-title';
-        title.textContent = 'Отображаемые события';
+        title.textContent = 'Настройки';
         header.appendChild(title);
         const closeBtn = document.createElement('button');
         closeBtn.className = 'tm-popup-btn';
@@ -6463,6 +6655,49 @@
         // Body
         const body = document.createElement('div');
         body.className = 'tm-popup-body tm-popup-body--settings';
+
+        const serverSection = document.createElement('div');
+        serverSection.className = 'tm-settings-section';
+
+        const serverTitle = document.createElement('div');
+        serverTitle.className = 'tm-settings-section-title';
+        serverTitle.textContent = 'Основной сервер';
+        serverSection.appendChild(serverTitle);
+
+        const serverSelect = document.createElement('select');
+        serverSelect.className = 'tm-settings-server-select';
+
+        const autoOption = document.createElement('option');
+        autoOption.value = '';
+        autoOption.dataset.vekselServerAutoOption = '1';
+        autoOption.textContent = getVekselAutoOptionText();
+        serverSelect.appendChild(autoOption);
+
+        Object.entries(SERVERS)
+            .sort((a, b) => a[1].localeCompare(b[1], 'ru'))
+            .forEach(([id, name]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                serverSelect.appendChild(option);
+            });
+
+        serverSelect.value = loadVekselServerIdOverride();
+        serverSelect.addEventListener('change', () => {
+            saveVekselServerIdOverride(serverSelect.value);
+            resolveVekselUrl();
+        });
+        serverSection.appendChild(serverSelect);
+        body.appendChild(serverSection);
+
+        const eventsSection = document.createElement('div');
+        eventsSection.className = 'tm-settings-section';
+
+        const eventsTitle = document.createElement('div');
+        eventsTitle.className = 'tm-settings-section-title';
+        eventsTitle.textContent = 'Отображаемые события';
+        eventsSection.appendChild(eventsTitle);
+
         const ul = document.createElement('ul');
         ul.className = 'tm-ev-settings-list';
 
@@ -6533,7 +6768,8 @@
             ul.appendChild(li);
         }
 
-        body.appendChild(ul);
+        eventsSection.appendChild(ul);
+        body.appendChild(eventsSection);
         panel.appendChild(body);
         settingsOverlay.appendChild(panel);
         document.body.appendChild(settingsOverlay);
