@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.9.0
+// @version      4.9.1
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -6042,7 +6042,6 @@
             return {
                 id: String(item.type || ''),
                 icon: item.iconurl || '',
-                grade,
                 name: item.gi_name || '',
                 description: item.gi_description || '',
                 ...known,
