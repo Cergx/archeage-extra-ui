@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.2
+// @version      1.3
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -20,6 +20,8 @@
     const THU_PRE_HOUR = 3;   // 03:00 МСК — до профработ
     const DEFAULT_HOUR = 16;  // 16:00 МСК — после профработ
     const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
+    const LS_HIDE_DONE_KEY = 'tm_aa_hide_done';
+    const DAY_RESET_HOUR = 2; // 02:00 МСК — начало нового дня для сброса галочки
 
     // ==================== Состояние ====================
 
@@ -43,6 +45,7 @@
         prevBtn: null,
         nextBtn: null,
         todayBtn: null,
+        hideDoneCheckbox: null,
         tasksHeader: null,
         tasksList: null,
     };
@@ -169,6 +172,39 @@
         const w = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' })
             .format(new Date(dayUtcMs));
         return w === 'Thu';
+    };
+
+    // ==================== LocalStorage для "Скрыть выполненные" ====================
+
+    const getHideDoneDayKey = () => {
+        const ms = nowMs();
+        // Вычитаем 2 часа, чтобы граница дня была в 02:00 МСК
+        const shiftedMs = ms - DAY_RESET_HOUR * 3600 * 1000;
+        const { y, m, d } = getMSKDatePartsFromUtcMs(shiftedMs);
+        return `${y}-${pad2(m)}-${pad2(d)}`;
+    };
+
+    const loadHideDoneState = () => {
+        try {
+            const raw = localStorage.getItem(LS_HIDE_DONE_KEY);
+            if (!raw) return false;
+            const data = JSON.parse(raw);
+            if (data.dayKey !== getHideDoneDayKey()) return false;
+            return !!data.checked;
+        } catch {
+            return false;
+        }
+    };
+
+    const saveHideDoneState = (checked) => {
+        try {
+            localStorage.setItem(LS_HIDE_DONE_KEY, JSON.stringify({
+                checked,
+                dayKey: getHideDoneDayKey(),
+            }));
+        } catch {
+            // ignore
+        }
     };
 
     // ==================== Слоты и сегменты (четверг pre/post) ====================
@@ -595,6 +631,27 @@
             const done = document.createElement('div');
             done.className = 'tasks__item-done';
 
+            const row = document.createElement('div');
+            row.className = 'tm-done-row';
+
+            const maxStep = Number(q?.max_completed_step || 0);
+            const progress = Number(q?.progress || 0);
+            const progressEl = document.createElement('span');
+            progressEl.className = 'tm-done-progress';
+            if (maxStep === 0) {
+                progressEl.textContent = 'Можно выполнить повторно';
+            } else {
+                progressEl.textContent = `${progress}/${maxStep}`;
+            }
+            row.appendChild(progressEl);
+
+            const checkEl = document.createElement('span');
+            checkEl.className = 'tm-done-check';
+            checkEl.textContent = '✔';
+            row.appendChild(checkEl);
+
+            done.appendChild(row);
+
             if (showLastDone) {
                 const t = Number(q?.last_complete_time || 0);
                 const time = formatTimeMSK(t);
@@ -643,6 +700,14 @@
             return nav;
         }
 
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tm-nav-wrapper';
+
+        const todayBtn = document.createElement('button');
+        todayBtn.className = 'tm-date-btn tm-date-today';
+        todayBtn.type = 'button';
+        todayBtn.textContent = 'Сегодня';
+
         nav = document.createElement('div');
         nav.className = 'tm-date-nav';
 
@@ -656,11 +721,6 @@
         right.type = 'button';
         right.textContent = '→';
 
-        const todayBtn = document.createElement('button');
-        todayBtn.className = 'tm-date-btn tm-date-today';
-        todayBtn.type = 'button';
-        todayBtn.textContent = 'Сегодня';
-
         const label = document.createElement('div');
         label.className = 'tm-date-label';
         label.textContent = '...';
@@ -668,14 +728,45 @@
         nav.appendChild(left);
         nav.appendChild(label);
         nav.appendChild(right);
-        nav.appendChild(todayBtn);
 
-        DOM.tasksHeader.insertAdjacentElement('afterbegin', nav);
+        const hideDoneLabel = document.createElement('label');
+        hideDoneLabel.className = 'tm-hide-done-label';
+
+        const hideDoneCheckbox = document.createElement('input');
+        hideDoneCheckbox.type = 'checkbox';
+        hideDoneCheckbox.className = 'tm-hide-done-checkbox';
+
+        const hideDoneText = document.createTextNode(' Скрыть выполненные');
+        hideDoneLabel.appendChild(hideDoneCheckbox);
+        hideDoneLabel.appendChild(hideDoneText);
+
+        wrapper.appendChild(todayBtn);
+        wrapper.appendChild(nav);
+        wrapper.appendChild(hideDoneLabel);
+
+        DOM.tasksHeader.insertAdjacentElement('afterbegin', wrapper);
         DOM.nav = nav;
         DOM.label = label;
         DOM.prevBtn = left;
         DOM.nextBtn = right;
         DOM.todayBtn = todayBtn;
+        DOM.hideDoneCheckbox = hideDoneCheckbox;
+
+        // Инициализация из localStorage
+        const savedState = loadHideDoneState();
+        hideDoneCheckbox.checked = savedState;
+        if (savedState) {
+            const listEl = ensureTasksListEl();
+            if (listEl) listEl.classList.add('tm-hide-done');
+        }
+
+        hideDoneCheckbox.addEventListener('change', () => {
+            const listEl = ensureTasksListEl();
+            if (listEl) {
+                listEl.classList.toggle('tm-hide-done', hideDoneCheckbox.checked);
+            }
+            saveHideDoneState(hideDoneCheckbox.checked);
+        });
 
         left.addEventListener('click', async () => {
             const todayUtc = getTodayUtcMsByTZ();
@@ -724,20 +815,29 @@
         const parts = getMSKDatePartsFromUtcMs(selectedDayUtcMs);
         const dateStr = formatDMY(parts);
 
-        const todayUtc = getTodayUtcMsByTZ();
-        const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
         const isThu = isThursdayByTZ(selectedDayUtcMs);
 
         let suffix = '';
-        if (isToday && selectedSegment === 'auto') {
-            suffix = ' (сейчас)';
-        } else if (isThu && selectedSegment === 'pre') {
-            suffix = ' (до 09:00)';
+        if (isThu && selectedSegment === 'pre') {
+            suffix = 'до 09:00';
         } else if (isThu && selectedSegment === 'post') {
-            suffix = ' (после 09:00)';
+            suffix = 'после 09:00';
         }
 
-        DOM.label.textContent = dateStr + suffix;
+        DOM.label.innerHTML = '';
+
+        const dateEl = document.createElement('span');
+        dateEl.className = 'tm-date-label-date';
+        dateEl.textContent = dateStr;
+        DOM.label.appendChild(dateEl);
+
+        if (suffix) {
+            const suffixEl = document.createElement('span');
+            suffixEl.className = 'tm-date-label-suffix';
+            suffixEl.textContent = suffix;
+            DOM.label.appendChild(suffixEl);
+        }
+
         updateDateNavButtons();
     };
 
@@ -895,20 +995,27 @@
 
             .tasks__item-done {
                 display: flex;
-                align-items: flex-start;
-                justify-content: flex-end;
-                gap: 6px;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
                 pointer-events: none;
+            }
+
+            .tm-done-row {
+                display: flex;
+                align-items: center;
+                gap: 6px;
             }
 
             .tm-done-time {
                 font-size: 12px;
-                line-height: 1.2;
-                opacity: 0.9;
             }
 
-            .tasks__item-done::after {
-                content: "✔";
+            .tm-done-progress {
+                font-size: 12px;
+            }
+
+            .tm-done-check {
                 font-size: 14px;
                 font-weight: 700;
                 line-height: 1;
@@ -918,10 +1025,10 @@
             .tm-links-row {
                 margin-top: 6px;
                 display: flex;
-                flex-direction: column;
-                align-items: flex-start;
                 gap: 4px;
                 opacity: 0.95;
+                justify-content: space-between;
+                align-items: center;
             }
 
             .tm-short {
@@ -934,6 +1041,7 @@
                 display: flex;
                 gap: 8px;
                 align-items: center;
+                margin-left: auto;
             }
 
             .tm-icon-link {
@@ -955,6 +1063,12 @@
                 display: block;
             }
 
+            .tm-nav-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+            }
+
             .tm-date-nav {
                 display: flex;
                 align-items: center;
@@ -962,7 +1076,7 @@
             }
 
             @media (max-width: 1300px) {
-                .tm-date-nav {
+                .tm-nav-wrapper {
                     padding: 0 20px;
                 }
             }
@@ -971,20 +1085,34 @@
                 cursor: pointer;
                 padding: 4px 8px;
                 border-radius: 6px;
-                border: 1px solid rgba(255,255,255,0.18);
-                background: rgba(255,255,255,0.06);
+                border: 1px solid rgba(255, 255, 255,0.18);
+                background: rgba(255, 255, 255, 0.06);
                 color: inherit;
                 font: inherit;
+                font-size: 14px;
+                text-transform: uppercase;
             }
 
             .tm-date-btn:hover {
-                background: rgba(255,255,255,0.10);
+                background: rgba(255, 255, 255, 0.10);
             }
 
             .tm-date-label {
-                min-width: 250px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                min-width: 150px;
                 text-align: center;
-                opacity: 0.95;
+            }
+
+            .tm-date-label-date {
+                font-size: 16px;
+            }
+
+            .tm-date-label-suffix {
+                font-size: 12px;
+                opacity: 0.75;
+                line-height: 1;
             }
 
             .tasks__header {
@@ -996,6 +1124,26 @@
             .tm-date-btn:disabled {
                 opacity: 0.35;
                 cursor: default;
+            }
+
+            .tm-hide-done-label {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                cursor: pointer;
+                font-size: 16px;
+            }
+
+            .tm-hide-done-label:hover {
+                opacity: 1;
+            }
+
+            .tm-hide-done-checkbox {
+                cursor: pointer;
+            }
+
+            .tm-hide-done .${DONE_CLASS} {
+                display: none;
             }
         `;
         document.head.appendChild(style);
