@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.1.1
+// @version      4.2.0
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
 // @match        *://archeage.ru/cart
+// @match        *://archeage.ru/cart/
+// @match        *://archeage.ru/itemrestore/
 // @match        *://gisaa.ru/veksel/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=archeage.ru
 // @grant        none
@@ -16,7 +18,8 @@
 
     const isGisaaSite = location.hostname.includes('gisaa.ru');
     const isArcheageSite = location.hostname.includes('archeage.ru');
-    const isCartPage = isArcheageSite && location.pathname === '/cart';
+    const isCartPage = isArcheageSite && (location.pathname === '/cart' || location.pathname === '/cart/');
+    const isItemRestorePage = isArcheageSite && location.pathname === '/itemrestore/';
 
     // ============================================================
     // ====================== GISAA.RU ============================
@@ -210,6 +213,7 @@
         AUTO_CLAIM: 'tm_aa_auto_claim',
         QUEST_HISTORY: 'tm_aa_quest_history',
         AUTO_OPEN_BOXES: 'tm_aa_auto_open_boxes',
+        IR_PER_PAGE: 'tm_aa_ir_per_page',
     };
     const HISTORY_MAX_ENTRIES = 500;
     const HISTORY_PER_PAGE = 10;
@@ -1173,14 +1177,15 @@
     const ICON_GISAA_OVERLAY = 'https://gisaa.ru/img/gisaa.svg?v=1';
     const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
 
-    /** @type {Record<string, number>} */
-    const SERVER_TO_VEKSEL_ID = {
-        'Ифнир': 49, 'Корвус': 42, 'Ксанатос': 61, 'Луций': 1,
-        'Мираж': 65, 'Нагашар': 64, 'Рейвен': 63, 'Тарон': 62,
-        'Фанем': 45, 'Фесаникс': 66, 'Шаеда': 46,
+    /** @type {Record<number, string>} */
+    const SERVERS = {
+        49: 'Ифнир', 42: 'Корвус', 61: 'Ксанатос', 1: 'Луций',
+        65: 'Мираж', 64: 'Нагашар', 63: 'Рейвен', 62: 'Тарон',
+        45: 'Фанем', 66: 'Фесаникс', 46: 'Шаеда',
+        100: 'Логово дракона', 101: 'Библиотека',
     };
 
-    let VEkselUrlResolved = VEKSEL_BASE;
+    let vekselUrlResolved = VEKSEL_BASE;
 
     /**
      * Формирует URL для gisaa с параметрами.
@@ -1191,7 +1196,7 @@
     const buildVekselUrl = (veksel, slot, locations) => {
         const isBlueSalt = veksel === 'blue_salt';
         const isNorth = veksel === 'north';
-        if (!isBlueSalt && !isNorth) return VEkselUrlResolved;
+        if (!isBlueSalt && !isNorth) return vekselUrlResolved;
 
         let params = null;
         const item = slot?.item;
@@ -1210,10 +1215,10 @@
             }
         }
 
-        if (!params) return VEkselUrlResolved;
+        if (!params) return vekselUrlResolved;
 
-        const separator = VEkselUrlResolved.includes('?') ? '&' : '?';
-        return `${VEkselUrlResolved}${separator}${params}`;
+        const separator = vekselUrlResolved.includes('?') ? '&' : '?';
+        return `${vekselUrlResolved}${separator}${params}`;
     };
 
     /**
@@ -1278,6 +1283,25 @@
      * @property {string} [vekselType] - Тип для таблицы векселей ('sack' | 'archive' | 'license').
      * @property {string} [description] - Описание предмета (отображается во второй секции всплывашки).
      */
+
+    /**
+     * Парсит игровую разметку цвета (WoW/XLGames-формат) в HTML.
+     * |cAARRGGBB...text...|r → <span style="color:#RRGGBB">text</span>
+     * |nc;...text...|r       → <span style="color:#ff9c27">text</span>
+     * \n                     → <br>
+     * @param {string} text
+     * @returns {string} HTML-строка
+     */
+    const parseGameMarkup = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\|c[\da-fA-F]{2}([\da-fA-F]{6})(.*?)\|r/g,
+                (_, color, inner) => `<span style="color:#${color}">${inner}</span>`)
+            .replace(/\|nc;(.*?)\|r/g,
+                (_, inner) => `<span class="orange_text">${inner}</span>`)
+            .replace(/\n/g, '<br>');
+    };
 
     const CODEX_ITEM_ICONS = 'https://archeagecodex.com/items/';
     const GMRU_CDN_ICONS = 'https://aa.cdn.gmru.net/ms/data/game-icons/';
@@ -1692,12 +1716,12 @@
             const mainServer = pickMainServer(servers);
 
             if (!mainServer) {
-                VEkselUrlResolved = VEKSEL_BASE;
+                vekselUrlResolved = VEKSEL_BASE;
                 return;
             }
 
-            const vekselId = SERVER_TO_VEKSEL_ID[mainServer];
-            VEkselUrlResolved = vekselId ? `${VEKSEL_BASE}${vekselId}` : VEKSEL_BASE;
+            const vekselId = Object.keys(SERVERS).find(id => SERVERS[id] === mainServer);
+            vekselUrlResolved = vekselId ? `${VEKSEL_BASE}${vekselId}` : VEKSEL_BASE;
 
             // Обновляем href всех уже отрендеренных ссылок на вексель
             document.querySelectorAll('.tm-veksel-link').forEach(link => {
@@ -1709,7 +1733,7 @@
                 link.href = buildVekselUrl(veksel, slot, locations);
             });
         } catch {
-            VEkselUrlResolved = VEKSEL_BASE;
+            vekselUrlResolved = VEKSEL_BASE;
         }
     };
 
@@ -3269,6 +3293,7 @@
 
         .guild_tab.cart_items .gh_2 {
             border-left: none;
+            padding-left: 0;
         }
 
         .guild_tab.cart_items .gh_3 {
@@ -3284,12 +3309,12 @@
 
         .guild_tab.cart_items .gс_2 {
             border-left: none;
+            padding-left: 0;
         }
 
         .guild_tab.cart_items .gс_4 {
             white-space: nowrap;
             text-align: right;
-            padding-right: 0;
             border-right: none;
         }
 
@@ -3313,44 +3338,9 @@
             display: none;
         }
 
-        .tm-cart-item-name {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .cart_items_selected .item_list {
-            max-height: 182px;
-            display: flex;
-            flex-direction: column;
-            overflow: auto;
-        }
-
-        .cart_items_selected .item_list > .js-selected-item {
-            padding-top: 2px;
-            padding-bottom: 2px;
-        }
 
         .tm-cart-timer {
             display: block;
-        }
-
-        .js-selected-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .js-selected-item .tm-cart-item-name {
-            flex: 1;
-            min-width: 0;
-            min-height: 30px;
-        }
-
-        .js-selected-item .tm-cart-item-name span {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .tm-char-face {
@@ -3385,6 +3375,83 @@
     const injectCartStyles = () => {
         const style = document.createElement('style');
         style.textContent = getCartStyles();
+        document.head.appendChild(style);
+    };
+
+    /** Инжектит стили для блока списка выбранных предметов. */
+    const injectSelectedItemsStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = `
+            .tm-selected-container {
+                position: relative;
+                min-height: 100px;
+                padding: 18px 14px 18px 11px;
+            }
+
+            .tm-selected-container::before {
+                content: '';
+                position: absolute;
+                left: -1px;
+                top: 0;
+                bottom: 0;
+                width: 100%;
+                pointer-events: none;
+                background:
+                    url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_top.png) left top no-repeat,
+                    url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bottom.png) left bottom no-repeat;
+            }
+
+            .tm-selected-list {
+                display: flex;
+                flex-direction: column;
+                min-height: 181px;
+                padding: 13px 15px;
+                background: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bg.jpg) left bottom no-repeat;
+                max-height: 181px;
+                overflow: auto;
+                position: relative;
+            }
+
+            .tm-selected-items-help {
+                margin: auto;
+                color: #495a6d;
+                font: 14px / 16px Cambria, Georgia, "Times New Roman", Times, serif;
+                text-align: center;
+                cursor: default;
+            }
+
+            .tm-selected-item {
+                position: relative;
+                display: flex;
+                align-items: center;
+                padding: 2px 36px 2px 0;
+                font: 14px / 16px Cambria, Georgia, "Times New Roman", Times, serif;
+                border-bottom: 1px solid #d6dde5;
+                border-top: 1px solid #d6dde5;
+                cursor: default;
+                z-index: 1;
+            }
+
+            .tm-cart-item-name {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .tm-selected-item .del_btn {
+                position: absolute;
+                display: block;
+                top: 50%;
+                margin-top: -12px;
+                right: 0;
+                width: 25px;
+                height: 25px;
+                background-image: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/icons.png);
+                background-repeat: no-repeat;
+                background-position: left 0px;
+                cursor: pointer;
+            }
+        `;
         document.head.appendChild(style);
     };
 
@@ -3786,6 +3853,97 @@
     };
 
     // ============================================================
+    // ================== Общие UI-компоненты ===================
+    // ============================================================
+
+    /**
+     * Создаёт стилизованный select в обёртке itemrestore__select_wrapper.
+     * @param {{ options: Array<{value: string|number, label: string}>, selected: string|number, onChange: (value: string) => void }} opts
+     * @returns {HTMLDivElement} обёртка с select внутри
+     */
+    const makeSelect = ({ options, selected, onChange }) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'itemrestore__select_wrapper';
+        const select = document.createElement('select');
+        select.className = 'itemrestore__filter-grades';
+        for (const { value, label } of options) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = label;
+            if (String(value) === String(selected)) opt.selected = true;
+            select.appendChild(opt);
+        }
+        select.addEventListener('change', () => onChange(select.value));
+        wrapper.appendChild(select);
+        return wrapper;
+    };
+
+    // ============================================================
+    // ============= Общий блок выбранных предметов ==============
+    // ============================================================
+
+    /**
+     * Рендерит список выбранных предметов в контейнер.
+     * @param {HTMLElement} container - Контейнер для вставки элементов.
+     * @param {Array<Object>} items - Массив выбранных предметов.
+     * @param {Object} opts
+     * @param {string} opts.emptyText - Текст-плейсхолдер, когда список пуст.
+     * @param {(item: Object) => void} opts.onRemove - Обработчик удаления предмета.
+     * @param {(item: Object) => { iconUrl: string, name: string, itemBase?: ItemBase, count?: number }} opts.mapItem - Маппер предмета в данные для отображения.
+     */
+    const renderSelectedItems = (container, items, { emptyText, onRemove, mapItem }) => {
+        container.innerHTML = '';
+
+        if (items.length === 0) {
+            const p = document.createElement('div');
+            p.className = 'tm-selected-items-help';
+            p.textContent = emptyText;
+            container.appendChild(p);
+            return;
+        }
+
+        for (const item of items) {
+            const mapped = mapItem(item);
+            const entry = document.createElement('div');
+            entry.className = 'tm-selected-item';
+
+            const nameWrap = document.createElement('div');
+            nameWrap.className = 'tm-cart-item-name';
+
+            if (mapped.itemBase) {
+                const typeInfo = mapped.itemBase.type ? ITEM_TYPES[mapped.itemBase.type] : null;
+                const icon = makeItemIconLink({
+                    item: mapped.itemBase,
+                    overlay: typeInfo?.icon,
+                    linked: true,
+                    size: 'small',
+                    count: mapped.count,
+                });
+                nameWrap.appendChild(icon);
+            } else if (mapped.iconUrl) {
+                const img = document.createElement('img');
+                img.width = 24;
+                img.height = 24;
+                img.src = mapped.iconUrl;
+                nameWrap.appendChild(img);
+            }
+
+            const title = document.createElement('div');
+            title.className = 'title';
+            title.textContent = mapped.name || '';
+            nameWrap.appendChild(title);
+            entry.appendChild(nameWrap);
+
+            const delBtn = document.createElement('div');
+            delBtn.className = 'del_btn';
+            delBtn.addEventListener('click', () => onRemove(item));
+            entry.appendChild(delBtn);
+
+            container.appendChild(entry);
+        }
+    };
+
+    // ============================================================
     // ===================== CART PAGE ============================
     // ============================================================
 
@@ -4080,15 +4238,10 @@
         right.appendChild(selectedHeader);
 
         const selectedOuter = document.createElement('div');
-        selectedOuter.className = 'cart_items_selected';
-        const selectedInner1 = document.createElement('div');
-        const selectedInner2 = document.createElement('div');
+        selectedOuter.className = 'tm-selected-container';
         const selectedWrap = document.createElement('div');
-        selectedWrap.className = 'item_list';
-        selectedWrap.id = 'selected_items';
-        selectedInner2.appendChild(selectedWrap);
-        selectedInner1.appendChild(selectedInner2);
-        selectedOuter.appendChild(selectedInner1);
+        selectedWrap.className = 'tm-selected-list';
+        selectedOuter.appendChild(selectedWrap);
         right.appendChild(selectedOuter);
 
         // Персонажи — берём оригинальный блок .char_select из ответа
@@ -4180,52 +4333,20 @@
         };
 
         const renderSelectedList = () => {
-            selectedWrap.innerHTML = '';
-
-            if (selectedIds.size === 0) {
-                const p = document.createElement('p');
-                p.textContent = 'Выберите предметы для передачи из списка слева';
-                selectedWrap.appendChild(p);
-                return;
-            }
-
-            for (const id of selectedIds) {
-                const cartItem = cartItems.find(i => i.itemId === id);
-                if (!cartItem) continue;
-
-                const el = document.createElement('div');
-                el.className = 'js-selected-item';
-
-                const nameWrap = document.createElement('div');
-                nameWrap.className = 'tm-cart-item-name';
-
-                const itemData = findItemByName(cartItem.title);
-                if (itemData) {
-                    const typeInfo = itemData.type ? ITEM_TYPES[itemData.type] : null;
-                    const icon = makeItemIconLink({
-                        item: itemData,
-                        overlay: typeInfo?.icon,
-                        linked: true,
-                        size: 'small',
+            const selectedArray = [...selectedIds].map(id => cartItems.find(i => i.itemId === id)).filter(Boolean);
+            renderSelectedItems(selectedWrap, selectedArray, {
+                emptyText: 'Выберите предметы для передачи из списка слева',
+                onRemove: (cartItem) => deselectItem(cartItem.itemId),
+                mapItem: (cartItem) => {
+                    const itemData = findItemByName(cartItem.title);
+                    return {
+                        iconUrl: '',
+                        name: !itemData && cartItem.count > 1 ? `${cartItem.title} ${cartItem.count}×` : cartItem.title,
+                        itemBase: itemData || undefined,
                         count: cartItem.count,
-                    });
-                    nameWrap.appendChild(icon);
-                }
-
-                const nameText = document.createElement('span');
-                nameText.textContent = !itemData && cartItem.count > 1 ? `${cartItem.title} × ${cartItem.count}` : cartItem.title;
-                nameWrap.appendChild(nameText);
-                el.appendChild(nameWrap);
-
-                const closeBtn = document.createElement('span');
-                closeBtn.className = 'close';
-                closeBtn.addEventListener('click', () => {
-                    deselectItem(id);
-                });
-                el.appendChild(closeBtn);
-
-                selectedWrap.appendChild(el);
-            }
+                    };
+                },
+            });
         };
 
         const selectItem = (id) => {
@@ -4340,6 +4461,7 @@
 
     const initCart = () => {
         injectItemIconStyles();
+        injectSelectedItemsStyles();
         injectCartStyles();
 
         const cartObserver = new MutationObserver((mutations, obs) => {
@@ -4360,6 +4482,757 @@
     };
 
     // ============================================================
+    // =================== ITEMRESTORE PAGE ======================
+    // ============================================================
+
+    /**
+     * @typedef {Object} IRItem
+     * @property {string} world_id - Сервер, где удалён предмет.
+     * @property {string} char_id
+     * @property {string} name - Имя персонажа.
+     * @property {string} itemid - ID удалённого экземпляра предмета.
+     * @property {string} type - ID предмета (для ссылки на codex).
+     * @property {string} grade - ID качества (строка, напр. "0").
+     * @property {string} stack - Количество (строка, напр. "1").
+     * @property {string} expire - Дата истечения (напр. "2026-02-11 18:29:47.0000000").
+     * @property {string} reason
+     * @property {string|null} slave_id
+     * @property {string|null} npc_id
+     * @property {string} deleted - Дата удаления (напр. "2026-01-12 18:29:47.0300000").
+     * @property {string} nn
+     * @property {string} gi_name - Название предмета.
+     * @property {string} gi_description - Описание предмета.
+     * @property {string} gi_filename
+     * @property {string|null} gi_refund
+     * @property {string} gg_id
+     * @property {string} color - Цвет названия (hex без #, напр. "BA976D").
+     * @property {string} bind
+     * @property {string} iconurl - URL иконки предмета.
+     * @property {number} shard_id - Сервер персонажа.
+     * @property {boolean} [selected] - Флаг выбора (добавляется фронтендом).
+     */
+
+    const IR_URL = {
+        grades: '/dynamic/itemrestore/index.php?a=get_item_grades',
+        info: '/dynamic/itemrestore/index.php?a=get_restore_info',
+        items: '/dynamic/itemrestore/index.php?a=get_user_items',
+        restore: '/dynamic/itemrestore/index.php?a=post_restore_items',
+    };
+
+    /**
+     * Показывает модальное окно для страницы восстановления.
+     * @param {Object} params
+     * @param {string} params.title
+     * @param {string} params.body
+     * @param {{ label: string, icon: string, action: function|null }[]} params.buttons
+     */
+    const showItemRestorePopup = ({ title, body, buttons }) => {
+        let src = document.getElementById('tm_ir_popup_src');
+        if (!src) {
+            src = document.createElement('div');
+            src.id = 'tm_ir_popup_src';
+            src.style.display = 'none';
+            document.body.appendChild(src);
+        }
+
+        src.innerHTML = `
+            <div class="main_popup_block">
+                <div class="header blue">${title}</div>
+                <div class="inner_cont">${body}</div>
+                <div class="popup_buttons">
+                    ${buttons.map((btn, i) =>
+            `<a href="#" class="guild_button1 ${btn.icon}" data-tm-btn="${i}"><em></em>${btn.label}</a>`
+        ).join('')}
+                </div>
+            </div>`;
+
+        popup_open(false, 'tm_ir_popup_src');
+
+        const popupBlock = document.getElementById('popup_block');
+        if (popupBlock) {
+            popupBlock.querySelectorAll('a[data-tm-btn]').forEach(a => {
+                const btn = buttons[parseInt(a.dataset.tmBtn)];
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    popup_close();
+                    btn.action?.();
+                });
+            });
+        }
+    };
+
+    /**
+     * Строит UI страницы восстановления предметов.
+     * @param {HTMLElement} container
+     * @param {Array<{id: number, name: string}>} grades
+     * @param {{lastRestored_at: number, restoreIsAvailable: number, restoredByeLastMonth: number}} info
+     * @param {Array<Object>} items
+     */
+    const buildItemRestoreUI = (container, grades, info, items) => {
+        // --- State ---
+        const allItems = items.map(item => ({ ...item, selected: false }));
+        const selectedItems = [];
+        let restoredItems = info.restoredByeLastMonth || 0;
+        const recoveryLimit = 10;
+        const savedPerPage = parseInt(localStorage.getItem(LS_KEYS.IR_PER_PAGE));
+        let itemsPerPage = [10, 20, 30].includes(savedPerPage) ? savedPerPage : savedPerPage === 0 ? 0 : 10;
+        let filterGrade = -1;
+        let findString = '';
+        let activePage = 1;
+        let sortAsc = false;
+
+        // --- Helpers ---
+
+        /**
+         * Маппинг grade из API (строка) → индекс в GRADES.
+         * API grade → название из grades API → ищем совпадение title в GRADES.
+         * Если не нашли — используем числовое значение grade напрямую.
+         * @param {string} apiGrade
+         * @returns {number}
+         */
+        const mapGrade = (apiGrade) => {
+            const gradeName = getGradeName(apiGrade);
+            if (gradeName !== '-') {
+                const idx = GRADES.findIndex(g => g.title === gradeName);
+                if (idx !== -1) return idx;
+            }
+            return parseInt(apiGrade) || 0;
+        };
+
+        /**
+         * Создаёт объект ItemBase для makeItemIconLink из IRItem.
+         * @param {IRItem} item
+         * @returns {ItemBase}
+         */
+        const toItemBase = (item) => ({
+            icon: item.iconurl || '',
+            grade: mapGrade(item.grade),
+            url: `https://archeagecodex.com/ru/item/${item.type}/`,
+            name: item.gi_name || '',
+            description: parseGameMarkup(item.gi_description),
+        });
+
+        const addZero = (n) => n < 10 ? '0' + n : '' + n;
+
+        const formatDate = (ts) => {
+            const dt = new Date(ts);
+            return `${addZero(dt.getDate())}.${addZero(dt.getMonth() + 1)}.${dt.getFullYear()}`;
+        };
+
+        const formatDateTime = (ts) => {
+            const dt = new Date(ts);
+            return `${addZero(dt.getDate())}.${addZero(dt.getMonth() + 1)}.${dt.getFullYear()} ${addZero(dt.getHours())}:${addZero(dt.getMinutes())}`;
+        };
+
+        const formatDateTimeFull = (ts) => {
+            const dt = new Date(ts);
+            return `${addZero(dt.getHours())}:${addZero(dt.getMinutes())}:${addZero(dt.getSeconds())} ${addZero(dt.getDate())}.${addZero(dt.getMonth() + 1)}.${dt.getFullYear()}`;
+        };
+
+        const getExpireTime = (dateStr) => {
+            const expire = Date.parse(dateStr);
+            const now = Date.now();
+            const hoursAll = (expire - now) / (1000 * 60 * 60);
+            const days = Math.floor(hoursAll / 24);
+            const hours = Math.round(hoursAll - days * 24);
+            return `${days} д. ${hours} ч.`;
+        };
+
+        const getGradeName = (id) => {
+            const g = grades.find(v => String(v.id) === String(id));
+            return g ? g.name : '-';
+        };
+
+        const getFilteredItems = () => {
+            const filtered = allItems.filter(v => {
+                const gradeOk = filterGrade === -1 || String(v.grade) === String(filterGrade);
+                const nameOk = !findString || (v.gi_name && v.gi_name.toLowerCase().includes(findString.toLowerCase()));
+                return gradeOk && nameOk;
+            });
+            const dir = sortAsc ? 1 : -1;
+            filtered.sort((a, b) => dir * ((a.deleted || '') > (b.deleted || '') ? 1 : (a.deleted || '') < (b.deleted || '') ? -1 : 0));
+            return filtered;
+        };
+
+        const getPageItems = () => {
+            const filtered = getFilteredItems();
+            if (!itemsPerPage) return filtered;
+            const start = (activePage - 1) * itemsPerPage;
+            const end = Math.min(start + itemsPerPage, filtered.length);
+            return filtered.slice(start, end);
+        };
+
+        const getPagesCount = () => itemsPerPage ? Math.ceil(getFilteredItems().length / itemsPerPage) : 1;
+
+        // --- Build DOM ---
+        const section = document.createElement('section');
+
+        // == Filter ==
+        const filterDiv = document.createElement('div');
+        filterDiv.className = 'itemrestore__filter';
+
+        const gradeTitle = document.createElement('div');
+        gradeTitle.className = 'itemrestore__filter-title';
+        gradeTitle.textContent = 'Качество';
+        filterDiv.appendChild(gradeTitle);
+
+        const gradeOptions = [{ value: -1, label: 'Не выбрано' }, ...grades.map(g => ({ value: g.id, label: g.name }))];
+        const gradeSelectWrapper = makeSelect({
+            options: gradeOptions,
+            selected: filterGrade,
+            onChange: (val) => { filterGrade = parseInt(val); activePage = 1; renderTable(); },
+        });
+        filterDiv.appendChild(gradeSelectWrapper);
+
+        const gradeReset = document.createElement('div');
+        gradeReset.className = 'itemrestore__grades-reset';
+        filterDiv.appendChild(gradeReset);
+
+        const nameTitle = document.createElement('div');
+        nameTitle.className = 'itemrestore__filter-title';
+        nameTitle.textContent = 'Название';
+        filterDiv.appendChild(nameTitle);
+
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'itemrestore__input-wrapper';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'itemrestore__filter-name';
+        inputWrapper.appendChild(nameInput);
+        filterDiv.appendChild(inputWrapper);
+
+        const searchBtn = document.createElement('div');
+        searchBtn.className = 'itemrestore__search-btn';
+        const searchSpan = document.createElement('span');
+        searchSpan.textContent = ' Искать';
+        searchBtn.appendChild(searchSpan);
+        filterDiv.appendChild(searchBtn);
+
+        section.appendChild(filterDiv);
+
+        // == Panels ==
+        const panelWrapper = document.createElement('div');
+        panelWrapper.className = 'itemrestore__panel-wrapper';
+        const panel = document.createElement('div');
+        panel.className = 'itemrestore__panel';
+
+        // -- Left panel --
+        const panelLeft = document.createElement('div');
+        panelLeft.className = 'itemrestore__panel-left';
+
+        const leftTitle = document.createElement('div');
+        leftTitle.className = 'guild_header2 green';
+        leftTitle.textContent = 'Удалённые предметы';
+        panelLeft.appendChild(leftTitle);
+
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'itemrestore__table-wrapper';
+        const table = document.createElement('table');
+        table.className = 'itemrestore__table';
+        table.cellSpacing = '0';
+        table.cellPadding = '0';
+
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'itemrestore__table-header';
+        const headers = [
+            { cls: 'n4', text: '' },
+            { cls: 'n1', text: 'Наименование' },
+            { cls: 'n5', text: 'До\u00a0удаления' },
+            { cls: 'n6', text: 'Персонаж' },
+        ];
+
+        const thDate = document.createElement('th');
+        thDate.className = 'n2 tm-sortable';
+        const thDateText = document.createElement('span');
+        thDateText.textContent = 'Удалён';
+        const thDateArrow = document.createElement('span');
+        thDateArrow.className = 'tm-sort-arrow';
+        thDateArrow.textContent = sortAsc ? ' \u25B2' : ' \u25BC';
+        thDate.appendChild(thDateText);
+        thDate.appendChild(thDateArrow);
+        thDate.addEventListener('click', () => {
+            sortAsc = !sortAsc;
+            thDateArrow.textContent = sortAsc ? ' \u25B2' : ' \u25BC';
+            activePage = 1;
+            renderTable();
+        });
+        headerRow.appendChild(thDate);
+
+        for (const h of headers) {
+            const th = document.createElement('th');
+            if (h.cls) th.className = h.cls;
+            th.textContent = h.text;
+            headerRow.appendChild(th);
+        }
+
+        const tbody = document.createElement('tbody');
+        tbody.appendChild(headerRow);
+        table.appendChild(tbody);
+        tableWrapper.appendChild(table);
+        panelLeft.appendChild(tableWrapper);
+
+        // Footer (pagination + per-page selector)
+        const tableFooter = document.createElement('div');
+        tableFooter.className = 'tm-table-footer';
+        const pagination = document.createElement('div');
+        pagination.className = 'itemrestore__pagintation';
+        tableFooter.appendChild(pagination);
+        const perPageWrap = makeSelect({
+            options: [{ value: 10, label: '10' }, { value: 20, label: '20' }, { value: 30, label: '30' }, { value: 0, label: 'Все' }],
+            selected: itemsPerPage,
+            onChange: (val) => {
+                itemsPerPage = parseInt(val);
+                localStorage.setItem(LS_KEYS.IR_PER_PAGE, itemsPerPage);
+                activePage = 1;
+                renderTable();
+            },
+        });
+        tableFooter.appendChild(perPageWrap);
+        panelLeft.appendChild(tableFooter);
+
+        panel.appendChild(panelLeft);
+
+        // -- Right panel --
+        const panelRight = document.createElement('div');
+        panelRight.className = 'itemrestore__panel-right';
+
+        const rightTitle = document.createElement('div');
+        rightTitle.className = 'guild_header2 green';
+        rightTitle.textContent = 'Список выбранных предметов';
+        panelRight.appendChild(rightTitle);
+
+        const selectedContainer = document.createElement('div');
+        selectedContainer.className = 'tm-selected-container';
+        const selectedList = document.createElement('div');
+        selectedList.className = 'tm-selected-list';
+        selectedContainer.appendChild(selectedList);
+        panelRight.appendChild(selectedContainer);
+
+        const restoreBtn = document.createElement('div');
+        restoreBtn.className = 'itemrestore-recovery_btn';
+        const restoreBtnSpan = document.createElement('span');
+        restoreBtnSpan.textContent = 'Восстановить';
+        restoreBtn.appendChild(restoreBtnSpan);
+        panelRight.appendChild(restoreBtn);
+
+        panel.appendChild(panelRight);
+        panelWrapper.appendChild(panel);
+        section.appendChild(panelWrapper);
+
+        // == Info text ==
+        const infoRestoredP = document.createElement('p');
+        const infoDateP = document.createElement('p');
+        section.appendChild(infoRestoredP);
+        section.appendChild(infoDateP);
+
+        const updateInfoText = () => {
+            infoRestoredP.textContent = `За последний календарный месяц восстановлено предметов: ${restoredItems} из ${recoveryLimit} возможных.`;
+            infoDateP.textContent = info.lastRestored_at
+                ? `Последнее восстановление: ${formatDateTime(info.lastRestored_at * 1000)}`
+                : '';
+        };
+        updateInfoText();
+
+        container.appendChild(section);
+
+        // --- Rendering ---
+        const renderTable = () => {
+            const pageItems = getPageItems();
+            while (tbody.children.length > 1) tbody.removeChild(tbody.lastChild);
+
+            for (const item of pageItems) {
+                const tr = document.createElement('tr');
+                if (item.selected) tr.className = 'selected';
+
+                const tdDate = document.createElement('td');
+                tdDate.className = 'n2';
+                tdDate.textContent = item.deleted ? formatDateTimeFull(Date.parse(item.deleted)) : '';
+                tr.appendChild(tdDate);
+
+                const tdCount = document.createElement('td');
+                tdCount.className = 'n4';
+                tdCount.textContent = parseInt(item.stack) > 1 ? `${item.stack}×` : '';
+                tr.appendChild(tdCount);
+
+                const tdName = document.createElement('td');
+                tdName.className = 'n1';
+                const nameWrap = document.createElement('div');
+                nameWrap.className = 'tm-cart-item-name';
+                const itemBase = toItemBase(item);
+                nameWrap.appendChild(makeItemIconLink({
+                    item: itemBase,
+                    linked: true,
+                    size: 'small',
+                }));
+                const nameText = document.createElement('span');
+                nameText.textContent = item.gi_name || '';
+                if (item.color) nameText.style.color = `#${item.color}`;
+                nameWrap.appendChild(nameText);
+                tdName.appendChild(nameWrap);
+                tr.appendChild(tdName);
+
+                const tdExpire = document.createElement('td');
+                tdExpire.className = 'n5';
+                tdExpire.textContent = item.expire ? getExpireTime(item.expire) : '';
+                tr.appendChild(tdExpire);
+
+                const tdChar = document.createElement('td');
+                tdChar.className = 'n6';
+                const serverName = SERVERS[item.shard_id] || '';
+                tdChar.appendChild(document.createTextNode(item.name || ''));
+                if (serverName) {
+                    const serverSpan = document.createElement('span');
+                    serverSpan.className = 'tm-server-name';
+                    serverSpan.textContent = ` (${serverName})`;
+                    tdChar.appendChild(serverSpan);
+                }
+                tr.appendChild(tdChar);
+
+                tr.addEventListener('click', () => {
+                    if (!item.selected) {
+                        selectItem(item);
+                    }
+                });
+
+                tbody.appendChild(tr);
+            }
+
+            renderPagination();
+        };
+
+        const renderPagination = () => {
+            pagination.innerHTML = '';
+            const pagesCount = getPagesCount();
+
+            if (pagesCount > 1) {
+                const btnFirst = document.createElement('div');
+                btnFirst.className = 'itemrestore__pagintation-btn first' + (activePage > 1 ? ' active' : '');
+                btnFirst.addEventListener('click', () => { if (activePage > 1) { activePage = 1; renderTable(); } });
+                pagination.appendChild(btnFirst);
+
+                const btnPrev = document.createElement('div');
+                btnPrev.className = 'itemrestore__pagintation-btn prev' + (activePage > 1 ? ' active' : '');
+                btnPrev.addEventListener('click', () => { if (activePage > 1) { activePage--; renderTable(); } });
+                pagination.appendChild(btnPrev);
+
+                const pagesDiv = document.createElement('div');
+                pagesDiv.className = 'itemrestore__pagintation-pages';
+
+                let start = 1, end = Math.min(10, pagesCount);
+                if (activePage > 5) {
+                    start = activePage - 5;
+                    if (pagesCount - start < 10) start = Math.max(1, pagesCount - 10);
+                }
+                if (pagesCount - activePage > 5) {
+                    end = activePage + 5;
+                    end = Math.min(pagesCount, Math.max(end, 10));
+                } else {
+                    end = pagesCount;
+                }
+
+                for (let i = start; i <= end; i++) {
+                    const page = document.createElement('div');
+                    page.className = 'itemrestore__pagintation-page' + (i === activePage ? ' active' : '');
+                    page.textContent = i;
+                    const pageNum = i;
+                    page.addEventListener('click', () => { activePage = pageNum; renderTable(); });
+                    pagesDiv.appendChild(page);
+                }
+                pagination.appendChild(pagesDiv);
+
+                const btnNext = document.createElement('div');
+                btnNext.className = 'itemrestore__pagintation-btn next' + (activePage < pagesCount ? ' active' : '');
+                btnNext.addEventListener('click', () => { if (activePage < pagesCount) { activePage++; renderTable(); } });
+                pagination.appendChild(btnNext);
+
+                const btnLast = document.createElement('div');
+                btnLast.className = 'itemrestore__pagintation-btn last' + (activePage < pagesCount ? ' active' : '');
+                btnLast.addEventListener('click', () => { if (activePage < pagesCount) { activePage = pagesCount; renderTable(); } });
+                pagination.appendChild(btnLast);
+            }
+        };
+
+
+        const renderSelected = () => {
+            renderSelectedItems(selectedList, selectedItems, {
+                emptyText: 'Выберите предметы для восстановления из списка слева',
+                onRemove: (item) => deselectItem(item),
+                mapItem: (item) => ({
+                    iconUrl: item.iconurl || '',
+                    name: item.gi_name || '',
+                    itemBase: toItemBase(item),
+                }),
+            });
+        };
+
+        // --- Selection ---
+        const selectItem = (item) => {
+            if (item.selected) return;
+
+            if (restoredItems >= recoveryLimit) {
+                showItemRestorePopup({
+                    title: 'Внимание',
+                    body: '<p>Достигнут лимит восстановления предметов за текущий месяц.</p>',
+                    buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+                });
+                return;
+            }
+
+            if (selectedItems.length + restoredItems >= recoveryLimit) {
+                showItemRestorePopup({
+                    title: 'Внимание',
+                    body: '<p>Выбранное количество предметов превышает лимит восстановления.</p>',
+                    buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+                });
+                return;
+            }
+
+            item.selected = true;
+            selectedItems.push(item);
+            renderTable();
+            renderSelected();
+        };
+
+        const deselectItem = (item) => {
+            if (!item.selected) return;
+            item.selected = false;
+            const idx = selectedItems.indexOf(item);
+            if (idx !== -1) selectedItems.splice(idx, 1);
+            renderTable();
+            renderSelected();
+        };
+
+        // --- Restore ---
+        const restoreItems = () => {
+            if (selectedItems.length === 0) return;
+
+            showItemRestorePopup({
+                title: 'Восстановление предметов',
+                body: `<p>Восстановить выбранные предметы (${selectedItems.length} шт.)?</p>`,
+                buttons: [
+                    {
+                        label: 'Восстановить', icon: 'ico_done', action: async () => {
+                            const ids = selectedItems.map(v => v.itemid);
+                            try {
+                                const res = await fetch(IR_URL.restore, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(ids),
+                                });
+                                const json = await res.json();
+
+                                if (json && json.success) {
+                                    let successCount = 0;
+                                    const results = json.data || {};
+                                    for (const [id, result] of Object.entries(results)) {
+                                        if (result.status === 'ok') {
+                                            const allIdx = allItems.findIndex(v => v.itemid == id);
+                                            if (allIdx !== -1) allItems.splice(allIdx, 1);
+                                            const selIdx = selectedItems.findIndex(v => v.itemid == id);
+                                            if (selIdx !== -1) selectedItems.splice(selIdx, 1);
+                                            if (allIdx !== -1 && selIdx !== -1) successCount++;
+                                        }
+                                    }
+                                    restoredItems += successCount;
+                                    activePage = 1;
+                                    updateInfoText();
+                                    renderTable();
+                                    renderSelected();
+
+                                    const resultLines = Object.entries(results).map(([id, r]) => {
+                                        const item = items.find(v => v.itemid == id);
+                                        const name = item ? item.gi_name : id;
+                                        return `${name}: ${r.status === 'ok' ? 'восстановлен' : 'ошибка'}`;
+                                    });
+                                    showItemRestorePopup({
+                                        title: 'Результат',
+                                        body: `<p>${resultLines.join('<br>')}</p>`,
+                                        buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+                                    });
+                                } else if (json.error) {
+                                    showItemRestorePopup({
+                                        title: 'Ошибка',
+                                        body: `<p>${json.error}</p>`,
+                                        buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+                                    });
+                                }
+                            } catch (e) {
+                                showItemRestorePopup({
+                                    title: 'Ошибка',
+                                    body: `<p>Ошибка сети: ${e.message}</p>`,
+                                    buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+                                });
+                            }
+                        }
+                    },
+                    { label: 'Отмена', icon: '', action: null },
+                ],
+            });
+        };
+
+        // --- Events ---
+        gradeReset.addEventListener('click', () => {
+            if (filterGrade !== -1) activePage = 1;
+            filterGrade = -1;
+            gradeSelectWrapper.querySelector('select').value = '-1';
+            renderTable();
+        });
+
+        searchBtn.addEventListener('click', () => {
+            findString = nameInput.value.trim();
+            activePage = 1;
+            renderTable();
+        });
+
+        nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                findString = nameInput.value.trim();
+                activePage = 1;
+                renderTable();
+            }
+        });
+
+        restoreBtn.addEventListener('click', restoreItems);
+
+        // --- Initial render ---
+        renderTable();
+        renderSelected();
+    };
+
+    /** Инициализация страницы восстановления предметов. */
+    /** Инжектит стили для страницы восстановления предметов. */
+    const injectItemRestoreStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = `
+            #block_content {
+                overflow: unset;
+            }
+
+            .itemrestore__panel-left {
+                min-height: 615px;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .itemrestore__table-wrapper {
+                min-height: unset;
+                margin-bottom: auto;
+            }
+
+            .itemrestore__panel-right {
+                position: sticky;
+                top: 0;
+                align-self: flex-start;
+            }
+
+            .itemrestore__table tr:last-child td {
+                border-bottom: 0;
+            }
+
+            .itemrestore__table .n2 {
+                width: 0%;
+            }
+
+            .itemrestore__table th.n4 {
+                white-space: nowrap;
+                width: 0%;
+                text-align: right;
+                border-right: none;
+                min-width: 24px;
+            }
+
+            .itemrestore__table .n5,
+            .itemrestore__table .n6 {
+                width: 0%;
+            }
+
+            .tm-server-name {
+                color: #999;
+                font-size: 0.85em;
+            }
+
+            .tm-sortable {
+                cursor: pointer;
+                user-select: none;
+                white-space: nowrap;
+            }
+
+            .tm-table-footer {
+                position: sticky;
+                bottom: 0;
+                background: #fff;
+                padding: 10px;
+                margin: 10px 0;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 12px;
+                border: 1px solid #e1e1e1;
+                border-radius: 8px;
+            }
+
+            .itemrestore__pagintation {
+                margin: 0;
+            }
+
+        `;
+        document.head.appendChild(style);
+    };
+
+    const initItemRestore = () => {
+        injectItemIconStyles();
+        injectSelectedItemsStyles();
+        injectItemRestoreStyles();
+
+        // Перехватываем fetch-ответы Vue-приложения
+        const intercepted = { grades: null, info: null, items: null };
+        let interceptedCount = 0;
+
+        const origFetch = window.fetch.bind(window);
+        window.fetch = async (...args) => {
+            const res = await origFetch(...args);
+            const urlStr = typeof args[0] === 'string' ? args[0] : String(args[0]?.url || args[0]);
+            const path = urlStr.split('?')[0] + '?' + (urlStr.split('?')[1] || '');
+
+            if (urlStr.includes('a=get_item_grades')) {
+                intercepted.grades = await res.clone().json();
+                interceptedCount++;
+            } else if (urlStr.includes('a=get_restore_info')) {
+                intercepted.info = await res.clone().json();
+                interceptedCount++;
+            } else if (urlStr.includes('a=get_user_items')) {
+                intercepted.items = await res.clone().json();
+                interceptedCount++;
+            }
+
+            if (interceptedCount === 3) {
+                interceptedCount = -1; // prevent re-entry
+                tryBuild();
+            }
+
+            return res;
+        };
+
+        const tryBuild = () => {
+            const app = document.getElementById('app_itemrestore');
+            if (!app) return;
+
+            const grades = intercepted.grades?.data || [];
+            const info = intercepted.info?.data || {};
+            const items = [];
+            if (intercepted.items?.data) {
+                Object.values(intercepted.items.data).forEach(server =>
+                    Object.values(server).forEach(item => items.push(item))
+                );
+            }
+
+            app.className = '';
+            app.innerHTML = '';
+            buildItemRestoreUI(app, grades, info, items);
+        };
+    };
+
+    // ============================================================
     // ===================== INITIALIZATION =======================
     // ============================================================
 
@@ -4369,6 +5242,8 @@
         } else {
             initCart();
         }
+    } else if (isItemRestorePage) {
+        initItemRestore();
     } else {
         // Marathon page
         const observer = new MutationObserver(() => {
