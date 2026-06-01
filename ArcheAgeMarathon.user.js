@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      2.1
+// @version      2.3
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -26,17 +26,9 @@
         const injectGisaaStyles = () => {
             const style = document.createElement('style');
             style.textContent = `
-                .${GISAA_HIGHLIGHT_CLASS} {
-                    background-color: rgba(60, 180, 90, 0.25) !important;
-                    box-shadow: inset 0 0 0 2px rgba(60, 180, 90, 0.5);
-                }
-                tr.${GISAA_HIGHLIGHT_CLASS},
                 td.${GISAA_HIGHLIGHT_CLASS} {
-                    background-color: rgba(60, 180, 90, 0.25) !important;
-                }
-                button.${GISAA_HIGHLIGHT_CLASS} {
-                    background-color: rgba(60, 180, 90, 0.4) !important;
-                    border-color: rgba(60, 180, 90, 0.8) !important;
+                    --bs-table-accent-bg: #005f1940;
+                    background-color: #005f1940 !important;
                 }
             `;
             document.head.appendChild(style);
@@ -704,9 +696,11 @@
     const CODEX_ITEMS_BASE = 'https://archeagecodex.com/items/';
     const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
     const ICON_QUEST = 'https://archeagecodex.com/images/icon_quest_common.png';
-    const ICON_VEKSEL = 'https://archeagecodex.com/items/icon_item_3493.png';
-    const ICON_VEKSEL_NORTH = 'https://archeagecodex.com/items/icon_item_5054.png';
+    const ICON_VEKSEL = 'icon_item_3493.png';
+    const ICON_VEKSEL_NORTH = 'icon_item_5054.png';
+    const ICON_GISAA_OVERLAY = 'https://gisaa.ru/img/gisaa.svg?v=1';
     const ICON_CHEST_OVERLAY = 'https://wiki.archerage.to/static/images/icons/top_unconfirmed.dds.png';
+    const ICON_LICENSE_OVERLAY = 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png';
     const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
 
     const SERVER_TO_VEKSEL_ID = {
@@ -828,10 +822,10 @@
         "8292": { codexId: 5092, short: "" },
         "8294": { codexId: 7659, short: "" },
         "8296": { codexId: 7817, short: "" },
-        "8298": { codexId: 8000058, short: "Лицензия в Нагашар (только обычка)", item: { icon: "icon_item_2762.png", grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный" } },
+        "8298": { codexId: 8000058, short: "Лицензия в Нагашар (только обычка)", item: { type: 'license', icon: "icon_item_2762.png", grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный" } },
         "8300": { codexId: 5971, short: "03:20 / 07:20 / 11:20 / 15:20 / 19:20 / 23:20" },
         "8314": { codexId: 10564, short: "Ифнир - змея<br/>Пятница в 22:00 / Суббота в 16:00" },
-        "8316": { codexId: 8000061, short: "Лицензия в Сады наслаждений (только хард)", item: { icon: "icon_item_2762.png", grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" } },
+        "8316": { codexId: 8000061, short: "Лицензия в Сады наслаждений (только хард)", item: { type: 'license', icon: "icon_item_2762.png", grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" } },
         "8318": { codexId: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
         "8320": { codexId: 9152, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа", count: 60 } },
         "8322": { codexId: 8435, short: 'Портал "Лягушачьи пруды"' },
@@ -841,7 +835,7 @@
         "8330": { codexId: 7813, short: "" },
         "8336": { codexId: 5144, short: "" },
         "8338": { codexId: 5885, short: "Анталлон на Солнечных полях<br/>01:20 / 05:20 / 09:20 / 13:20 / 17:20 / 21:20" },
-        "8340": { codexId: 8000060, short: "Лицензия в Сады наслаждений (изи или нормал)", item: { icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы" } },
+        "8340": { codexId: 8000060, short: "Лицензия в Сады наслаждений (изи или нормал)", item: { type: 'license', icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы" } },
         "8346": { codexId: 10056, short: "" },
         "8348": { codexId: 11154, short: "Лиловый (армия фантомов)<br/>01:50 / 05:50 / 09:50 / 13:50 / 17:50 / 21:50" },
         "8350": { codexId: 11227, short: "Превратиться в руру и получить билет (в данж идти необязательно)" },
@@ -871,7 +865,7 @@
         "8426": { codexId: 9143, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0041.png", grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Строительная древесина", count: 100 } },
         "8434": { codexId: 10504, short: "Замок Ош", veksel: 'north', item: { type: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 30 } },
         "8436": { codexId: 10505, short: "Замок Ош", veksel: 'north', item: { type: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 90 } },
-        "8438": { codexId: 8000062, short: "Лицензия в Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", item: { icon: "icon_item_2762.png", grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" } },
+        "8438": { codexId: 8000062, short: "Лицензия в Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", item: { type: 'license', icon: "icon_item_2762.png", grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" } },
         "8448": { codexId: 2943, short: "Кровавый (дневной) разлом - 3-я волна<br/>00:20 / 04:20 / 08:20 / 12:20 / 16:20 / 20:20" },
         "8450": { codexId: 7935, short: "" },
         "8452": { codexId: 7660, short: "" },
@@ -1024,6 +1018,30 @@
         return a;
     };
 
+    // Создаёт иконку для ссылки на таблицу векселей (gisaa + маленькая иконка векселя)
+    const makeVekselIconLink = ({ href, title, vekselIcon }) => {
+        const a = document.createElement('a');
+        a.className = 'tm-veksel-icon-link';
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        if (title) a.title = title;
+
+        const mainImg = document.createElement('img');
+        mainImg.className = 'tm-veksel-icon-main';
+        mainImg.src = ICON_GISAA_OVERLAY;
+        mainImg.alt = 'gisaa';
+
+        const badgeImg = document.createElement('img');
+        badgeImg.className = 'tm-veksel-icon-badge';
+        badgeImg.src = `${CODEX_ITEMS_BASE}${vekselIcon}`;
+        badgeImg.alt = 'veksel';
+
+        a.appendChild(mainImg);
+        a.appendChild(badgeImg);
+        return a;
+    };
+
     // Создаёт иконку предмета с рамкой редкости (и опциональным overlay для сундучков)
     const makeItemIconLink = ({ itemIcon, grade, itemUrl, title, overlay }) => {
         const a = document.createElement('a');
@@ -1035,7 +1053,7 @@
 
         const itemImg = document.createElement('img');
         itemImg.className = 'tm-item-icon-img';
-        itemImg.src = `${CODEX_ITEMS_BASE}${itemIcon}`;
+        itemImg.src = itemIcon.startsWith('http') ? itemIcon : `${CODEX_ITEMS_BASE}${itemIcon}`;
         itemImg.alt = 'item';
 
         a.appendChild(itemImg);
@@ -1112,7 +1130,9 @@
                     grade: item.grade,
                     itemUrl: item.url,
                     title: item.name || 'Открыть предмет в ArcheageCodex',
-                    overlay: (item.type === 'archive' || item.type === 'sack') ? ICON_CHEST_OVERLAY : null,
+                    overlay: item.type === 'license' ? ICON_LICENSE_OVERLAY
+                        : (item.type === 'archive' || item.type === 'sack') ? ICON_CHEST_OVERLAY
+                            : null,
                 }));
             } else if (item.name) {
                 // Без иконки - показываем название ссылкой
@@ -1164,12 +1184,12 @@
         }));
 
         if (veksel === 'blue_salt' || veksel === 'north') {
-            const link = makeIconLink({
+            const link = makeVekselIconLink({
                 href: buildVekselUrl(VEkselUrlResolved, veksel, short, item),
-                iconSrc: veksel === 'blue_salt' ? ICON_VEKSEL : ICON_VEKSEL_NORTH,
                 title: 'Открыть таблицу векселей',
-                className: 'tm-veksel-link',
+                vekselIcon: veksel === 'blue_salt' ? ICON_VEKSEL : ICON_VEKSEL_NORTH,
             });
+            link.classList.add('tm-veksel-link');
             link.dataset.veksel = veksel;
             link.dataset.short = short || '';
             if (item) link.dataset.item = JSON.stringify(item);
@@ -1694,6 +1714,36 @@
                 width: 100%;
                 height: 100%;
                 pointer-events: none;
+            }
+
+            .tm-veksel-icon-link {
+                position: relative;
+                display: inline-block;
+                width: 30px;
+                height: 30px;
+                flex-shrink: 0;
+                transition: transform 120ms ease, opacity 120ms ease;
+            }
+
+            .tm-veksel-icon-link:hover {
+                transform: translateY(-1px);
+                opacity: 1;
+            }
+
+            .tm-veksel-icon-main {
+                width: 100%;
+                height: 100%;
+                display: block;
+            }
+
+            .tm-veksel-icon-badge {
+                position: absolute;
+                bottom: -2px;
+                right: -2px;
+                width: 18px;
+                height: 18px;
+                border-radius: 2px;
+                background: rgba(0, 0, 0, 0.6);
             }
 
             .tm-nav-wrapper {
