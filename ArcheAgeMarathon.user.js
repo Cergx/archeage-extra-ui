@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      3.4
+// @version      3.6
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -289,6 +289,7 @@
         nextBtn: null,
         todayBtn: null,
         hideDoneCheckbox: null,
+        serverClock: null,
         refreshLoader: null,
         tasksHeader: null,
         tasksList: null,
@@ -324,13 +325,18 @@
                         String(input);
 
             const path = normalizeUrlToPath(urlStr);
+            const t0 = Date.now();
             const res = await origFetch(...args);
+            const t1 = Date.now();
 
             if (path === API_INFO_PATH) {
                 if (NOW_MS == null) {
                     const dateHeader = res.headers.get('Date');
                     const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
-                    if (Number.isFinite(parsed)) NOW_MS = parsed;
+                    if (Number.isFinite(parsed)) {
+                        const halfRtt = (t1 - t0) / 2;
+                        NOW_MS = parsed + halfRtt;
+                    }
                 }
 
                 if (API_INFO_PROMISE == null) {
@@ -590,8 +596,51 @@
         }
     };
 
+    // Игровое время: 1 игровая минута = 10 реальных секунд,
+    // игровая полночь (00:00) = 02:20 МСК (цикл 4 реальных часа).
+    const GAME_MIDNIGHT_MSK_SECONDS = 2 * 3600 + 20 * 60; // 02:20:00 = 8400с
+    const GAME_DAY_REAL_SECONDS = 14400; // 4 часа
+    const REAL_TO_GAME_FACTOR = 6; // 1 реальная секунда = 6 игровых
+
+    const getGameTime = (serverNowMs) => {
+        const d = new Date(serverNowMs);
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: TZ, hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false,
+        }).formatToParts(d);
+        const h = +parts.find(p => p.type === 'hour').value;
+        const m = +parts.find(p => p.type === 'minute').value;
+        const s = +parts.find(p => p.type === 'second').value;
+        const mskSeconds = h * 3600 + m * 60 + s;
+
+        const realSinceGameMidnight = ((mskSeconds - GAME_MIDNIGHT_MSK_SECONDS) % GAME_DAY_REAL_SECONDS
+            + GAME_DAY_REAL_SECONDS) % GAME_DAY_REAL_SECONDS;
+        const gameSeconds = realSinceGameMidnight * REAL_TO_GAME_FACTOR;
+
+        const gh = Math.floor(gameSeconds / 3600) % 24;
+        const gm = Math.floor((gameSeconds % 3600) / 60);
+        return `${pad2(gh)}:${pad2(gm)}`;
+    };
+
+    // Обновляет серверные и игровые часы на странице
+    const updateServerClock = () => {
+        if (!DOM.serverClock) return;
+        const serverNow = getServerNowMs();
+        const d = new Date(serverNow);
+        const fmt = new Intl.DateTimeFormat('ru-RU', {
+            timeZone: TZ,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        });
+        const mskTime = fmt.format(d);
+        const gameTime = getGameTime(serverNow);
+        DOM.serverClock.innerHTML = `${mskTime} (мск)<br>${gameTime} (игр.)`;
+    };
+
     // Обновляет все countdown элементы на странице
     const updateAllCountdowns = () => {
+        updateServerClock();
         document.querySelectorAll('.tm-countdown').forEach(el => {
             const eventsJson = el.dataset.events;
             if (!eventsJson) return;
@@ -1029,16 +1078,21 @@
 
     /** @returns {Promise<ApiInfoResponse>} */
     const fetchApiInfo = async () => {
+        const t0 = Date.now();
         const res = await fetch(API_INFO_PATH, {
             credentials: 'include',
             cache: 'no-store',
         });
+        const t1 = Date.now();
         if (!res.ok) throw new Error(`api/info failed: ${res.status}`);
 
         const dateHeader = res.headers.get('Date');
         const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
         if (Number.isFinite(parsed)) {
-            NOW_MS = parsed;
+            // Date header фиксируется сервером при формировании ответа.
+            // К моменту получения прошло примерно половина RTT.
+            const halfRtt = (t1 - t0) / 2;
+            NOW_MS = parsed + halfRtt;
         } else if (NOW_MS == null) {
             throw new Error('[AA Marathon] Cannot read server Date header');
         }
@@ -1096,14 +1150,35 @@
                 SERVER_TIME_OFFSET = NOW_MS - Date.now();
             }
 
-            // Сравниваем data — если не изменилось, пропускаем перерисовку
+            // Проверяем, не сменился ли день/сегмент (полночь МСК или граница четверга)
+            // Переключаем автоматически, только если пользователь смотрел на «сегодня»
+            const oldSelectedKey = slotKey(selectedDayUtcMs, selectedSegment);
+            const newTodayUtc = getTodayUtcMsByTZ();
+            const newTodaySegment = effectiveSegment(newTodayUtc, 'auto');
+            const newTodayKey = slotKey(newTodayUtc, newTodaySegment);
+            // «Смотрел на сегодня» = его слот совпадал с тем, что было «сегодня»
+            // до обновления времени, или с новым «сегодня» (уже совпадает).
+            // Безопаснее: переключаем, если выбранный слот отстаёт от нового «сегодня»
+            // и при этом не является будущим днём, намеренно выбранным пользователем.
+            const dayChanged = oldSelectedKey !== newTodayKey
+                && oldSelectedKey < newTodayKey;
+
+            if (dayChanged) {
+                applySlot(newTodayUtc, 'auto');
+            }
+
+            // Сравниваем data — если не изменилось и день не сменился, пропускаем перерисовку
             const newDataJson = JSON.stringify(API_INFO_CACHE?.data);
             API_INFO_DATA_JSON = newDataJson;
 
-            if (newDataJson === prevDataJson) return;
+            if (newDataJson === prevDataJson && !dayChanged) return;
 
-            // Перерисовываем список задач
-            await renderTasksForSelectedDay();
+            // Перерисовываем список задач (и обновляем лейбл/кнопки навигации при смене дня)
+            if (dayChanged) {
+                await onSelectedDateChanged();
+            } else {
+                await renderTasksForSelectedDay();
+            }
 
             // Автозабор подарков (если включён и данные изменились)
             if (loadAutoClaimState()) {
@@ -1767,6 +1842,11 @@
         wrapper.appendChild(hideDoneLabel);
         wrapper.appendChild(refreshBtn);
 
+        const serverClock = document.createElement('div');
+        serverClock.className = 'tm-server-clock';
+        DOM.serverClock = serverClock;
+        document.body.appendChild(serverClock);
+
         DOM.tasksHeader.insertAdjacentElement('afterbegin', wrapper);
         DOM.nav = nav;
         DOM.label = label;
@@ -2003,7 +2083,7 @@
         const style = document.createElement('style');
         style.textContent = `
             .${DONE_CLASS} {
-                background-color: #fff0e280;
+                background-color: #fff0e2bf;
             }
 
             .tasks__item {
@@ -2016,6 +2096,7 @@
                 align-items: flex-end;
                 gap: 2px;
                 pointer-events: none;
+                opacity: 0.8;
             }
 
             .tm-done-row {
@@ -2137,7 +2218,7 @@
             }
 
             .tm-countdown {
-                color: #7cb342;
+                color: #5e8734;
                 font-weight: 500;
                 white-space: nowrap;
             }
@@ -2415,6 +2496,25 @@
                 display: none;
             }
 
+            .tm-server-clock {
+                position: fixed;
+                top: 50%;
+                right: 12px;
+                transform: translateY(-50%);
+                z-index: 9999;
+                padding: 6px 12px;
+                border-radius: 6px;
+                background: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(4px);
+                font-size: 13px;
+                font-family: monospace;
+                color: rgba(255, 255, 255, 0.85);
+                white-space: nowrap;
+                user-select: none;
+                pointer-events: none;
+                line-height: 1.4;
+            }
+
             .tm-refresh-btn {
                 width: 26px;
                 height: 26px;
@@ -2602,9 +2702,35 @@
     };
 
     /**
+     * Точечно обновляет farmed_rewards и баланс магазина в Vuex store.
+     * Не трогает quests/action_info, чтобы не перерисовать блок заданий.
+     * Принудительно пересоздаёт компоненты PrizesItem через смену ключа слайдера.
+     */
+    const syncNativeRewardsState = () => {
+        const store = getVueStore();
+        if (!store) return;
+        const farmedRewards = API_INFO_CACHE?.data?.user_info?.farmed_rewards;
+        if (farmedRewards) {
+            // Deep copy — гарантируем новую ссылку для Vue 2 reactivity
+            store.commit('maininfo/setUserRewards', JSON.parse(JSON.stringify(farmedRewards)));
+        }
+        // Обновляем баланс монет в магазине (подарки могут содержать валюту)
+        store.dispatch('shop/getShopInfo');
+
+        // Принудительно пересоздаём PrizesItem:
+        // <transition :key="current_page"> уничтожает/создаёт компоненты при смене ключа
+        const vm = getPrizesVm();
+        if (vm) {
+            const page = vm.current_page;
+            vm.current_page = -1;
+            vm.$nextTick(() => { vm.current_page = page; });
+        }
+    };
+
+    /**
      * Забирает все доступные подарки за уровни через родной Vuex store.
-     * Обновляет и Vue-стейт (UI подарков перерисовывается автоматически),
-     * и собственный кэш `API_INFO_CACHE`.
+     * После забора точечно обновляет farmed_rewards в нативном store,
+     * чтобы UI подарков перерисовался без затрагивания блока заданий.
      */
     const claimAllLevelRewards = async () => {
         const userInfo = API_INFO_CACHE?.data?.user_info;
@@ -2618,6 +2744,8 @@
         // Какие типы наград забирать
         const rewardTypes = isPremium ? ['trial', 'premium'] : ['trial'];
 
+        let claimed = false;
+
         for (const type of rewardTypes) {
             const farmed = new Set((userInfo.farmed_rewards?.[type] || []).map(Number));
 
@@ -2626,11 +2754,17 @@
 
                 try {
                     await farmLevelReward(level, type === 'premium');
+                    claimed = true;
                     await new Promise(r => setTimeout(r, CLAIM_DELAY_MS));
                 } catch (e) {
                     console.warn(`[AA Marathon] claimLevelReward(${level}, ${type}) failed:`, e);
                 }
             }
+        }
+
+        // Точечно обновляем farmed_rewards в нативном store
+        if (claimed) {
+            syncNativeRewardsState();
         }
     };
 
