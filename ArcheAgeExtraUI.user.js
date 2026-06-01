@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.5.6
+// @version      4.5.7
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -4928,7 +4928,7 @@
                                 }
                                 renderSelectedList();
                                 updateTransferBtn();
-                                ц
+
                                 if (messages.length > 0) {
                                     const body = messages
                                         .flatMap(m => m.split('&nbsp;'))
