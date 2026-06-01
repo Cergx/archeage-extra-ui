@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      3.3
+// @version      3.4
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -2003,7 +2003,7 @@
         const style = document.createElement('style');
         style.textContent = `
             .${DONE_CLASS} {
-                opacity: 0.6;
+                background-color: #fff0e280;
             }
 
             .tasks__item {
