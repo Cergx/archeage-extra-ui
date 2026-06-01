@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.2.4
+// @version      4.3.0
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon
@@ -571,6 +571,7 @@
 
     /**
      * Вычисляет секунды до ближайшего события.
+     * Возвращает 0, если событие идёт прямо сейчас; положительное число — секунды до начала; null — нет событий.
      * @param {QuestEvent[]} events
      */
     const getSecondsUntilNextEvent = (events) => {
@@ -583,22 +584,31 @@
         let minDiff = Infinity;
 
         for (const event of events) {
-            const { hours, minutes } = parseTime(event.time);
-            const targetTimeSeconds = hours * 3600 + minutes * 60;
+            const start = parseTime(event.timeStart);
+            const startSeconds = start.hours * 3600 + start.minutes * 60;
+
+            if (event.timeEnd) {
+                const end = parseTime(event.timeEnd);
+                const endSeconds = end.hours * 3600 + end.minutes * 60;
+
+                // Проверяем, идёт ли событие сейчас (для текущего дня/дней недели)
+                const isToday = !event.weekdays || event.weekdays.length === 0 || event.weekdays.includes(nowWeekday);
+                if (isToday && nowSeconds >= startSeconds && nowSeconds < endSeconds) {
+                    return -(endSeconds - nowSeconds); // Отрицательное = идёт, abs = секунд до конца
+                }
+            }
 
             if (!event.weekdays || event.weekdays.length === 0) {
-                // Ежедневное событие
-                let diff = targetTimeSeconds - nowSeconds;
+                let diff = startSeconds - nowSeconds;
                 if (diff <= 0) diff += 24 * 3600;
                 if (diff < minDiff) minDiff = diff;
             } else {
-                // Событие в определённые дни недели
                 for (const targetWeekday of event.weekdays) {
                     let daysUntil = targetWeekday - nowWeekday;
                     if (daysUntil < 0) daysUntil += 7;
 
-                    let diff = daysUntil * 24 * 3600 + (targetTimeSeconds - nowSeconds);
-                    if (diff <= 0) diff += 7 * 24 * 3600; // Следующая неделя
+                    let diff = daysUntil * 24 * 3600 + (startSeconds - nowSeconds);
+                    if (diff <= 0) diff += 7 * 24 * 3600;
 
                     if (diff < minDiff) minDiff = diff;
                 }
@@ -607,6 +617,10 @@
 
         return minDiff === Infinity ? null : minDiff;
     };
+
+    /** @param {QuestEvent} event */
+    const formatEventTime = (event) =>
+        event.timeEnd ? `${event.timeStart}–${event.timeEnd}` : event.timeStart;
 
     /** @param {QuestEvent[]} events */
     const formatEventsToString = (events) => {
@@ -618,7 +632,7 @@
 
         for (const event of events) {
             if (!event.weekdays || event.weekdays.length === 0) {
-                daily.push(event.time);
+                daily.push(formatEventTime(event));
             } else {
                 withWeekdays.push(event);
             }
@@ -634,7 +648,7 @@
         // События с днями недели
         for (const event of withWeekdays) {
             const days = event.weekdays.map(d => WEEKDAY_NAMES[d]).join(', ');
-            parts.push(`${days} ${event.time}`);
+            parts.push(`${days} ${formatEventTime(event)}`);
         }
 
         return parts.join(' / ');
@@ -657,6 +671,20 @@
             return `${m}м ${s}с`;
         } else {
             return `${s}с`;
+        }
+    };
+
+    /** @param {HTMLElement} el @param {number|null} seconds */
+    const updateCountdownEl = (el, seconds) => {
+        el.classList.remove('tm-countdown--active', 'tm-countdown--waiting');
+        if (seconds == null) {
+            el.textContent = '';
+        } else if (seconds <= 0) {
+            el.textContent = ` (идёт, ещё ${formatCountdown(-seconds)})`;
+            el.classList.add('tm-countdown--active');
+        } else {
+            el.textContent = ` (через ${formatCountdown(seconds)})`;
+            el.classList.add('tm-countdown--waiting');
         }
     };
 
@@ -711,7 +739,7 @@
             try {
                 const events = JSON.parse(eventsJson);
                 const seconds = getSecondsUntilNextEvent(events);
-                el.textContent = seconds != null ? ` (через ${formatCountdown(seconds)})` : '';
+                updateCountdownEl(el, seconds);
             } catch {
                 // ignore
             }
@@ -1412,7 +1440,8 @@
 
     /**
      * @typedef {Object} QuestEvent
-     * @property {string} time - Время события (HH:MM).
+     * @property {string} timeStart - Время начала события (HH:MM).
+     * @property {string} [timeEnd] - Время окончания события (HH:MM). Если указано — событие длится диапазон.
      * @property {number[]} [weekdays] - Дни недели (1–7), если не каждый день.
      */
 
@@ -1449,8 +1478,8 @@
         { eventId: '8294', id: 7659, short: "" },
         { eventId: '8296', id: 7817, short: "" },
         { eventId: '8298', id: 8000058, short: "Нагашар (только обычка)", slot: { item: ITEMS["8000749"] } },
-        { eventId: '8300', id: 5971, short: "", events: [{ time: "03:20" }, { time: "07:20" }, { time: "11:20" }, { time: "15:20" }, { time: "19:20" }, { time: "23:20" }] },
-        { eventId: '8314', id: 10564, short: "Ифнир - змея", events: [{ time: "22:00", weekdays: [5] }, { time: "16:00", weekdays: [6] }] },
+        { eventId: '8300', id: 5971, short: "", events: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+        { eventId: '8314', id: 10564, short: "Ифнир - змея", events: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] },
         { eventId: '8316', id: 8000061, short: "Сады наслаждений (только хард)", slot: { item: ITEMS["8000752"] } },
         { eventId: '8318', id: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
         { eventId: '8320', id: 9152, short: "", veksel: 'blue_salt', slot: { item: ITEMS["16327"], count: 60 } },
@@ -1459,11 +1488,11 @@
         { eventId: '8326', id: 10511, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["42077"], count: 25 } },
         { eventId: '8328', id: 7657, short: "" },
         { eventId: '8330', id: 7813, short: "" },
-        { eventId: '8336', id: 5144, short: "Призрачный (ночной) разлом", events: [{ time: "02:20" }, { time: "06:20" }, { time: "10:20" }, { time: "14:20" }, { time: "18:20" }, { time: "22:20" }] },
-        { eventId: '8338', id: 5885, short: "Анталлон на Солнечных полях", events: [{ time: "01:20" }, { time: "05:20" }, { time: "09:20" }, { time: "13:20" }, { time: "17:20" }, { time: "21:20" }] },
+        { eventId: '8336', id: 5144, short: "Призрачный (ночной) разлом", events: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
+        { eventId: '8338', id: 5885, short: "Анталлон на Солнечных полях", events: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
         { eventId: '8340', id: 8000060, short: "Сады наслаждений (изи или нормал)", slot: { item: ITEMS["8000751"] } },
-        { eventId: '8346', id: 10056, short: "Квест можно взять в любое время, боссы:", events: [{ time: "03:00" }, { time: "07:00" }, { time: "11:00" }, { time: "15:00" }, { time: "19:00" }, { time: "23:00" }] },
-        { eventId: '8348', id: 11154, short: "Лиловый (армия фантомов)", events: [{ time: "01:50" }, { time: "05:50" }, { time: "09:50" }, { time: "13:50" }, { time: "17:50" }, { time: "21:50" }] },
+        { eventId: '8346', id: 10056, short: "Квест можно взять в любое время, боссы:", events: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] },
+        { eventId: '8348', id: 11154, short: "Лиловый (армия фантомов)", events: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] },
         { eventId: '8350', id: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
         { eventId: '8352', id: 9147, short: "", veksel: 'blue_salt', slot: { item: ITEMS["8256"], count: 60 } },
         { eventId: '8354', id: 8000136, short: "Квест Нуи на 2500 ремесленки" },
@@ -1475,7 +1504,7 @@
         { eventId: '8366', id: 9320, short: "" },
         { eventId: '8372', id: 9297, short: "" },
         { eventId: '8380', id: 7815, short: "Изи/нормал Сады наслаждений" },
-        { eventId: '8382', id: 10735, short: "Эншака на Солнечных полях", events: [{ time: "01:20" }, { time: "05:20" }, { time: "09:20" }, { time: "13:20" }, { time: "17:20" }, { time: "21:20" }] },
+        { eventId: '8382', id: 10735, short: "Эншака на Солнечных полях", events: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
         { eventId: '8388', id: 9153, short: "", veksel: 'blue_salt', slot: { item: ITEMS["16327"], count: 100 } },
         { eventId: '8390', id: 5062, short: "" },
         { eventId: '8392', id: 10514, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43177"], count: 7 } },
@@ -1484,7 +1513,7 @@
         { eventId: '8398', id: 9398, short: "100 мобов на Пустоши Корвуса" },
         { eventId: '8400', id: 7152, short: "" },
         { eventId: '8402', id: 9102, short: "Библа, последний босс" },
-        { eventId: '8404', id: 9205, short: "" },
+        { eventId: '8404', id: 9205, short: "", events: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
         { eventId: '8414', id: 10952, short: "" },
         { eventId: '8422', id: 10304, short: "" },
         { eventId: '8424', id: 9099, short: "Библа, первый босс" },
@@ -1492,10 +1521,10 @@
         { eventId: '8434', id: 10504, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["35461"], count: 30 } },
         { eventId: '8436', id: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["35461"], count: 90 } },
         { eventId: '8438', id: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", slot: { item: ITEMS["8000753"] } },
-        { eventId: '8448', id: 2943, short: "Кровавый (дневной) разлом - 3-я волна", events: [{ time: "00:20" }, { time: "04:20" }, { time: "08:20" }, { time: "12:20" }, { time: "16:20" }, { time: "20:20" }] },
-        { eventId: '8450', id: 7935, short: "" },
+        { eventId: '8448', id: 2943, short: "Кровавый (дневной) разлом - 3-я волна", events: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
+        { eventId: '8450', id: 7935, short: "", events: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
         { eventId: '8452', id: 7660, short: "" },
-        { eventId: '8470', id: 10739, short: "Призрачный (ночной) разлом - Эншака", events: [{ time: "02:20" }, { time: "06:20" }, { time: "10:20" }, { time: "14:20" }, { time: "18:20" }, { time: "22:20" }] },
+        { eventId: '8470', id: 10739, short: "Призрачный (ночной) разлом - Эншака", events: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
         { eventId: '8478', id: 10423, short: "" },
         { eventId: '8494', id: 8635, short: "" },
         { eventId: '8496', id: 9295, short: "" },
@@ -1503,16 +1532,16 @@
         { eventId: '8500', id: 8637, short: "Бухта - Жакар" },
         { eventId: '8502', id: 7327, short: "50 мобов (100 очков) на Сверкающем побережье" },
         { eventId: '8504', id: 9296, short: "" },
-        { eventId: '8506', id: 5969, short: "", events: [{ time: "03:20" }, { time: "07:20" }, { time: "11:20" }, { time: "15:20" }, { time: "19:20" }, { time: "23:20" }] },
+        { eventId: '8506', id: 5969, short: "", events: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
         { eventId: '8508', id: 8641, short: "Эфен - жаба (через 5 минут после начала войны)" },
         { eventId: '8510', id: 5077, short: "" },
         { eventId: '8512', id: 8605, short: "" },
-        { eventId: '8514', id: 11096, short: "Луг - Битва хранителей", events: [{ time: "18:00", weekdays: [6, 0] }] },
+        { eventId: '8514', id: 11096, short: "Луг - Битва хранителей", events: [{ timeStart: "18:00", weekdays: [6, 0] }] },
         { eventId: '8516', id: 8000129, short: "" },
         { eventId: '8518', id: 1415, short: "" },
-        { eventId: '8520', id: 5970, short: "", events: [{ time: "03:20" }, { time: "07:20" }, { time: "11:20" }, { time: "15:20" }, { time: "19:20" }, { time: "23:20" }] },
+        { eventId: '8520', id: 5970, short: "", events: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
         { eventId: '8522', id: 10188, short: "" },
-        { eventId: '8524', id: 8618, short: "" },
+        { eventId: '8524', id: 8618, short: "Эфен - мобы" },
     ];
 
     /** @type {Record<string, QuestMeta>} */
@@ -2134,7 +2163,7 @@
                 countdown.className = 'tm-countdown';
                 countdown.dataset.events = JSON.stringify(events);
                 const seconds = getSecondsUntilNextEvent(events);
-                countdown.textContent = seconds != null ? ` (через ${formatCountdown(seconds)})` : '';
+                updateCountdownEl(countdown, seconds);
                 eventsEl.appendChild(countdown);
 
                 infoWrapper.appendChild(eventsEl);
@@ -3083,9 +3112,14 @@
         }
 
         .tm-countdown {
-            color: #5e8734;
             font-weight: 500;
             white-space: nowrap;
+        }
+        .tm-countdown.tm-countdown--active {
+            color: #4caf50;
+        }
+        .tm-countdown.tm-countdown--waiting {
+            color: #d02e2e;
         }
 
         .tm-icons {
