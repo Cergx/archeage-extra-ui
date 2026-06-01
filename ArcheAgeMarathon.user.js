@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      3.8
+// @version      3.9
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
+// @match        *://archeage.ru/cart
 // @match        *://gisaa.ru/veksel/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=archeage.ru
 // @grant        none
@@ -15,6 +16,7 @@
 
     const isGisaaSite = location.hostname.includes('gisaa.ru');
     const isArcheageSite = location.hostname.includes('archeage.ru');
+    const isCartPage = isArcheageSite && location.pathname === '/cart';
 
     // ============================================================
     // ====================== GISAA.RU ============================
@@ -23,6 +25,7 @@
     if (isGisaaSite) {
         const GISAA_MATCH_CLASS = 'tm-gisaa-match';
         const GISAA_EXCLUDE_CLASS = 'tm-gisaa-exclude';
+        const GISAA_UNKNOWN_CLASS = 'tm-gisaa-unknown';
 
         const injectGisaaStyles = () => {
             const style = document.createElement('style');
@@ -35,6 +38,10 @@
                     --bs-table-accent-bg: #5f000040;
                     background-color: #5f000040 !important;
                 }
+                td.${GISAA_UNKNOWN_CLASS} {
+                    --bs-table-accent-bg: #5f5f0040;
+                    background-color: #5f5f0040 !important;
+                }
                 .btn_vote.${GISAA_EXCLUDE_CLASS} {
                     opacity: 0.4;
                 }
@@ -43,9 +50,9 @@
         };
 
         /**
-         * Подсвечивает строки в таблицах Запад/Восток: зелёным подходящие, красным неподходящие.
+         * Подсвечивает строки в таблицах Запад/Восток: зелёным подходящие, красным неподходящие, жёлтым если в таблице ?.
          * @param {string} resourceName
-         * @param {number} amount
+         * @param {number} amount - количество ресурсов
          */
         const highlightWestEastRow = (resourceName, amount) => {
             const blocks = ['#table-block-west', '#table-block-east'];
@@ -62,8 +69,12 @@
                     for (const row of rows) {
                         const maxCell = row.querySelector('.row__cell-max');
                         if (!maxCell) continue;
-                        const maxVal = parseInt(maxCell.textContent.trim(), 10);
-                        if (maxVal === amount) {
+                        const maxText = maxCell.textContent.trim();
+                        const maxVal = parseInt(maxText, 10);
+                        if (isNaN(maxVal) || maxText.includes('?')) {
+                            // В таблице неизвестное значение - жёлтым
+                            row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_UNKNOWN_CLASS));
+                        } else if (maxVal === amount) {
                             // Подходит - зелёным
                             row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_MATCH_CLASS));
                         } else {
@@ -76,9 +87,9 @@
         };
 
         /**
-         * Подсвечивает только запрошенные локации в таблице Север: зелёным подходящие, красным неподходящие.
+         * Подсвечивает только запрошенные локации в таблице Север: зелёным подходящие, красным неподходящие, жёлтым если в таблице ?.
          * @param {string[]} locations
-         * @param {number} amount
+         * @param {number} amount - количество ресурсов
          * @param {'archive'|'sack'} iconType
          */
         const highlightNorthRow = (locations, amount, iconType) => {
@@ -101,21 +112,28 @@
                 // Работаем только с запрошенными локациями
                 if (!locationMatch) continue;
 
+                const maxCell = row.querySelector('.row__cell-max');
+                if (!maxCell) continue;
+
+                const maxText = maxCell.textContent.trim();
+
+                // Сначала проверяем на неизвестное значение
+                if (maxText.includes('?')) {
+                    row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_UNKNOWN_CLASS));
+                    continue;
+                }
+
                 // Проверяем, подходит ли по amount и iconType
                 let isFullMatch = false;
-                const maxCell = row.querySelector('.row__cell-max');
-                if (maxCell) {
-                    const maxHasIcon = iconType === 'archive'
-                        ? maxCell.querySelector('.fa-archive')
-                        : maxCell.querySelector('.fa-sack');
-                    if (maxHasIcon) {
-                        const maxText = maxCell.textContent.trim();
-                        const maxMatch = maxText.match(/^(\d+)/);
-                        if (maxMatch) {
-                            const maxAmount = parseInt(maxMatch[1], 10);
-                            if (maxAmount === amount) {
-                                isFullMatch = true;
-                            }
+                const maxHasIcon = iconType === 'archive'
+                    ? maxCell.querySelector('.fa-archive')
+                    : maxCell.querySelector('.fa-sack');
+                if (maxHasIcon) {
+                    const maxMatch = maxText.match(/^(\d+)/);
+                    if (maxMatch) {
+                        const maxAmount = parseInt(maxMatch[1], 10);
+                        if (maxAmount === amount) {
+                            isFullMatch = true;
                         }
                     }
                 }
@@ -1222,6 +1240,7 @@
     const ITEM_TYPES = {
         'unconfirmed': { icon: 'https://wiki.archerage.to/static/images/icons/top_unconfirmed.dds.png', title: 'Неопознанный предмет' },
         'quest':       { icon: 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png', title: 'Задание' },
+        'magical':     { title: 'Магический предмет' }
     };
 
     /**
@@ -1254,6 +1273,8 @@
         "8000751": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы", description: 'Позволяет получить задание.' },
         "8000752": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" },
         "8000753": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" },
+
+        "codex_48894": { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, url: 'https://archeagecodex.com/ru/item/48894/', name: 'Драгоценная эфенская сфера бронника' }
     };
 
     /**
@@ -1947,6 +1968,9 @@
             card.classList.add(DONE_CLASS);
             if (animateCompletion) {
                 card.classList.add(JUST_DONE_CLASS);
+                card.addEventListener('animationend', () => {
+                    card.classList.remove(JUST_DONE_CLASS);
+                }, { once: true });
             }
 
             const done = document.createElement('div');
@@ -2455,227 +2479,18 @@
 
     // ==================== Стили ====================
 
-    const injectStyles = () => {
-        const style = document.createElement('style');
-        style.textContent = `
-            .${DONE_CLASS} {
-                background-color: #fff0e2bf;
-            }
+    /** Вычисляет множитель масштабирования системы (1 при 100%, 1.25 при 125% и т.д.) */
+    /** Вычисляет множитель масштабирования системы (1 при 100%, 1.25 при 125% и т.д.) */
+    const getSystemScale = () => window.devicePixelRatio / (window.visualViewport?.scale || 1);
 
-            /* Анимация "только что выполнено" */
-            @keyframes tm-just-completed-glow {
-                0% {
-                    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7), inset 0 0 20px rgba(76, 175, 80, 0.3);
-                    transform: scale(1);
-                }
-                15% {
-                    box-shadow: 0 0 25px 8px rgba(76, 175, 80, 0.6), inset 0 0 30px rgba(76, 175, 80, 0.4);
-                    transform: scale(1.02);
-                }
-                30% {
-                    box-shadow: 0 0 35px 12px rgba(255, 215, 0, 0.5), inset 0 0 40px rgba(255, 215, 0, 0.3);
-                    transform: scale(1.03);
-                }
-                50% {
-                    box-shadow: 0 0 20px 6px rgba(76, 175, 80, 0.4), inset 0 0 25px rgba(76, 175, 80, 0.2);
-                    transform: scale(1.01);
-                }
-                100% {
-                    box-shadow: 0 0 0 0 transparent, inset 0 0 0 transparent;
-                    transform: scale(1);
-                }
-            }
-
-            @keyframes tm-just-completed-bg {
-                0% { background-color: #fff0e2bf; }
-                20% { background-color: rgba(76, 175, 80, 0.35); }
-                40% { background-color: rgba(255, 215, 0, 0.3); }
-                60% { background-color: rgba(76, 175, 80, 0.25); }
-                100% { background-color: #fff0e2bf; }
-            }
-
-            @keyframes tm-checkmark-pop {
-                0% { transform: scale(0) rotate(-45deg); opacity: 0; }
-                50% { transform: scale(1.4) rotate(10deg); opacity: 1; }
-                70% { transform: scale(0.9) rotate(-5deg); }
-                100% { transform: scale(1) rotate(0deg); opacity: 1; }
-            }
-
-            .${JUST_DONE_CLASS} {
-                animation:
-                    tm-just-completed-glow 2s ease-out forwards,
-                    tm-just-completed-bg 2s ease-out forwards;
-                position: relative;
-                z-index: 10;
-            }
-
-            .${JUST_DONE_CLASS} .tm-done-check {
-                animation: tm-checkmark-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-                animation-delay: 0.2s;
-                transform: scale(0);
-            }
-
-            .tasks__item {
-                overflow: visible;
-            }
-
-            .tasks__item-done {
-                display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 2px;
-                pointer-events: none;
-                opacity: 0.8;
-            }
-
-            .tm-done-row {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-
-            .tm-done-time {
-                font-size: 12px;
-            }
-
-            .tm-done-progress {
-                font-size: 12px;
-            }
-
-            .tm-done-check {
-                font-size: 14px;
-                font-weight: 700;
-                line-height: 1;
-                color: #3cb45a;
-            }
-
-            .tm-links-row {
-                margin-top: 6px;
-                display: flex;
-                gap: 4px;
-                justify-content: space-between;
-                align-items: center;
-                z-index: 1;
-            }
-
-            .tm-links-left {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-
-            .tm-item-icon-count {
-                position: absolute;
-                right: 9%;
-                bottom: 12.5%;
-                line-height: 0.5;
-                letter-spacing: 0.02em;
-                color: #fff;
-                text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;
-                pointer-events: none;
-                z-index: 3;
-            }
-
-            .tm-item-name-link {
-                font-size: 12px;
-                color: inherit;
-                opacity: 0.85;
-                text-decoration: none;
-            }
-
-            .tm-item-name-link:hover {
-                opacity: 1;
-                text-decoration: underline;
-            }
-
-            .tm-info-wrapper {
-                display: flex;
-                flex-direction: column;
-                gap: 2px;
-            }
-
-            .tm-info-line {
-                display: flex;
-                align-items: baseline;
-                gap: 6px;
-            }
-
-            .tm-locations {
-                font-size: 12px;
-                line-height: 1.25;
-                opacity: 0.85;
-            }
-
-            .tm-short {
-                font-size: 12px;
-                line-height: 1.25;
-                opacity: 0.85;
-            }
-
-            .tm-short a {
-                color: inherit;
-            }
-
-            .tm-events {
-                font-size: 12px;
-                line-height: 1.25;
-                opacity: 0.85;
-            }
-
-            .tm-inline-icon {
-                display: inline-block;
-                position: relative;
-                width: 18px;
-                height: 18px;
-                vertical-align: middle;
-                margin: 0 2px;
-            }
-
-            .tm-inline-icon img:first-child {
-                width: 100%;
-                height: 100%;
-                display: block;
-            }
-
-            .tm-inline-icon-grade {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                pointer-events: none;
-            }
-
-            .tm-countdown {
-                color: #5e8734;
-                font-weight: 500;
-                white-space: nowrap;
-            }
-
-            .tm-icons {
-                display: flex;
-                flex-direction: row-reverse;
-                gap: 8px;
-                align-items: center;
-                margin-left: auto;
-            }
-
-            .tm-icon-link {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 6px;
-                background: rgba(255,255,255,0.06);
-                transition: box-shadow 150ms ease, opacity 150ms ease;
-            }
-
-            .tm-icon-link:hover {
-                transform: translateY(-1px);
-            }
-
-            .tm-icon-link img {
-                width: 30px;
-                display: block;
+    /**
+     * Стили для иконок и всплывашек предметов (используются на странице марафона и корзины).
+     */
+    const getItemIconStyles = () => {
+        const screenScale = getSystemScale();
+        return `
+            :root {
+                --tm-screen-scale: ${1 / screenScale};
             }
 
             .tm-item {
@@ -2742,6 +2557,18 @@
                 pointer-events: none;
             }
 
+            .tm-item-icon-count {
+                position: absolute;
+                right: 9%;
+                bottom: 12.5%;
+                line-height: 0.5;
+                letter-spacing: 0.02em;
+                color: #fff;
+                text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;
+                pointer-events: none;
+                z-index: 3;
+            }
+
             /* Всплывашка предмета */
             .tm-item-tooltip {
                 display: none;
@@ -2758,7 +2585,8 @@
                 font-size: 14px;
                 line-height: 18px;
                 color: #cfd6e0;
-                /* font-family: Arial, sans-serif; */
+                transform: scale(var(--tm-screen-scale, 1));
+                transform-origin: top right;
             }
 
             .tm-item:hover .tm-item-tooltip {
@@ -2811,230 +2639,486 @@
                 font-size: 13px;
                 line-height: 16px;
             }
-
-            .tm-veksel-icon-link {
-                position: relative;
-                display: inline-block;
-                width: 30px;
-                height: 30px;
-                flex-shrink: 0;
-                transition: transform 120ms ease, opacity 120ms ease;
-            }
-
-            .tm-veksel-icon-link:hover {
-                transform: translateY(-1px);
-                opacity: 1;
-            }
-
-            .tm-veksel-icon-main {
-                width: 100%;
-                height: 100%;
-                display: block;
-            }
-
-            .tm-veksel-icon-badge {
-                position: absolute;
-                bottom: -2px;
-                right: -2px;
-                width: 18px;
-                height: 18px;
-                border-radius: 2px;
-                background: rgba(0, 0, 0, 0.6);
-            }
-
-            .tm-nav-wrapper {
-                display: flex;
-                align-items: center;
-                gap: 16px;
-            }
-
-            .tm-date-nav {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-
-            @media (max-width: 1300px) {
-                .tm-nav-wrapper {
-                    padding: 0 20px;
-                }
-            }
-
-            .tm-date-btn {
-                cursor: pointer;
-                padding: 4px 8px;
-                border-radius: 6px;
-                border: 1px solid rgba(255, 255, 255,0.18);
-                background: rgba(255, 255, 255, 0.06);
-                color: inherit;
-                font: inherit;
-                font-size: 14px;
-                text-transform: uppercase;
-            }
-
-            .tm-date-btn:hover {
-                background: rgba(255, 255, 255, 0.10);
-            }
-
-            .tm-date-label {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                min-width: 150px;
-                text-align: center;
-            }
-
-            .tm-date-label-date {
-                font-size: 16px;
-            }
-
-            .tm-date-label-suffix {
-                font-size: 12px;
-                opacity: 0.75;
-                line-height: 1;
-            }
-
-            .tasks__header {
-                flex-wrap: wrap;
-                justify-content: space-between;
-                gap: 16px;
-            }
-
-            .tm-date-btn:disabled {
-                opacity: 0.35;
-                cursor: default;
-            }
-
-            .tm-hide-done-label {
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                cursor: pointer;
-                font-size: 16px;
-            }
-
-            .tm-hide-done-label:hover {
-                opacity: 1;
-            }
-
-            .tm-hide-done-checkbox {
-                cursor: pointer;
-            }
-
-            .tm-hide-done .${DONE_CLASS} {
-                display: none;
-            }
-
-            .tm-server-clock {
-                position: fixed;
-                top: 50%;
-                right: 12px;
-                transform: translateY(-50%);
-                z-index: 9999;
-                padding: 6px 12px;
-                border-radius: 6px;
-                background: rgba(0, 0, 0, 0.7);
-                backdrop-filter: blur(4px);
-                font-size: 13px;
-                font-family: monospace;
-                color: rgba(255, 255, 255, 0.85);
-                white-space: nowrap;
-                user-select: none;
-                pointer-events: none;
-                line-height: 1.4;
-            }
-
-            .tm-refresh-btn {
-                width: 26px;
-                height: 26px;
-                padding: 0;
-                border: none;
-                border-radius: 50%;
-                background: rgba(255, 255, 255, 0.06);
-                color: rgba(255, 255, 255, 0.7);
-                font-size: 18px;
-                line-height: 1;
-                cursor: pointer;
-                transition: background 150ms ease, color 150ms ease, transform 150ms ease;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .tm-refresh-btn:hover {
-                background: rgba(255, 255, 255, 0.12);
-                color: rgba(255, 255, 255, 0.95);
-            }
-
-            .tm-refresh-btn:active {
-                transform: scale(0.92);
-            }
-
-            .tm-refresh-loader--active {
-                pointer-events: none;
-                animation: tm-spin 0.7s linear infinite;
-            }
-
-            @keyframes tm-spin {
-                to {
-                    transform: rotate(360deg);
-                }
-            }
-
-            /* Автозабор подарков */
-            .prizes__title {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 16px;
-            }
-
-            .tm-auto-claim-label {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 14px;
-                font-weight: normal;
-                cursor: pointer;
-                user-select: none;
-                white-space: nowrap;
-            }
-
-            .tm-auto-claim-checkbox {
-                width: 16px;
-                height: 16px;
-                cursor: pointer;
-            }
-
-            /* Автооткрытие сундуков */
-            .lootbox__title {
-                gap: 30px;
-                flex-wrap: wrap;
-            }
-
-            .lootbox__title .icon-info {
-                margin-left: 0;
-            }
-
-            .tm-auto-open-label {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 14px;
-                font-weight: normal;
-                cursor: pointer;
-                user-select: none;
-                white-space: nowrap;
-                text-transform: none;
-            }
-
-            .tm-auto-open-checkbox {
-                width: 16px;
-                height: 16px;
-                cursor: pointer;
-            }
         `;
+    };
+
+    /**
+     * Стили для страницы марафона.
+     */
+    const getMarathonStyles = () => `
+        .${DONE_CLASS} {
+            background-color: #fff0e2bf;
+        }
+
+        /* Анимация "только что выполнено" */
+        @keyframes tm-just-completed-glow {
+            0% {
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7), inset 0 0 20px rgba(76, 175, 80, 0.3);
+                transform: scale(1);
+            }
+            15% {
+                box-shadow: 0 0 25px 8px rgba(76, 175, 80, 0.6), inset 0 0 30px rgba(76, 175, 80, 0.4);
+                transform: scale(1.02);
+            }
+            30% {
+                box-shadow: 0 0 35px 12px rgba(255, 215, 0, 0.5), inset 0 0 40px rgba(255, 215, 0, 0.3);
+                transform: scale(1.03);
+            }
+            50% {
+                box-shadow: 0 0 20px 6px rgba(76, 175, 80, 0.4), inset 0 0 25px rgba(76, 175, 80, 0.2);
+                transform: scale(1.01);
+            }
+            100% {
+                box-shadow: 0 0 0 0 transparent, inset 0 0 0 transparent;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes tm-just-completed-bg {
+            0% { background-color: #fff0e2bf; }
+            20% { background-color: rgba(76, 175, 80, 0.35); }
+            40% { background-color: rgba(255, 215, 0, 0.3); }
+            60% { background-color: rgba(76, 175, 80, 0.25); }
+            100% { background-color: #fff0e2bf; }
+        }
+
+        @keyframes tm-checkmark-pop {
+            0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+            50% { transform: scale(1.4) rotate(10deg); opacity: 1; }
+            70% { transform: scale(0.9) rotate(-5deg); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        .${JUST_DONE_CLASS} {
+            animation:
+                tm-just-completed-glow 2s ease-out forwards,
+                tm-just-completed-bg 2s ease-out forwards;
+            position: relative;
+            z-index: 9;
+        }
+
+        .${JUST_DONE_CLASS} .tm-done-check {
+            animation: tm-checkmark-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            animation-delay: 0.2s;
+            transform: scale(0);
+        }
+
+        .tasks__item {
+            overflow: visible;
+        }
+
+        .tasks__item-done {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .tm-done-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tm-done-time {
+            font-size: 12px;
+        }
+
+        .tm-done-progress {
+            font-size: 12px;
+        }
+
+        .tm-done-check {
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1;
+            color: #3cb45a;
+        }
+
+        .tm-links-row {
+            margin-top: 6px;
+            display: flex;
+            gap: 4px;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1;
+        }
+
+        .tm-links-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tm-item-name-link {
+            font-size: 12px;
+            color: inherit;
+            opacity: 0.85;
+            text-decoration: none;
+        }
+
+        .tm-item-name-link:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        .tm-info-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .tm-info-line {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .tm-locations {
+            font-size: 12px;
+            line-height: 1.25;
+            opacity: 0.85;
+        }
+
+        .tm-short {
+            font-size: 12px;
+            line-height: 1.25;
+            opacity: 0.85;
+        }
+
+        .tm-short a {
+            color: inherit;
+        }
+
+        .tm-events {
+            font-size: 12px;
+            line-height: 1.25;
+            opacity: 0.85;
+        }
+
+        .tm-inline-icon {
+            display: inline-block;
+            position: relative;
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+            margin: 0 2px;
+        }
+
+        .tm-inline-icon img:first-child {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .tm-inline-icon-grade {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .tm-countdown {
+            color: #5e8734;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .tm-icons {
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 8px;
+            align-items: center;
+            margin-left: auto;
+        }
+
+        .tm-icon-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.06);
+            transition: box-shadow 150ms ease, opacity 150ms ease;
+        }
+
+        .tm-icon-link:hover {
+            transform: translateY(-1px);
+        }
+
+        .tm-icon-link img {
+            width: 30px;
+            display: block;
+        }
+
+        .tm-veksel-icon-link {
+            position: relative;
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            flex-shrink: 0;
+            transition: transform 120ms ease, opacity 120ms ease;
+        }
+
+        .tm-veksel-icon-link:hover {
+            transform: translateY(-1px);
+            opacity: 1;
+        }
+
+        .tm-veksel-icon-main {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .tm-veksel-icon-badge {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 18px;
+            height: 18px;
+            border-radius: 2px;
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .tm-nav-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .tm-date-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        @media (max-width: 1300px) {
+            .tm-nav-wrapper {
+                padding: 0 20px;
+            }
+        }
+
+        .tm-date-btn {
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255,0.18);
+            background: rgba(255, 255, 255, 0.06);
+            color: inherit;
+            font: inherit;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .tm-date-btn:hover {
+            background: rgba(255, 255, 255, 0.10);
+        }
+
+        .tm-date-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .tm-date-label-date {
+            font-size: 16px;
+        }
+
+        .tm-date-label-suffix {
+            font-size: 12px;
+            opacity: 0.75;
+            line-height: 1;
+        }
+
+        .tasks__header {
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .tm-date-btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .tm-hide-done-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .tm-hide-done-label:hover {
+            opacity: 1;
+        }
+
+        .tm-hide-done-checkbox {
+            cursor: pointer;
+        }
+
+        .tm-hide-done .${DONE_CLASS} {
+            display: none;
+        }
+
+        .tm-server-clock {
+            position: fixed;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%);
+            z-index: 9999;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            font-size: 13px;
+            font-family: monospace;
+            color: rgba(255, 255, 255, 0.85);
+            white-space: nowrap;
+            user-select: none;
+            pointer-events: none;
+            line-height: 1.4;
+        }
+
+        .tm-refresh-btn {
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tm-refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.95);
+        }
+
+        .tm-refresh-btn:active {
+            transform: scale(0.92);
+        }
+
+        .tm-refresh-loader--active {
+            pointer-events: none;
+            animation: tm-spin 0.7s linear infinite;
+        }
+
+        @keyframes tm-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Автозабор подарков */
+        .prizes__title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .tm-auto-claim-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: normal;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .tm-auto-claim-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        /* Автооткрытие сундуков */
+        .lootbox__title {
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .lootbox__title .icon-info {
+            margin-left: 0;
+        }
+
+        .tm-auto-open-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: normal;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            text-transform: none;
+        }
+
+        .tm-auto-open-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+    `;
+
+    /** Инжектит стили для иконок предметов (используется на cart и marathon). */
+    const injectItemIconStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = getItemIconStyles();
         document.head.appendChild(style);
+    };
+
+    /** Инжектит стили для страницы марафона. */
+    const injectMarathonStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = getMarathonStyles();
+        document.head.appendChild(style);
+    };
+
+    /**
+     * Стили для страницы корзины.
+     * @returns {string}
+     */
+    const getCartStyles = () => `
+        .cart_items .js-cart-item.disabled {
+            opacity: 1;
+            color: rgba(34, 34, 34, 0.5);
+        }
+
+        .tm-cart-item-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    `;
+
+    /** Инжектит стили для страницы корзины. */
+    const injectCartStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = getCartStyles();
+        document.head.appendChild(style);
+    };
+
+    /** Инжектит все стили для страницы марафона (itemIcon + marathon). */
+    const injectStyles = () => {
+        injectItemIconStyles();
+        injectMarathonStyles();
     };
 
     // ==================== Подарки за уровни ====================
@@ -3428,13 +3512,96 @@
         document.addEventListener('visibilitychange', handleVisibilityChange);
     };
 
-    const observer = new MutationObserver(() => {
-        if (document.querySelector('.section.tasks')) {
-            observer.disconnect();
-            init();
-        }
-    });
+    // ============================================================
+    // ===================== CART PAGE ============================
+    // ============================================================
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    /**
+     * Находит предмет в ITEMS по названию (name).
+     * @param {string} itemName
+     * @returns {ItemBase|null}
+     */
+    const findItemByName = (itemName) => {
+        const normalized = itemName.trim().toLowerCase();
+        for (const item of Object.values(ITEMS)) {
+            const name = (item.name || '').toLowerCase();
+            if (name === normalized) return item;
+        }
+        return null;
+    };
+
+    /**
+     * Добавляет иконки предметов в таблицу корзины.
+     */
+    const enhanceCartTable = () => {
+        const rows = document.querySelectorAll('.cart_items .js-cart-item');
+        if (rows.length === 0) return;
+
+        for (const row of rows) {
+            const nameCell = row.querySelector('.js-cart-item-name');
+            if (!nameCell) continue;
+
+            // Пропускаем если уже обработано
+            if (nameCell.querySelector('.tm-cart-item-name')) continue;
+
+            const itemName = nameCell.textContent.trim();
+            const item = findItemByName(itemName);
+            if (!item) continue;
+
+            const typeInfo = item.type ? ITEM_TYPES[item.type] : null;
+            const iconEl = makeItemIconLink({
+                item,
+                overlay: typeInfo?.icon,
+                linked: true,
+                size: 'small',
+            });
+
+            // Очищаем ячейку и вставляем flex-контейнер с иконкой и текстом
+            nameCell.textContent = '';
+            const container = document.createElement('span');
+            container.className = 'tm-cart-item-name';
+            container.appendChild(iconEl);
+            container.appendChild(document.createTextNode(itemName));
+            nameCell.appendChild(container);
+        }
+    };
+
+    const initCart = () => {
+        injectItemIconStyles();
+        injectCartStyles();
+
+        // Таблица загружается динамически через AJAX после загрузки страницы
+        const cartObserver = new MutationObserver((mutations, obs) => {
+            const rows = document.querySelectorAll('.cart_items .js-cart-item');
+            if (rows.length > 0) {
+                enhanceCartTable();
+            }
+        });
+
+        // Наблюдаем за всем body, т.к. cart_layout ещё может не существовать
+        cartObserver.observe(document.body, { childList: true, subtree: true });
+    };
+
+    // ============================================================
+    // ===================== INITIALIZATION =======================
+    // ============================================================
+
+    if (isCartPage) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initCart);
+        } else {
+            initCart();
+        }
+    } else {
+        // Marathon page
+        const observer = new MutationObserver(() => {
+            if (document.querySelector('.section.tasks')) {
+                observer.disconnect();
+                init();
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
 
 })();
