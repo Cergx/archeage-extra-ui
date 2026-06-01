@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.8
+// @version      1.9
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -140,6 +140,12 @@
             if (locParam && amount && icon) {
                 const locations = locParam.split(',').map(s => s.trim()).filter(Boolean);
                 highlightNorthRow(locations, amount, icon);
+
+                // Скроллим к северной таблице
+                const northBlock = document.querySelector('#table-block-north');
+                if (northBlock) {
+                    northBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             }
         };
 
