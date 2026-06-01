@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      2.3
+// @version      2.4
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -21,20 +21,28 @@
     // ============================================================
 
     if (isGisaaSite) {
-        const GISAA_HIGHLIGHT_CLASS = 'tm-gisaa-highlight';
+        const GISAA_MATCH_CLASS = 'tm-gisaa-match';
+        const GISAA_EXCLUDE_CLASS = 'tm-gisaa-exclude';
 
         const injectGisaaStyles = () => {
             const style = document.createElement('style');
             style.textContent = `
-                td.${GISAA_HIGHLIGHT_CLASS} {
+                td.${GISAA_MATCH_CLASS} {
                     --bs-table-accent-bg: #005f1940;
                     background-color: #005f1940 !important;
+                }
+                td.${GISAA_EXCLUDE_CLASS} {
+                    --bs-table-accent-bg: #5f000040;
+                    background-color: #5f000040 !important;
+                }
+                .btn_vote.${GISAA_EXCLUDE_CLASS} {
+                    opacity: 0.4;
                 }
             `;
             document.head.appendChild(style);
         };
 
-        // Выделяет строку в таблицах Запад/Восток по названию ресурса и значению max
+        // Подсвечивает строки в таблицах Запад/Восток: зелёным подходящие, красным неподходящие
         const highlightWestEastRow = (resourceName, amount) => {
             const blocks = ['#table-block-west', '#table-block-east'];
             for (const blockId of blocks) {
@@ -44,6 +52,7 @@
                 for (const table of tables) {
                     const header = table.querySelector('th.table__name');
                     if (!header) continue;
+                    // Работаем только с таблицей нужного ресурса
                     if (header.textContent.trim() !== resourceName) continue;
                     const rows = table.querySelectorAll('.row-table');
                     for (const row of rows) {
@@ -51,67 +60,64 @@
                         if (!maxCell) continue;
                         const maxVal = parseInt(maxCell.textContent.trim(), 10);
                         if (maxVal === amount) {
-                            row.classList.add(GISAA_HIGHLIGHT_CLASS);
-                            row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_HIGHLIGHT_CLASS));
+                            // Подходит - зелёным
+                            row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_MATCH_CLASS));
+                        } else {
+                            // Не подходит - красным
+                            row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_EXCLUDE_CLASS));
                         }
                     }
                 }
             }
         };
 
-        // Выделяет строку/кнопку в таблице Север
+        // Подсвечивает только запрошенные локации в таблице Север: зелёным подходящую, красным неподходящие
         const highlightNorthRow = (locations, amount, iconType) => {
             const block = document.querySelector('#table-block-north');
             if (!block) return;
+            if (!locations || locations.length === 0) return;
+
             const rows = block.querySelectorAll('.row-table');
             for (const row of rows) {
                 const nameEl = row.querySelector('.name.fix_size');
                 if (!nameEl) continue;
-                // Извлекаем текст локации (убираем иконки)
                 const rowLocation = nameEl.textContent.trim();
 
-                // Если указаны локации, проверяем совпадение
-                if (locations && locations.length > 0) {
-                    const locationMatch = locations.some(loc =>
-                        rowLocation.toLowerCase().includes(loc.toLowerCase()) ||
-                        loc.toLowerCase().includes(rowLocation.toLowerCase())
-                    );
-                    if (!locationMatch) continue;
+                // Проверяем, входит ли локация в список запрошенных
+                const locationMatch = locations.some(loc =>
+                    rowLocation.toLowerCase().includes(loc.toLowerCase()) ||
+                    loc.toLowerCase().includes(rowLocation.toLowerCase())
+                );
+
+                // Работаем только с запрошенными локациями
+                if (!locationMatch) continue;
+
+                // Проверяем, подходит ли по amount и iconType
+                let isFullMatch = false;
+                const maxCell = row.querySelector('.row__cell-max');
+                if (maxCell) {
+                    const maxHasIcon = iconType === 'archive'
+                        ? maxCell.querySelector('.fa-archive')
+                        : maxCell.querySelector('.fa-sack');
+                    if (maxHasIcon) {
+                        const maxText = maxCell.textContent.trim();
+                        const maxMatch = maxText.match(/^(\d+)/);
+                        if (maxMatch) {
+                            const maxAmount = parseInt(maxMatch[1], 10);
+                            if (maxAmount === amount) {
+                                isFullMatch = true;
+                            }
+                        }
+                    }
                 }
 
-                // Проверяем ячейку .row__cell-max - там указан максимум и его тип
-                const maxCell = row.querySelector('.row__cell-max');
-                if (!maxCell) continue;
-
-                const maxHasIcon = iconType === 'archive'
-                    ? maxCell.querySelector('.fa-archive')
-                    : maxCell.querySelector('.fa-sack');
-                if (!maxHasIcon) continue;
-
-                const maxText = maxCell.textContent.trim();
-                const maxMatch = maxText.match(/^(\d+)/);
-                if (!maxMatch) continue;
-                const maxAmount = parseInt(maxMatch[1], 10);
-                if (maxAmount !== amount) continue;
-
-                // Нашли нужную строку - подсвечиваем
-                row.classList.add(GISAA_HIGHLIGHT_CLASS);
-                row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_HIGHLIGHT_CLASS));
-
-                // Также подсвечиваем соответствующую кнопку
-                const buttons = row.querySelectorAll('.btn_vote');
-                for (const btn of buttons) {
-                    const btnHasIcon = iconType === 'archive'
-                        ? btn.querySelector('.fa-archive')
-                        : btn.querySelector('.fa-sack');
-                    if (!btnHasIcon) continue;
-                    const btnText = btn.textContent.trim();
-                    const btnMatch = btnText.match(/^(\d+)/);
-                    if (!btnMatch) continue;
-                    const btnAmount = parseInt(btnMatch[1], 10);
-                    if (btnAmount === amount) {
-                        btn.classList.add(GISAA_HIGHLIGHT_CLASS);
-                    }
+                if (isFullMatch) {
+                    // Полностью подходит - зелёным
+                    row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_MATCH_CLASS));
+                } else {
+                    // Локация та, но amount/type не тот - красным
+                    row.querySelectorAll('td').forEach(td => td.classList.add(GISAA_EXCLUDE_CLASS));
+                    row.querySelectorAll('.btn_vote').forEach(btn => btn.classList.add(GISAA_EXCLUDE_CLASS));
                 }
             }
         };
@@ -838,7 +844,7 @@
         "8340": { codexId: 8000060, short: "Лицензия в Сады наслаждений (изи или нормал)", item: { type: 'license', icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы" } },
         "8346": { codexId: 10056, short: "" },
         "8348": { codexId: 11154, short: "Лиловый (армия фантомов)<br/>01:50 / 05:50 / 09:50 / 13:50 / 17:50 / 21:50" },
-        "8350": { codexId: 11227, short: "Превратиться в руру и получить билет (в данж идти необязательно)" },
+        "8350": { codexId: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
         "8352": { codexId: 9147, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0356.png", grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань", count: 60 } },
         "8354": { codexId: 8000136, short: "Квест Нуи на 2500 ремесленки" },
         "8356": { codexId: 10506, short: "Замок Ош", veksel: 'north', item: { type: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 10 } },
@@ -1640,6 +1646,34 @@
                 font-size: 12px;
                 line-height: 1.25;
                 opacity: 0.85;
+            }
+
+            .tm-short a {
+                color: inherit;
+            }
+
+            .tm-inline-icon {
+                display: inline-block;
+                position: relative;
+                width: 18px;
+                height: 18px;
+                vertical-align: middle;
+                margin: 0 2px;
+            }
+
+            .tm-inline-icon img:first-child {
+                width: 100%;
+                height: 100%;
+                display: block;
+            }
+
+            .tm-inline-icon-grade {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
             }
 
             .tm-countdown {
