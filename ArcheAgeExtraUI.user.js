@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.4.1
+// @version      4.4.5
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -17,7 +17,6 @@
     const isArcheageSite = location.hostname.includes('archeage.ru');
     const isCartPage = isArcheageSite && (location.pathname === '/cart' || location.pathname === '/cart/');
     const isItemRestorePage = isArcheageSite && (location.pathname === '/itemrestore' || location.pathname === '/itemrestore/');
-    const isEventsPage = isArcheageSite && (location.pathname === '/a' || location.pathname === '/a/');
 
     // ============================================================
     // ====================== GISAA.RU ============================
@@ -212,6 +211,7 @@
         QUEST_HISTORY: 'tm_aa_qh',
         AUTO_OPEN_BOXES: 'tm_aa_auto_open_boxes',
         IR_PER_PAGE: 'tm_aa_ir_per_page',
+        EVENT_VISIBILITY: 'tm_aa_ev_vis',
     };
     const HISTORY_MAX_ENTRIES = 500;
     const HISTORY_PER_PAGE = 10;
@@ -1536,7 +1536,7 @@
         { eventId: '8436', id: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["35461"], count: 90 } },
         { eventId: '8438', id: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", slot: { item: ITEMS["8000753"] } },
         { eventId: '8448', id: 2943, short: "Кровавый (дневной) разлом - 3-я волна", events: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
-        { eventId: '8450', id: 7935, short: "", events: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
+        { eventId: '8450', id: 7935, short: "Гардум", events: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
         { eventId: '8452', id: 7660, short: "" },
         { eventId: '8470', id: 10739, short: "Призрачный (ночной) разлом - Эншака", events: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
         { eventId: '8478', id: 10423, short: "" },
@@ -1577,26 +1577,37 @@
 
     /** @type {EventEntry[]} Расписание игровых событий (для страницы /a). */
     const EVENTS = [
-        { title: "Ифнир", quests: [{ id: 10569, title: "Оборона Ифнира" }, { id: 10564, title: "Освобожденные узницы Нагашара" }], locations: ["Ифнир"], schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] },
-        { title: "Луг - Битва хранителей", locations: ["Великий луг"], quests: [{ id: 11132, title: "Битва хранителей" }, { id: 11096, title: "Турнир в честь Отца-Солнца" }], schedule: [{ timeStart: "18:00", weekdays: [6, 0] }] },
+        { title: "Оборона Ифнира", defaultVisible: true, schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }], locations: ["Ифнир"], quests: [{ id: 10569, title: "Оборона Ифнира" }, { id: 10564, title: "Освобожденные узницы Нагашара" }] },
+        { title: "Луг - Битва хранителей", defaultVisible: true, schedule: [{ timeStart: "18:00", weekdays: [6, 0] }], locations: ["Великий луг"], quests: [{ id: 11132, title: "Битва хранителей" }, { id: 11096, title: "Турнир в честь Отца-Солнца" }] },
 
-        { title: "Сады матери - 4 босса", quests: [{ id: 10056, title: "Садовые работы" }], schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] },
-
-        { title: "Кровавый (дневной) разлом - Анталлон/Эншака", quests: [{ id: 5885, title: "Советник Кириоса" }], locations: ["Солнечные поля"], schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
-        { title: "Кровавый (дневной) разлом - собака", quests: [{ id: 2943, title: "Элитные войска Кровавой армии" }], schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
-        { title: "Призрачный (ночной) разлом", quests: [{ id: 5144, title: "Разгром призрачного легиона" }], schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
-        { title: "Лиловый (армия фантомов)", quests: [{ id: 11154, title: "Бой с тенью" }], schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] },
-
-        { title: "Ашьяра/Гленн/Лорея", quests: [{ id: 5971, title: "Чешуя Ашьяры" }, { id: 5970, title: "Кольцо капитана Гленна" }, { id: 5969, title: "Кольцо Лореи" }], locations: ["Бездна", "Солнечные поля"], schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+        { title: "Кровавый (дневной) разлом - Анталлон/Эншака", defaultVisible: true, schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }], locations: ["Солнечные поля"], quests: [{ id: 5885, title: "Советник Кириоса" }] },
+        { title: "Кровавый (дневной) разлом - собака", defaultVisible: true, schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }], locations: ["Инистра", "Полуостров Падающих Звезд"], quests: [{ id: 2943, title: "Элитные войска Кровавой армии" }] },
+        { title: "Призрачный (ночной) разлом - Призрак Эншаки", defaultVisible: true, schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }], locations: ["Инистра", "Полуостров Падающих Звезд"], quests: [{ id: 5144, title: "Разгром призрачного легиона" }] },
+        { title: "Фантомы (лиловый разлом)", defaultVisible: false, schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }], locations: ["Сокрытая долина", "Ирамийский хребет"], quests: [{ id: 11154, title: "Бой с тенью" }] },
 
         /* Инстансы - Рейды */
-        { title: "Логово дракона", schedule: [{ timeStart: "13:20", timeEnd: "14:00" }, { timeStart: "18:20", timeEnd: "19:00" }, { timeStart: "21:20", timeEnd: "22:00" }] },
-        { title: "Гардум (Ущелье кровавой росы)", quests: [{ id: 7935, title: "Хранитель Звенящего ущелья" }], schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
-        { title: "Последний день Ирамканда", quests: [{ id: 9205, title: "Последний день Ирамканда" }], schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
+        { title: "Логово дракона", defaultVisible: true, schedule: [{ timeStart: "13:20", timeEnd: "14:00" }, { timeStart: "18:20", timeEnd: "19:00" }, { timeStart: "21:20", timeEnd: "22:00" }], locations: ["Инстансы - Рейды"] },
+        { title: "Гардум (Ущелье кровавой росы)", defaultVisible: true, schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }], locations: ["Инстансы - Рейды"], quests: [{ id: 7935, title: "Хранитель Звенящего ущелья" }] },
+        { title: "Последний день Ирамканда", defaultVisible: false, schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }], locations: ["Инстансы - Рейды"], quests: [{ id: 9205, title: "Последний день Ирамканда" }] },
 
         /* Инстансы - Фракции */
-        { title: "Битва за Даскшир", schedule: [{ timeStart: "16:00", timeEnd: "17:00", weekdays: [1, 3, 5] }, { timeStart: "22:30", timeEnd: "23:59", weekdays: [1, 3, 5] }, { timeStart: "19:00", timeEnd: "20:00", weekdays: [0, 2, 3, 6] }] },
-        { title: "Битва за Зачарованные пруды", schedule: [{ timeStart: "14:30", timeEnd: "15:15" }, { timeStart: "17:00", timeEnd: "18:00" }, { timeStart: "21:00", timeEnd: "21:45" }] },
+        { title: "Битва за Даскшир", defaultVisible: true, schedule: [{ timeStart: "16:00", timeEnd: "17:00", weekdays: [1, 3, 5] }, { timeStart: "22:30", timeEnd: "23:59", weekdays: [1, 3, 5] }, { timeStart: "19:00", timeEnd: "20:00", weekdays: [0, 2, 3, 6] }], locations: ["Инстансы - Фракции"] },
+        { title: "Битва в Ущелье кровавой росы", defaultVisible: false, schedule: [{ timeStart: "15:15", timeEnd: "16:00" }, { timeStart: "18:00", timeEnd: "19:00" }, { timeStart: "21:45", timeEnd: "22:30" }], locations: ["Инстансы - Фракции"] },
+        { title: "Битва за Зачарованные пруды", defaultVisible: true, schedule: [{ timeStart: "14:30", timeEnd: "15:15" }, { timeStart: "17:00", timeEnd: "18:00" }, { timeStart: "21:00", timeEnd: "21:45" }], locations: ["Инстансы - Фракции"] },
+
+        /* Мировые боссы */
+        { title: "Кракен", defaultVisible: false, schedule: [{ timeStart: "19:30", weekdays: [0, 3, 5] }], locations: ["Безмятежное море"] },
+        { title: "Калидис", defaultVisible: false, schedule: [{ timeStart: "20:30", weekdays: [0, 4, 5] }], locations: ["Туманный пролив"] },
+        { title: "Левиафан", defaultVisible: false, schedule: [{ timeStart: "20:30", weekdays: [1, 3, 6] }], locations: ["Безмятежное море"] },
+        { title: "Летучий дельфиец", defaultVisible: false, schedule: [{ timeStart: "21:00", weekdays: [0, 2, 4, 6] }], locations: ["Золотое море"] },
+        { title: "Ашьяра/Гленн/Лорея", defaultVisible: false, schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }], locations: ["Бездна", "Солнечные поля"], quests: [{ id: 5971, title: "Чешуя Ашьяры" }, { id: 5970, title: "Кольцо капитана Гленна" }, { id: 5969, title: "Кольцо Лореи" }] },
+        { title: "Ксанатос", defaultVisible: false, schedule: [{ timeStart: "19:30", weekdays: [1, 4, 6] }], locations: ["Кладбище драконов"] },
+
+        { title: "Эншака/Лернея/Таврос/М'гер", defaultVisible: false, schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }], locations: ["Сады матери"], quests: [{ id: 10056, title: "Садовые работы" }] },
+        { title: "Анталлон в садах", defaultVisible: false, schedule: [{ timeStart: "21:30", weekdays: [0, 4, 6] }], locations: ["Сады матери"] },
+
+        { title: "Битва за алтари", defaultVisible: false, schedule: [{ timeStart: "16:00", timeEnd: "16:30", weekdays: [0, 2, 3, 4, 5] }, { timeStart: "20:00", timeEnd: "20:30", weekdays: [0, 2, 3, 4, 5] }], locations: ["Пепельные равнины"] },
+        { title: "Фесаникс", defaultVisible: false, schedule: [{ timeStart: "22:30", timeEnd: "23:30", weekdays: [2] }], locations: ["Пепельные равнины"] },
     ];
 
     // ==================== API-запросы ====================
@@ -3787,9 +3798,9 @@
     const initServerClock = async () => {
         await syncServerTime();
         injectServerClockStyles();
-        serverClockEl = document.createElement('a');
+        serverClockEl = document.createElement('div');
         serverClockEl.className = 'tm-server-clock';
-        serverClockEl.href = '/a/';
+        serverClockEl.addEventListener('click', openEventsPopup);
         document.body.appendChild(serverClockEl);
         updateServerClockContent();
         setInterval(updateServerClockContent, 1000);
@@ -5580,24 +5591,104 @@
     };
 
     // ============================================================
-    // ====================== EVENTS PAGE =========================
+    // ====================== EVENTS POPUP ========================
     // ============================================================
 
     const CODEX_QUEST_BASE = 'https://archeagecodex.com/ru/quest/';
 
-    const injectEventsPageStyles = () => {
+    // --- Event visibility (localStorage) ---
+
+    const loadEventVisibility = () => {
+        try {
+            return JSON.parse(localStorage.getItem(LS_KEYS.EVENT_VISIBILITY)) || {};
+        } catch {
+            return {};
+        }
+    };
+
+    const saveEventVisibility = (overrides) => {
+        try {
+            localStorage.setItem(LS_KEYS.EVENT_VISIBILITY, JSON.stringify(overrides));
+        } catch { /* ignore */ }
+    };
+
+    const isEventVisible = (index, overrides) => {
+        if (index in overrides) return overrides[index];
+        return EVENTS[index].defaultVisible;
+    };
+
+    // --- Styles ---
+
+    let eventsPopupStylesInjected = false;
+
+    const injectEventsPopupStyles = () => {
+        if (eventsPopupStylesInjected) return;
+        eventsPopupStylesInjected = true;
         const style = document.createElement('style');
         style.textContent = `
-            .tm-events-page {
-                max-width: 860px;
-                margin: 20px auto;
+            .tm-popup-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 10001;
+                background: rgba(0,0,0,0.45);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .tm-popup-panel {
+                background: #fff;
+                border-radius: 8px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                max-height: 85vh;
+                display: flex;
+                flex-direction: column;
                 font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;
             }
-            .tm-events-page h2 {
-                text-align: center;
-                margin-bottom: 16px;
-                font-size: 20px;
+            .tm-popup-panel--events {
+                width: 960px;
+                max-width: 95vw;
             }
+            .tm-popup-panel--settings {
+                width: 380px;
+                max-width: 90vw;
+            }
+            .tm-popup-header {
+                display: flex;
+                align-items: center;
+                padding: 12px 16px;
+                border-bottom: 1px solid #ddd;
+                gap: 8px;
+                flex-shrink: 0;
+            }
+            .tm-popup-title {
+                flex: 1;
+                font-size: 18px;
+                font-weight: bold;
+                margin: 0;
+            }
+            .tm-popup-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 20px;
+                padding: 2px 6px;
+                border-radius: 4px;
+                color: #555;
+                line-height: 1;
+            }
+            .tm-popup-btn:hover {
+                background: #eee;
+                color: #000;
+            }
+            .tm-popup-body {
+                overflow-y: auto;
+                padding: 0;
+                flex: 1;
+            }
+            .tm-popup-body--settings {
+                padding: 12px 16px;
+            }
+            /* Events table */
             .tm-events-table {
                 width: 100%;
                 border-collapse: collapse;
@@ -5608,6 +5699,9 @@
                 padding: 8px 12px;
                 text-align: left;
                 font-weight: normal;
+                position: sticky;
+                top: 0;
+                z-index: 1;
             }
             .tm-events-table td {
                 padding: 6px 12px;
@@ -5658,28 +5752,164 @@
             .tm-events-table a:hover {
                 text-decoration: underline;
             }
+            /* Settings checkboxes */
+            .tm-ev-settings-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+            }
+            .tm-ev-settings-list li {
+                padding: 4px 0;
+            }
+            .tm-ev-settings-list label {
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .tm-ev-settings-list input[type="checkbox"] {
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
+            }
         `;
         document.head.appendChild(style);
     };
 
-    const initEventsPage = () => {
-        const content = document.getElementById('content');
-        if (!content || !content.textContent.includes('Запрашиваемая страница не найдена')) return;
+    // --- Popup logic ---
 
-        document.title = 'Расписание | ArcheAge';
-        content.innerHTML = '';
-        injectEventsPageStyles();
+    let eventsOverlay = null;
+    let eventsInterval = null;
+    let settingsOverlay = null;
+    let evVisOverrides = null;
 
-        const wrap = document.createElement('div');
-        wrap.className = 'tm-events-page';
+    const closeSettingsPopup = () => {
+        if (settingsOverlay) {
+            settingsOverlay.remove();
+            settingsOverlay = null;
+        }
+    };
 
-        const heading = document.createElement('h2');
-        heading.textContent = 'Расписание событий';
-        wrap.appendChild(heading);
+    const closeEventsPopup = () => {
+        closeSettingsPopup();
+        if (eventsInterval) {
+            clearInterval(eventsInterval);
+            eventsInterval = null;
+        }
+        if (eventsOverlay) {
+            eventsOverlay.remove();
+            eventsOverlay = null;
+        }
+    };
+
+    const openSettingsPopup = (onChanged) => {
+        if (settingsOverlay) { closeSettingsPopup(); return; }
+
+        settingsOverlay = document.createElement('div');
+        settingsOverlay.className = 'tm-popup-overlay';
+        settingsOverlay.style.zIndex = '10002';
+        settingsOverlay.addEventListener('mousedown', (e) => {
+            if (e.target === settingsOverlay) closeSettingsPopup();
+        });
+
+        const panel = document.createElement('div');
+        panel.className = 'tm-popup-panel tm-popup-panel--settings';
+        panel.addEventListener('mousedown', (e) => e.stopPropagation());
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'tm-popup-header';
+        const title = document.createElement('div');
+        title.className = 'tm-popup-title';
+        title.textContent = 'Отображаемые события';
+        header.appendChild(title);
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'tm-popup-btn';
+        closeBtn.textContent = '\u00d7';
+        closeBtn.addEventListener('click', closeSettingsPopup);
+        header.appendChild(closeBtn);
+        panel.appendChild(header);
+
+        // Body
+        const body = document.createElement('div');
+        body.className = 'tm-popup-body tm-popup-body--settings';
+        const ul = document.createElement('ul');
+        ul.className = 'tm-ev-settings-list';
+
+        for (let i = 0; i < EVENTS.length; i++) {
+            const ev = EVENTS[i];
+            const li = document.createElement('li');
+            const label = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = isEventVisible(i, evVisOverrides);
+            cb.addEventListener('change', () => {
+                if (cb.checked === ev.defaultVisible) {
+                    delete evVisOverrides[i];
+                } else {
+                    evVisOverrides[i] = cb.checked;
+                }
+                saveEventVisibility(evVisOverrides);
+                onChanged();
+            });
+            const span = document.createElement('span');
+            span.textContent = ev.title;
+            label.appendChild(cb);
+            label.appendChild(span);
+            li.appendChild(label);
+            ul.appendChild(li);
+        }
+
+        body.appendChild(ul);
+        panel.appendChild(body);
+        settingsOverlay.appendChild(panel);
+        document.body.appendChild(settingsOverlay);
+    };
+
+    const openEventsPopup = () => {
+        if (eventsOverlay) { closeEventsPopup(); return; }
+
+        injectEventsPopupStyles();
+        evVisOverrides = loadEventVisibility();
+
+        eventsOverlay = document.createElement('div');
+        eventsOverlay.className = 'tm-popup-overlay';
+        eventsOverlay.addEventListener('mousedown', (e) => {
+            if (e.target === eventsOverlay) closeEventsPopup();
+        });
+
+        const panel = document.createElement('div');
+        panel.className = 'tm-popup-panel tm-popup-panel--events';
+        panel.addEventListener('mousedown', (e) => e.stopPropagation());
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'tm-popup-header';
+        const title = document.createElement('div');
+        title.className = 'tm-popup-title';
+        title.textContent = 'Расписание событий';
+        header.appendChild(title);
+
+        const gearBtn = document.createElement('button');
+        gearBtn.className = 'tm-popup-btn';
+        gearBtn.textContent = '\u2699';
+        gearBtn.title = 'Настройки отображения';
+        gearBtn.addEventListener('click', () => openSettingsPopup(renderTable));
+        header.appendChild(gearBtn);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'tm-popup-btn';
+        closeBtn.textContent = '\u00d7';
+        closeBtn.addEventListener('click', closeEventsPopup);
+        header.appendChild(closeBtn);
+        panel.appendChild(header);
+
+        // Body
+        const body = document.createElement('div');
+        body.className = 'tm-popup-body';
 
         const table = document.createElement('table');
         table.className = 'tm-events-table';
-
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
         for (const col of ['Время', 'Название', 'Локации']) {
@@ -5692,15 +5922,18 @@
 
         const tbody = document.createElement('tbody');
         table.appendChild(tbody);
-        wrap.appendChild(table);
-        content.appendChild(wrap);
+        body.appendChild(table);
+        panel.appendChild(body);
+        eventsOverlay.appendChild(panel);
+        document.body.appendChild(eventsOverlay);
 
         const DAY_SEC = 86400;
 
+        /** Ключи раскрытых <details> — сохраняются между перерисовками */
+        const openDetails = new Set();
+
         /**
-         * Собирает все ближайшие вхождения событий.
-         * В пределах 24ч — каждое вхождение отдельной строкой.
-         * Если у события нет вхождений в 24ч — одна строка с ближайшим.
+         * Собирает все ближайшие вхождения видимых событий.
          * @returns {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]}
          */
         const collectOccurrences = () => {
@@ -5708,20 +5941,19 @@
             const nowWd = getMSKWeekday(serverNow);
             const nowSec = getMSKTimeOfDaySeconds(serverNow);
 
-            /** @type {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]} */
             const within = [];
-            /** @type {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]} */
             const beyond = [];
 
-            for (const ev of EVENTS) {
+            for (let i = 0; i < EVENTS.length; i++) {
+                if (!isEventVisible(i, evVisOverrides)) continue;
+                const ev = EVENTS[i];
                 let hasWithin = false;
-                /** @type {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }|null} */
                 let nearest = null;
 
                 for (const entry of ev.schedule) {
                     const { hours, minutes } = parseTime(entry.timeStart);
                     const startSec = hours * 3600 + minutes * 60;
-                    const timeStr = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
+                    const timeStr = entry.timeEnd ? `${entry.timeStart}\u2013${entry.timeEnd}` : entry.timeStart;
 
                     // Проверка: событие идёт прямо сейчас
                     if (entry.timeEnd) {
@@ -5733,16 +5965,23 @@
                             hasWithin = true;
                             continue;
                         }
+                    } else {
+                        // Без timeEnd — подсвечиваем 5 минут после старта
+                        const activeDur = 300;
+                        const isToday = !entry.weekdays?.length || entry.weekdays.includes(nowWd);
+                        if (isToday && nowSec >= startSec && nowSec < startSec + activeDur) {
+                            within.push({ ev, label: timeStr, secondsUntil: 0, isActive: true, isBeyond: false });
+                            hasWithin = true;
+                            continue;
+                        }
                     }
 
                     if (!entry.weekdays?.length) {
-                        // Ежедневное — всегда в пределах 24ч
                         let diff = startSec - nowSec;
                         if (diff <= 0) diff += DAY_SEC;
                         within.push({ ev, label: timeStr, secondsUntil: diff, isActive: false, isBeyond: false });
                         hasWithin = true;
                     } else {
-                        // По дням недели — ищем ближайшее вхождение
                         let minDiff = Infinity;
                         for (const wd of entry.weekdays) {
                             let d = wd - nowWd;
@@ -5768,7 +6007,6 @@
                 }
             }
 
-            // Активные первыми, затем по возрастанию countdown
             within.sort((a, b) => {
                 if (a.isActive && !b.isActive) return -1;
                 if (!a.isActive && b.isActive) return 1;
@@ -5779,14 +6017,11 @@
             return [...within, ...beyond];
         };
 
-        /** Ключи раскрытых <details> — сохраняются между перерисовками */
-        const openDetails = new Set();
-
         /** Формирует строки расписания для раскрывающегося списка */
         const buildScheduleLines = (schedule) => {
             const lines = [];
             for (const entry of schedule) {
-                const time = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
+                const time = entry.timeEnd ? `${entry.timeStart}\u2013${entry.timeEnd}` : entry.timeStart;
                 if (entry.weekdays?.length) {
                     const days = entry.weekdays.map(d => WEEKDAY_NAMES[d]).join(', ');
                     lines.push(`${days} ${time}`);
@@ -5821,10 +6056,12 @@
                 });
 
                 const summary = document.createElement('summary');
-                if (occ.isActive) {
-                    summary.textContent = `${occ.label} — идёт, ещё ${formatCountdown(-occ.secondsUntil)}`;
+                if (occ.isActive && occ.secondsUntil < 0) {
+                    summary.textContent = `${occ.label} \u2014 ещё ${formatCountdown(-occ.secondsUntil)}`;
+                } else if (occ.isActive) {
+                    summary.textContent = occ.label;
                 } else {
-                    summary.textContent = `${occ.label} — через ${formatCountdown(occ.secondsUntil)}`;
+                    summary.textContent = `${occ.label} \u2014 через ${formatCountdown(occ.secondsUntil)}`;
                 }
                 details.appendChild(summary);
 
@@ -5842,7 +6079,7 @@
 
                 // Название
                 const nameTd = document.createElement('td');
-                nameTd.textContent = occ.ev.title || '—';
+                nameTd.textContent = occ.ev.title || '\u2014';
                 if (occ.ev.quests?.length) {
                     for (const q of occ.ev.quests) {
                         const a = document.createElement('a');
@@ -5868,7 +6105,7 @@
         };
 
         renderTable();
-        setInterval(renderTable, 1000);
+        eventsInterval = setInterval(renderTable, 1000);
     };
 
     // ============================================================
@@ -5886,8 +6123,6 @@
         }
     } else if (isItemRestorePage) {
         initItemRestore();
-    } else if (isEventsPage) {
-        initEventsPage();
     } else if (location.pathname.startsWith('/promo/marathon')) {
         // Marathon page
         const observer = new MutationObserver(() => {
