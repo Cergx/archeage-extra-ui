@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.3.0
-// @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
+// @version      4.3.1
+// @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon
 // @match        *://archeage.ru/promo/marathon/
@@ -55,7 +55,7 @@
         };
 
         /**
-         * Подсвечивает строки в таблицах Запад/Восток: зелёным подходящие, красным неподходящие, жёлтым если в таблице ?.
+         * Подсвечивает строки в таблицах Запад/Восток: зелёным - подходящие, красным - неподходящие, жёлтым - неизвестные.
          * @param {string} resourceName
          * @param {number} amount - количество ресурсов
          */
@@ -997,6 +997,7 @@
     /**
      * @param {number} dayUtcMs
      * @param {Segment} segment
+     * @returns {number}
      */
     const slotKey = (dayUtcMs, segment) => {
         const seg = segment === 'pre' ? 0 : segment === 'post' ? 2 : 1;
@@ -1315,6 +1316,8 @@
      * @property {boolean} [isPersonal] - Персональный предмет (отображается в секции требований).
      * @property {string} [description] - Описание предмета (отображается во второй секции всплывашки).
      * @property {string} [useDescription] - Описание использования (выводится под description зелёным цветом).
+     * @property {number} [price] - Цена продажи (0 = не продаётся).
+     * @property {number} [reqLevel] - Требуемый уровень.
      */
 
     /**
@@ -1374,7 +1377,7 @@
         { id: '8002452', icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, name: 'Универсальный алхимический кристалл' },
         { id: '8002449', icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, name: 'Дополнительная сумка' },
         { id: '47943', type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, name: 'Настойка усердного ремесленника' },
-        { id: '39424', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, name: 'Ирамийская гадальная руна' },
+        { id: '39424', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, name: 'Ирамийская гадальная руна', description: 'Позволяет заменить один из <span class="orange_text">эффектов синтеза костюма, эфенского снаряжения, рамианского снаряжения или трофейного снаряжения мифических противников</span> другим, выбранным случайным образом.', useDescription: 'Распаковать.<br>Удерживая Shift, щелкните левой кнопкой мыши, чтобы распаковать все предметы этого типа, находящиеся в рюкзаке.' },
         { id: '46180', icon: 'https://archeagecodex.com/items/icon_item_1395.png', grade: 3, name: 'Солнечный настой' },
         { id: '47130', type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, name: 'Хрустальная руна', description: '|nd;Можно получить одну из хрустальных рун на выбор:|r\n- хрустальная руна багровой луны,\n- хрустальная руна осенней луны,\n- хрустальная руна молодой луны,\n- хрустальная руна безмолвной луны,\n- хрустальная руна колдовской луны.' },
         { id: '47104', icon: 'https://archeagecodex.com/items/icon_item_4570.png', grade: 2, name: 'Парниковый купол' },
@@ -1407,7 +1410,7 @@
         { id: '49769', icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, name: 'Зачарованный свиток пробуждения хранителя знаний' },
         { id: '54653', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, name: 'Сундук с обновленным рамианским снаряжением' },
         { id: '51236', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундучок с драгоценным украшением эпохи мифов' },
-        { id: '53515', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, name: 'Заговоренная рамианская руна' },
+        { id: '53515', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, isPersonal: true, price: 0, reqLevel: 1, name: 'Заговоренная рамианская руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.<br><br><span class="blue_text">Подходит для проклятого, изначального, обновленного и совершенного рамианского снаряжения.</span>', useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
         { id: '52207', icon: 'https://archeagecodex.com/items/icon_item_3022.png', grade: 1, name: 'Мешочек с микстурами', description: 'Содержимое:\n- инкрустированный флакон с эликсиром маны (300 шт.),\n- инкрустированный флакон с целебным эликсиром (300 шт.),\n- солнечный настой (30 шт.),\n- лунный настой (30 шт.)' },
         { id: '54655', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
         { id: '54654', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с обновленным рамианским оружием эпохи Двенадцати' },
@@ -1428,7 +1431,8 @@
         { id: '47941', type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
         { id: '55800', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, name: 'Сундучок с фрагментами судьбы', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:\n- пыль судьбы (25 шт.),\n- слиток судьбы (5 шт.),\n- призма судьбы.' },
         { id: '8002772', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем', description: 'Сняв печать, вы получите Квадрума, Мистериона или Мистериона, Ужаса Ночи (на выбор).' },
-        { id: '50635', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, name: 'Заговоренная гадальная руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для эфенского и рамианского снаряжения; трофеев, полученных за победу над мифическими противниками; ожерелий, полученных на Последнем рубеже; перстней говорящего с духами; а также для костюмов, плащей и украшений чемпионов Порт-Аргенто.|r', useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
+        { id: '50635', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, isPersonal: true, name: 'Заговоренная гадальная руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для эфенского и рамианского снаряжения; трофеев, полученных за победу над мифическими противниками; ожерелий, полученных на Последнем рубеже; перстней говорящего с духами; а также для костюмов, плащей и украшений чемпионов Порт-Аргенто.|r', useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
+        { id: '8002769', icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, isPersonal: true, name: 'Знак «Ключевая фигура»', description: 'Позволяет получить титул «Ключевая фигура».', useDescription: 'Получить титул.' },
         { id: '', type: '', icon: '', grade: 1, name: '' },
     ].map(i => [i.id, i]));
 
@@ -1896,14 +1900,23 @@
         tooltip.appendChild(headerSection);
 
         // Секция: требования (если есть)
-        if (item.isPersonal) {
+        if (item.isPersonal || item.reqLevel != null) {
             const sep = document.createElement('div');
             sep.className = 'tm-item-tooltip-sep';
             tooltip.appendChild(sep);
 
             const reqSection = document.createElement('div');
             reqSection.className = 'tm-item-tooltip-req';
-            reqSection.textContent = 'Персональный предмет';
+            if (item.reqLevel != null) {
+                const lvl = document.createElement('div');
+                lvl.textContent = `Требуемый уровень: ${item.reqLevel}`;
+                reqSection.appendChild(lvl);
+            }
+            if (item.isPersonal) {
+                const p = document.createElement('div');
+                p.textContent = 'Персональный предмет';
+                reqSection.appendChild(p);
+            }
             tooltip.appendChild(reqSection);
         }
 
@@ -1935,6 +1948,29 @@
             }
             tooltip.appendChild(descriptionSection);
         }
+
+        // Секция: цена
+        if (item.price != null) {
+            const sep = document.createElement('div');
+            sep.className = 'tm-item-tooltip-sep';
+            tooltip.appendChild(sep);
+
+            const priceSection = document.createElement('div');
+            priceSection.className = 'tm-item-tooltip-price';
+            if (item.price === 0) {
+                priceSection.className = 'tm-item-tooltip-price tm-item-tooltip-price--none';
+                priceSection.textContent = 'Этот предмет не нужен торговцам.';
+            } else {
+                const label = document.createElement('span');
+                label.textContent = 'Цена продажи: ';
+                const value = document.createElement('span');
+                value.className = 'tm-item-tooltip-price-value';
+                value.textContent = item.price;
+                priceSection.appendChild(label);
+                priceSection.appendChild(value);
+            }
+            tooltip.appendChild(priceSection);
+        }
     };
 
     /**
@@ -1945,6 +1981,7 @@
      */
     const TOOLTIP_VISIBLE_CLASS = 'tm-item-tooltip--visible';
     const TOOLTIP_RIGHT_CLASS = 'tm-item-tooltip--right';
+    const TOOLTIP_BOTTOM_CLASS = 'tm-item-tooltip--bottom';
     const TOOLTIP_WIDTH = 248;
 
     const showTooltip = (anchorEl, item, overlay) => {
@@ -1959,26 +1996,42 @@
         const tooltipLeftEdge = rect.left + 8 - TOOLTIP_WIDTH * scale;
         const showOnRight = tooltipLeftEdge < 0;
 
-        tooltip.style.setProperty('--tm-tooltip-top', `${rect.bottom - 8}px`);
+        // Проверяем, поместится ли тултип снизу
+        tooltip.classList.add(TOOLTIP_VISIBLE_CLASS);
         tooltip.style.setProperty('--tm-tooltip-scale', `${scale}`);
+        const tooltipHeight = tooltip.offsetHeight * scale;
+        const showFromBottom = (rect.bottom - 8 + tooltipHeight) > window.innerHeight;
+
+        if (showFromBottom) {
+            const topEdge = rect.top + 8 - tooltipHeight;
+            if (topEdge < 0) {
+                // Не помещается ни снизу, ни сверху — прижимаем к верху окна
+                tooltip.style.setProperty('--tm-tooltip-top', '0px');
+                tooltip.classList.remove(TOOLTIP_BOTTOM_CLASS);
+            } else {
+                // От верхнего угла иконки: нижний край тултипа = верх иконки + 8px
+                tooltip.style.setProperty('--tm-tooltip-top', `${rect.top + 8}px`);
+                tooltip.classList.add(TOOLTIP_BOTTOM_CLASS);
+            }
+        } else {
+            // От нижнего угла иконки (по умолчанию)
+            tooltip.style.setProperty('--tm-tooltip-top', `${rect.bottom - 8}px`);
+            tooltip.classList.remove(TOOLTIP_BOTTOM_CLASS);
+        }
 
         if (showOnRight) {
-            // Справа от иконки: левый край тултипа = правый край иконки - 8px
             tooltip.style.setProperty('--tm-tooltip-left', `${rect.right - 8}px`);
             tooltip.classList.add(TOOLTIP_RIGHT_CLASS);
         } else {
-            // Слева от иконки: правый край тултипа = левый край иконки + 8px
             tooltip.style.setProperty('--tm-tooltip-left', `${rect.left + 8}px`);
             tooltip.classList.remove(TOOLTIP_RIGHT_CLASS);
         }
-
-        tooltip.classList.add(TOOLTIP_VISIBLE_CLASS);
     };
 
     /** Скрывает тултип. */
     const hideTooltip = () => {
         if (globalTooltip) {
-            globalTooltip.classList.remove(TOOLTIP_VISIBLE_CLASS, TOOLTIP_RIGHT_CLASS);
+            globalTooltip.classList.remove(TOOLTIP_VISIBLE_CLASS, TOOLTIP_RIGHT_CLASS, TOOLTIP_BOTTOM_CLASS);
         }
     };
 
@@ -2825,8 +2878,9 @@
                 top: var(--tm-tooltip-top, 0);
                 left: var(--tm-tooltip-left, 0);
                 z-index: 10000;
+                box-sizing: border-box;
                 width: 248px;
-                padding: 15px 16px;
+                padding: 15px 15px 14px;
                 background: rgba(0, 8, 24, 0.85);
                 border: 1px solid rgba(255, 255, 255, 0.25);
                 pointer-events: none;
@@ -2848,6 +2902,16 @@
                 transform-origin: top left;
             }
 
+            .tm-item-tooltip--bottom {
+                transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));
+                transform-origin: bottom right;
+            }
+
+            .tm-item-tooltip--bottom.tm-item-tooltip--right {
+                transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));
+                transform-origin: bottom left;
+            }
+
             .tm-item-tooltip-header {
                 display: flex;
                 gap: 6px;
@@ -2862,19 +2926,14 @@
             .tm-item-tooltip-meta {
                 display: flex;
                 flex-direction: column;
-                gap: 1px;
-                padding: 8px 0 0;
+                padding: 6px 0 2px;
             }
 
             .tm-item-tooltip-type {
                 opacity: 0.7;
-                font-size: 13px;
-                line-height: 16px;
             }
 
             .tm-item-tooltip-grade {
-                font-size: 14px;
-                line-height: 17px;
             }
 
             .tm-item-tooltip-name {
@@ -2883,26 +2942,24 @@
             }
 
             .tm-item-tooltip-sep {
-                height: 1px;
-                margin: 5px 0;
-                background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25) 20%, rgba(255, 255, 255, 0.25) 80%, transparent);
+                height: 2px;
+                margin: 4px 0;
+                background: linear-gradient(to bottom, rgba(255,255,255,0.25), rgba(255,255,255,0.10));
+                -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+                mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
                 padding: 0;
             }
 
             .tm-item-tooltip-req {
                 padding: 0 3px;
-                font-size: 13px;
-                line-height: 16px;
-                color: #888;
+                letter-spacing: 0.03em;
             }
 
             .tm-item-tooltip-desc {
-                padding: 0 3px;
-                font-size: 13px;
-                line-height: 16px;
+                padding: 4px 3px 2px;
                 display: flex;
                 flex-direction: column;
-                gap: 16px;
+                gap: 10px;
             }
 
             .tm-item-tooltip-use-label {
@@ -2911,6 +2968,19 @@
 
             .tm-item-tooltip-use-text {
                 color: #4caf50;
+            }
+
+            .tm-item-tooltip-price {
+                padding: 0 3px;
+                display: flex;
+                justify-content: space-between;
+            }
+            .tm-item-tooltip-price--none {
+                display: block;
+                color: #d02e2e;
+            }
+            .tm-item-tooltip-price-value {
+                color: #cfd6e0;
             }
 
             .orange_text {
