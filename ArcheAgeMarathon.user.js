@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      3.2
+// @version      3.3
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -177,13 +177,10 @@
     const DEFAULT_HOUR = 16;  // 16:00 МСК — после профработ
     /** Эндпоинт информации о марафоне. Ответ: {@link ApiInfoResponse}. */
     const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
-    /** Эндпоинт забора награды за уровень. Ответ: {@link ApiFarmRewardResponse}. */
-    const API_FARM_REWARD_PATH = '/minigames/marathon_of_heroes/api/farm-level-reward';
     const LS_HIDE_DONE_KEY = 'tm_aa_hide_done';
     const LS_AUTO_CLAIM_KEY = 'tm_aa_auto_claim';
     const DAY_RESET_HOUR = 0; // 00:00 МСК — начало нового дня для сброса галочки
     const CLAIM_DELAY_MS = 400; // Задержка между запросами автозабора
-    const SCROLL_DELAY_MS = 500; // Задержка между кликами при пролистывании
 
     // ==================== Типы API ====================
 
@@ -255,18 +252,6 @@
     /**
      * @typedef {Object} ApiInfoResponse
      * @property {ApiInfoData} data
-     * @property {any} meta
-     * @property {string} state - `'Success'` | `'Error'`.
-     */
-
-    /**
-     * @typedef {Object} ApiFarmRewardData
-     * @property {Record<string, string[]>} farmed_rewards
-     */
-
-    /**
-     * @typedef {Object} ApiFarmRewardResponse
-     * @property {ApiFarmRewardData} data
      * @property {any} meta
      * @property {string} state - `'Success'` | `'Error'`.
      */
@@ -1050,13 +1035,12 @@
         });
         if (!res.ok) throw new Error(`api/info failed: ${res.status}`);
 
-        if (NOW_MS == null) {
-            const dateHeader = res.headers.get('Date');
-            const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
-            if (!Number.isFinite(parsed)) {
-                throw new Error('[AA Marathon] Cannot read server Date header');
-            }
+        const dateHeader = res.headers.get('Date');
+        const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
+        if (Number.isFinite(parsed)) {
             NOW_MS = parsed;
+        } else if (NOW_MS == null) {
+            throw new Error('[AA Marathon] Cannot read server Date header');
         }
 
         return res.json();
@@ -1099,11 +1083,10 @@
         showRefreshLoader();
 
         try {
-            // Сбрасываем кэш, промис и время для получения свежих данных
+            // Сбрасываем кэш и промис для получения свежих данных
             const prevDataJson = API_INFO_DATA_JSON;
             API_INFO_CACHE = null;
             API_INFO_PROMISE = null;
-            NOW_MS = null;
 
             // Загружаем свежие данные (fetchApiInfo обновит NOW_MS из Date header)
             API_INFO_CACHE = await fetchApiInfo();
@@ -2060,7 +2043,6 @@
                 margin-top: 6px;
                 display: flex;
                 gap: 4px;
-                opacity: 0.95;
                 justify-content: space-between;
                 align-items: center;
                 z-index: 1;
@@ -2534,12 +2516,6 @@
         return prizesWrap.querySelector(selector);
     };
 
-    // Получить текущие видимые уровни на странице
-    const getVisibleLevels = () => {
-        const levelItems = document.querySelectorAll('.prizes__level .prizes__level-item .icon_level-text');
-        return Array.from(levelItems).map(el => parseInt(el.textContent, 10)).filter(n => !isNaN(n));
-    };
-
     // Определить целевой уровень из данных API
     const getTargetPrizeLevelFromApi = () => {
         const userInfo = API_INFO_CACHE?.data?.user_info;
@@ -2564,87 +2540,76 @@
         return currentLevel + 1;
     };
 
-    // Кликнуть на стрелку навигации
-    const clickPrizesArrow = (direction) => {
-        const arrow = document.querySelector(`.prizes__arrow--${direction}`);
-        if (arrow) {
-            arrow.click();
-            return true;
-        }
-        return false;
+    /**
+     * Найти Vue-инстанс компонента Prizes (хранит current_page / per_on_page).
+     * Корневой элемент Prizes — div.game__right.
+     * @returns {Vue|null}
+     */
+    const getPrizesVm = () => {
+        const el = document.querySelector('.game__right');
+        return el?.__vue__ ?? null;
     };
 
-    // Пролистать к первому нужному подарку
-    const scrollToFirstRelevantPrize = async () => {
+    // Пролистать к первому нужному подарку, выставив current_page напрямую
+    const scrollToFirstRelevantPrize = () => {
         const targetLevel = getTargetPrizeLevelFromApi();
+        const vm = getPrizesVm();
+        if (!vm) return;
 
-        // Кликаем по стрелкам пока не долистаем до нужного уровня
-        for (let attempt = 0; attempt < 100; attempt++) {
-            // Ждём и проверяем
-            await new Promise(r => setTimeout(r, SCROLL_DELAY_MS));
-
-            const visibleLevels = getVisibleLevels();
-            if (visibleLevels.length === 0) continue;
-
-            const minVisible = Math.min(...visibleLevels);
-            const maxVisible = Math.max(...visibleLevels);
-
-            // Уровень уже виден - готово
-            if (targetLevel >= minVisible && targetLevel <= maxVisible) {
-                return;
-            }
-
-            // Определяем направление
-            if (targetLevel < minVisible) {
-                if (!clickPrizesArrow('left')) return;
-            } else {
-                if (!clickPrizesArrow('right')) return;
-            }
-        }
+        const perPage = vm.per_on_page || 10;
+        vm.current_page = Math.floor((targetLevel - 1) / perPage);
     };
 
-    // Забрать все доступные подарки (клик по DOM-элементам при загрузке страницы)
+    // Забрать все доступные подарки через родной Vuex store (без кликов по DOM)
     const claimAllActivePrizes = async () => {
-        const prizesList = getPrizesList();
-        if (!prizesList) return;
+        await claimAllLevelRewards();
+    };
 
-        const activeItems = prizesList.querySelectorAll('.prizes__item--active');
-
-        for (const item of activeItems) {
-            const imageEl = item.querySelector('.item__image');
-            if (imageEl) {
-                imageEl.click();
-                await new Promise(r => setTimeout(r, CLAIM_DELAY_MS));
-            }
-        }
+    /** Получить Vuex store родного приложения. */
+    const getVueStore = () => {
+        const page = document.querySelector('.page');
+        return page?.parentElement?.__vue__?.$store ?? null;
     };
 
     /**
-     * Забирает подарок за уровень через API.
+     * Забирает подарок за уровень через родной Vuex store dispatch.
+     * Это обновляет farmed_rewards в Vue-стейте и перерисовывает UI подарков.
      * @param {number} level
      * @param {boolean} isPremium
-     * @returns {Promise<ApiFarmRewardResponse>}
+     * @returns {Promise<void>}
      */
-    const farmLevelReward = async (level, isPremium) => {
-        const body = new FormData();
-        body.append('level', String(level));
-        body.append('is_premium', isPremium ? '1' : '0');
-        const res = await fetch(API_FARM_REWARD_PATH, {
-            method: 'POST',
-            credentials: 'include',
-            body,
+    const farmLevelReward = (level, isPremium) => {
+        const store = getVueStore();
+        if (!store) return Promise.reject(new Error('Vue store not found'));
+
+        return new Promise((resolve, reject) => {
+            store.dispatch('maininfo/getLevelPrize', {
+                level,
+                is_premium: isPremium ? 1 : 0,
+                callback_success: (data) => {
+                    // Синхронизируем собственный кэш с обновлёнными данными
+                    const userInfo = API_INFO_CACHE?.data?.user_info;
+                    if (userInfo && data?.data?.farmed_rewards) {
+                        userInfo.farmed_rewards = data.data.farmed_rewards;
+                    }
+                    resolve(data);
+                },
+                callback_error: () => {
+                    reject(new Error(`getLevelPrize failed for level=${level}`));
+                },
+            });
         });
-        if (!res.ok) throw new Error(`farm-level-reward failed: ${res.status}`);
-        return res.json();
     };
 
     /**
-     * Забирает все доступные подарки за уровни через API.
-     * Обновляет `farmed_rewards` в кэше после каждого успешного забора.
+     * Забирает все доступные подарки за уровни через родной Vuex store.
+     * Обновляет и Vue-стейт (UI подарков перерисовывается автоматически),
+     * и собственный кэш `API_INFO_CACHE`.
      */
     const claimAllLevelRewards = async () => {
         const userInfo = API_INFO_CACHE?.data?.user_info;
         if (!userInfo) return;
+        if (!getVueStore()) return;
 
         const currentLevel = userInfo.level || 1;
         const status = userInfo.status || 'trial';
@@ -2660,11 +2625,7 @@
                 if (farmed.has(level)) continue;
 
                 try {
-                    const resp = await farmLevelReward(level, type === 'premium');
-                    if (resp?.state === 'Success' && resp.data?.farmed_rewards) {
-                        // Обновляем кэш
-                        userInfo.farmed_rewards = resp.data.farmed_rewards;
-                    }
+                    await farmLevelReward(level, type === 'premium');
                     await new Promise(r => setTimeout(r, CLAIM_DELAY_MS));
                 } catch (e) {
                     console.warn(`[AA Marathon] claimLevelReward(${level}, ${type}) failed:`, e);
@@ -2715,7 +2676,7 @@
         initAutoClaimCheckbox();
 
         // Пролистываем к первому нужному подарку
-        await scrollToFirstRelevantPrize();
+        scrollToFirstRelevantPrize();
 
         // Автозабор при загрузке (кликаем по DOM, т.к. блок подарков уже отрендерен)
         if (loadAutoClaimState()) {
