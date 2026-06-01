@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.3
+// @version      1.4
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -102,6 +102,43 @@
     };
 
     installApiInfoInterceptor();
+
+    // ==================== Форматирование title квеста ====================
+
+    const toRoman = (num) => {
+        const numerals = [
+            ['M', 1000], ['CM', 900], ['D', 500], ['CD', 400],
+            ['C', 100], ['XC', 90], ['L', 50], ['XL', 40],
+            ['X', 10], ['IX', 9], ['V', 5], ['IV', 4], ['I', 1]
+        ];
+        let result = '';
+        for (const [roman, value] of numerals) {
+            while (num >= value) {
+                result += roman;
+                num -= value;
+            }
+        }
+        return result;
+    };
+
+    const formatQuestTitle = (title) => {
+        if (!title) return '';
+
+        // Убираем * в конце
+        let result = title.replace(/\*+$/, '');
+
+        // Находим число в конце (может быть вплотную к слову или через пробел)
+        const match = result.match(/(\s*)(\d+)$/);
+        if (match) {
+            const num = parseInt(match[2], 10);
+            if (num > 0 && num < 100) {
+                const roman = toRoman(num);
+                result = result.slice(0, -match[0].length) + ' ' + roman;
+            }
+        }
+
+        return result.trim();
+    };
 
     // ==================== Утилиты даты/времени (МСК) ====================
 
@@ -587,7 +624,7 @@
         return t;
     };
 
-    const makeLinksRow = ({ codexId, officialId, short }) => {
+    const makeLinksRow = ({ codexId, officialId, short, questTitle }) => {
         const row = document.createElement('div');
         row.className = 'tm-links-row';
 
@@ -602,10 +639,14 @@
         icons.className = 'tm-icons';
         row.appendChild(icons);
 
+        const codexTitle = questTitle
+            ? `${formatQuestTitle(questTitle)} - ArcheageCodex`
+            : 'Открыть задание в ArcheageCodex';
+
         icons.appendChild(makeIconLink({
             href: `${CODEX_BASE}${codexId}/`,
             iconSrc: ICON_QUEST,
-            title: 'Открыть задание в ArcheageCodex',
+            title: codexTitle,
             className: 'tm-codex-link',
         }));
 
@@ -668,7 +709,7 @@
 
         item.appendChild(makeRewardBlock(amount, isDone));
         item.appendChild(makeTaskText(q.description));
-        item.appendChild(makeLinksRow({ codexId, officialId, short }));
+        item.appendChild(makeLinksRow({ codexId, officialId, short, questTitle: q.title }));
 
         return item;
     };
@@ -1039,6 +1080,7 @@
 
             .tm-icons {
                 display: flex;
+                flex-direction: row-reverse;
                 gap: 8px;
                 align-items: center;
                 margin-left: auto;
