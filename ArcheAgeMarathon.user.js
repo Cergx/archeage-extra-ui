@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.0
+// @version      1.1
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @match        *://archeage.ru/promo/marathon/
 // @grant        none
@@ -31,6 +31,61 @@
     // сегменты границ (чтобы “первый четверг pre пустой” не показывать)
     let MIN_SEG = null; // null|pre|post
     let MAX_SEG = null; // null|pre|post
+
+
+    function normalizeUrlToPath(url) {
+        try {
+            return new URL(url, location.href).pathname;
+        } catch {
+            return String(url || '');
+        }
+    }
+
+    const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
+
+    function installApiInfoInterceptor() {
+        // чтобы не поставить дважды
+        if (window.__tmAA_fetchPatched) return;
+        window.__tmAA_fetchPatched = true;
+
+        const origFetch = window.fetch.bind(window);
+
+        window.fetch = async (...args) => {
+            const input = args[0];
+            const init = args[1];
+
+            const urlStr =
+                typeof input === 'string' ? input :
+                    (input && typeof input === 'object' && 'url' in input) ? input.url :
+                        String(input);
+
+            const path = normalizeUrlToPath(urlStr);
+
+            const res = await origFetch(...args);
+
+            if (path === API_INFO_PATH) {
+                // 1) фиксируем NOW_MS из Date заголовка (один раз)
+                if (NOW_MS == null) {
+                    const dateHeader = res.headers.get('Date');
+                    const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
+                    if (Number.isFinite(parsed)) NOW_MS = parsed;
+                }
+
+                // 2) кешируем JSON (один раз)
+                // Важно: читаем clone(), чтобы не "съесть" body для оригинального кода страницы
+                if (API_INFO_CACHE == null) {
+                    res.clone().json()
+                        .then((json) => { API_INFO_CACHE = json; })
+                        .catch(() => { /* игнор */ });
+                }
+            }
+
+            return res;
+        };
+    }
+
+    installApiInfoInterceptor();
+
 
     function pad2(n) { return String(n).padStart(2, '0'); }
 
