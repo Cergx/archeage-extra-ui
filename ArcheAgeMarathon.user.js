@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      3.0
+// @version      3.2
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -175,18 +175,108 @@
     const MSK_OFFSET_HOURS = 3;
     const THU_PRE_HOUR = 3;   // 03:00 МСК — до профработ
     const DEFAULT_HOUR = 16;  // 16:00 МСК — после профработ
+    /** Эндпоинт информации о марафоне. Ответ: {@link ApiInfoResponse}. */
     const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
+    /** Эндпоинт забора награды за уровень. Ответ: {@link ApiFarmRewardResponse}. */
+    const API_FARM_REWARD_PATH = '/minigames/marathon_of_heroes/api/farm-level-reward';
     const LS_HIDE_DONE_KEY = 'tm_aa_hide_done';
     const LS_AUTO_CLAIM_KEY = 'tm_aa_auto_claim';
     const DAY_RESET_HOUR = 0; // 00:00 МСК — начало нового дня для сброса галочки
-    const CLAIM_DELAY_MS = 500; // Задержка между кликами при автозаборе
+    const CLAIM_DELAY_MS = 400; // Задержка между запросами автозабора
     const SCROLL_DELAY_MS = 500; // Задержка между кликами при пролистывании
 
-    // ==================== Состояние ====================
+    // ==================== Типы API ====================
+
+    /**
+     * @typedef {Object} ApiReward
+     * @property {string} type - Тип награды (например, `'moh_experience'`, `'cart_item'`).
+     * @property {{ amount?: number, id?: number, count?: number, site_count?: number }} value
+     * @property {string} [title] - Название (для `cart_item`).
+     */
+
+    /**
+     * @typedef {Object} ApiQuestStep
+     * @property {number} id
+     * @property {number} target
+     * @property {ApiReward[]} rewards
+     */
+
+    /**
+     * @typedef {Object} ApiQuest
+     * @property {number} id
+     * @property {string} code
+     * @property {string} type
+     * @property {string} group
+     * @property {number} end_time
+     * @property {number} start_time
+     * @property {string} time_status - `'active'` | `'future'` | `'past'`.
+     * @property {number} max_completed_step
+     * @property {number} progress
+     * @property {number} max_target
+     * @property {string} title
+     * @property {string} description
+     * @property {any[]} payload
+     * @property {number|null} reset_time
+     * @property {number|null} stop_time
+     * @property {number} last_complete_time
+     * @property {Record<string, ApiQuestStep>} steps
+     */
+
+    /**
+     * @typedef {Object} ApiUserInfo
+     * @property {number} level
+     * @property {string} status - `'trial'` | `'premium'`.
+     * @property {number} count_boxes_for_open
+     * @property {number} week_exp
+     * @property {number} exp_total
+     * @property {Record<string, string[]>} farmed_rewards
+     */
+
+    /**
+     * @typedef {Object} ApiActionInfo
+     * @property {number} count_levels_for_box
+     * @property {number} exp_for_level
+     * @property {number} increase_max_exp_per_week
+     * @property {Record<string, Record<string, ApiReward[]>>} level_prizes
+     * @property {ApiReward[]} box_rewards
+     */
+
+    /**
+     * @typedef {Object} ApiInfoData
+     * @property {ApiUserInfo} user_info
+     * @property {Record<string, ApiQuest>} quests
+     * @property {number} week_number
+     * @property {number} next_week_at
+     * @property {ApiActionInfo} action_info
+     * @property {any[]} pins
+     * @property {Record<string, Record<string, number>>} prices
+     */
+
+    /**
+     * @typedef {Object} ApiInfoResponse
+     * @property {ApiInfoData} data
+     * @property {any} meta
+     * @property {string} state - `'Success'` | `'Error'`.
+     */
+
+    /**
+     * @typedef {Object} ApiFarmRewardData
+     * @property {Record<string, string[]>} farmed_rewards
+     */
+
+    /**
+     * @typedef {Object} ApiFarmRewardResponse
+     * @property {ApiFarmRewardData} data
+     * @property {any} meta
+     * @property {string} state - `'Success'` | `'Error'`.
+     */
+
+        // ==================== Состояние ====================
 
     let selectedDayUtcMs = null;
     let selectedSegment = 'auto'; // 'auto' | 'pre' | 'post' | null
 
+    /** @type {ApiInfoResponse|null} */
     let API_INFO_CACHE = null;
     let API_INFO_PROMISE = null;
     let NOW_MS = null;
@@ -670,6 +760,19 @@
         return { dayUtcMs, segment };
     };
 
+    /**
+     * Единая точка навигации: резолвит 'auto', клампит и применяет.
+     * Все навигационные действия (стрелки, «Сегодня», инициализация) должны идти через неё.
+     */
+    const applySlot = (dayUtcMs, segment) => {
+        // Резолвим 'auto' в конкретный сегмент
+        segment = effectiveSegment(dayUtcMs, segment) ?? segment;
+        // Клампим в границы API
+        const c = clampSelectedDay(dayUtcMs, segment);
+        selectedDayUtcMs = c.dayUtcMs;
+        selectedSegment = c.segment;
+    };
+
     // ==================== Квесты ====================
 
     const isQuestActiveAtUnix = (q, unix) => {
@@ -708,10 +811,9 @@
     const ICON_VEKSEL = 'icon_item_3493.png';
     const ICON_VEKSEL_NORTH = 'icon_item_5054.png';
     const ICON_GISAA_OVERLAY = 'https://gisaa.ru/img/gisaa.svg?v=1';
-    const ICON_CHEST_OVERLAY = 'https://wiki.archerage.to/static/images/icons/top_unconfirmed.dds.png';
-    const ICON_LICENSE_OVERLAY = 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png';
     const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
 
+    /** @type {Record<string, number>} */
     const SERVER_TO_VEKSEL_ID = {
         'Ифнир': 49, 'Корвус': 42, 'Ксанатос': 61, 'Луций': 1,
         'Мираж': 65, 'Нагашар': 64, 'Рейвен': 63, 'Тарон': 62,
@@ -723,39 +825,128 @@
     // Формирует URL для gisaa с параметрами
     // veksel: 'blue_salt' | 'north' | undefined
     // locations: string[] | undefined — массив локаций для северных квестов
-    const buildVekselUrl = (baseUrl, veksel, item, locations) => {
+    const buildVekselUrl = (veksel, slot, locations) => {
         const isBlueSalt = veksel === 'blue_salt';
         const isNorth = veksel === 'north';
-        if (!isBlueSalt && !isNorth) return baseUrl;
+        if (!isBlueSalt && !isNorth) return VEkselUrlResolved;
 
         let params = null;
+        const item = slot?.item;
 
-        if (item?.count && item?.name) {
+        if (slot?.count && item?.name) {
             if (isBlueSalt) {
-                params = `res=${encodeURIComponent(item.name)}&amount=${item.count}`;
+                params = `res=${encodeURIComponent(item.name)}&amount=${slot.count}`;
             } else if (isNorth) {
-                // Для северных - тип иконки берём из item.type, локации из locations
-                const iconType = item.type || 'sack';
+                // Для северных - тип иконки берём из item.vekselType, локации из locations
+                const iconType = item.vekselType || 'sack';
                 if (locations && locations.length > 0) {
-                    params = `loc=${encodeURIComponent(locations.join(','))}&amount=${item.count}&icon=${iconType}`;
+                    params = `loc=${encodeURIComponent(locations.join(','))}&amount=${slot.count}&icon=${iconType}`;
                 } else {
-                    params = `amount=${item.count}&icon=${iconType}`;
+                    params = `amount=${slot.count}&icon=${iconType}`;
                 }
             }
         }
 
-        if (!params) return baseUrl;
+        if (!params) return VEkselUrlResolved;
 
-        const separator = baseUrl.includes('?') ? '&' : '?';
-        return baseUrl + separator + params;
+        const separator = VEkselUrlResolved.includes('?') ? '&' : '?';
+        return `${VEkselUrlResolved}${separator}${params}`;
     };
 
+    /**
+     * @typedef {Object} Grade
+     * @property {string} overlay - URL изображения рамки грейда.
+     * @property {string} title - Название грейда.
+     * @property {string} color - Цвет грейда (CSS).
+     */
+
+    /** @type {Grade[]} */
+    const GRADES = [
+        /* 0  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade0.png`, title: 'Бесполезный предмет', color: '#949293' },
+        /* 1  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade1.png`, title: 'Обычный предмет', color: '#ba976d' },
+        /* 2  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade2.png`, title: 'Необычный предмет', color: '#77b064' },
+        /* 3  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade3.png`, title: 'Редкий предмет', color: '#558fd7' },
+        /* 4  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade4.png`, title: 'Уникальный предмет', color: '#cb72d8' },
+        /* 5  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade5.png`, title: 'Эпический предмет', color: '#d78b06' },
+        /* 6  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade6.png`, title: 'Легендарный предмет', color: '#e17853' },
+        /* 7  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade7.png`, title: 'Реликвия', color: '#f95252' },
+        /* 8  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade8.png`, title: 'Предмет эпохи чудес', color: '#cf7d5d' },
+        /* 9  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade9.png`, title: 'Предмет эпохи сказаний', color: '#8fa5ca' },
+        /* 10 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade10.png`, title: 'Предмет эпохи легенд', color: '#bf7900' },
+        /* 11 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade11.png`, title: 'Предмет эпохи мифов', color: '#c90b0b' },
+        /* 12 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade12.png`, title: 'Предмет эпохи Двенадцати', color: '#ae98fe' },
+    ];
+
+    /**
+     * @typedef {Object} ItemType
+     * @property {string} icon - URL overlay-изображения типа.
+     * @property {string} title - Название типа предмета.
+     */
+
+    /** @type {Record<string, ItemType>} */
+    const ITEM_TYPES = {
+        'unconfirmed': { icon: 'https://wiki.archerage.to/static/images/icons/top_unconfirmed.dds.png', title: 'Неопознанный предмет' },
+        'quest':       { icon: 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png', title: 'Задание' },
+    };
+
+    /**
+     * @typedef {Object} ItemBase
+     * @property {string} icon - Имя файла иконки (относительно CODEX_ITEMS_BASE) или полный URL.
+     * @property {number} grade - Грейд (индекс в массиве GRADES, 0–12).
+     * @property {string} url - Ссылка на предмет в ArcheageCodex.
+     * @property {string} name - Название предмета.
+     * @property {string} [type] - Ключ в ITEM_TYPES (например, 'quest', 'unconfirmed').
+     * @property {string} [vekselType] - Тип для таблицы векселей ('sack' | 'archive' | 'license').
+     * @property {string} [description] - Описание предмета (отображается во второй секции всплывашки).
+     */
+
+    /** @type {Record<string, ItemBase>} */
+    const ITEMS = {
+        "8256":    { icon: "icon_item_0356.png", grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань" },
+        "8318":    { icon: "quest/icon_item_quest053.png", grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа" },
+        "8337":    { icon: "icon_item_0041.png", grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Строительная древесина" },
+        "16327":   { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа" },
+        "35461":   { type: 'unconfirmed', vekselType: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром" },
+        "40928":   { type: 'unconfirmed', vekselType: 'sack', icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк" },
+        "42076":   { type: 'unconfirmed', vekselType: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной" },
+        "42077":   { type: 'unconfirmed', vekselType: 'archive', icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной" },
+        "43176":   { type: 'unconfirmed', vekselType: 'sack', icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника" },
+        "43177":   { type: 'unconfirmed', vekselType: 'archive', icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной" },
+        "8000749": { type: 'quest', icon: "icon_item_2762.png", grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный", description: 'Позволяет получить задание.' },
+        "8000751": { type: 'quest', icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы", description: 'Позволяет получить задание.' },
+        "8000752": { type: 'quest', icon: "icon_item_2762.png", grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" },
+        "8000753": { type: 'quest', icon: "icon_item_2762.png", grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" },
+    };
+
+    /**
+     * @typedef {Object} Slot
+     * @property {ItemBase} item - Предмет.
+     * @property {number} [count] - Количество предмета.
+     */
+
+    /**
+     * @typedef {Object} QuestEvent
+     * @property {string} time - Время события (HH:MM).
+     * @property {number[]} [weekdays] - Дни недели (1–7), если не каждый день.
+     */
+
+    /**
+     * @typedef {Object} QuestMeta
+     * @property {number} codexId - ID квеста в ArcheageCodex.
+     * @property {string} short - Краткое описание / пояснение.
+     * @property {'blue_salt'|'north'} [veksel] - Тип векселя.
+     * @property {string[]} [locations] - Локации выполнения.
+     * @property {Slot} [slot] - Предмет с количеством.
+     * @property {QuestEvent[]} [events] - Расписание событий.
+     */
+
+    /** @type {Record<string, QuestMeta>} */
     const QUEST_META = {
         "8246": { codexId: 10559, short: "" },
         "8248": { codexId: 9142, short: "", veksel: 'blue_salt' },
         "8250": { codexId: 9318, short: 'Квест на Взрослого ольхона (портал "Укромный утес")' },
-        "8252": { codexId: 10512, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], item: { type: 'sack', icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника", count: 20 } },
-        "8254": { codexId: 10513, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], item: { type: 'sack', icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника", count: 60 } },
+        "8252": { codexId: 10512, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43176"], count: 20 } },
+        "8254": { codexId: 10513, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43176"], count: 60 } },
         "8256": { codexId: 9100, short: "" },
         "8258": { codexId: 7658, short: "" },
         "8260": { codexId: 6797, short: "" },
@@ -763,34 +954,34 @@
         "8268": { codexId: 5972, short: "" },
         "8274": { codexId: 10480, short: "" },
         "8282": { codexId: 7154, short: "" },
-        "8284": { codexId: 9137, short: "", veksel: 'blue_salt', item: { icon: "quest/icon_item_quest053.png", grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа", count: 60 } },
+        "8284": { codexId: 9137, short: "", veksel: 'blue_salt', slot: { item: ITEMS["8318"], count: 60 } },
         "8286": { codexId: 8000131, short: "Квест Нуи на 500 очков работы" },
-        "8288": { codexId: 10508, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], item: { type: 'sack', icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк", count: 25 } },
-        "8290": { codexId: 10509, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], item: { type: 'sack', icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк", count: 75 } },
+        "8288": { codexId: 10508, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["40928"], count: 25 } },
+        "8290": { codexId: 10509, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["40928"], count: 75 } },
         "8292": { codexId: 5092, short: "" },
         "8294": { codexId: 7659, short: "" },
         "8296": { codexId: 7817, short: "" },
-        "8298": { codexId: 8000058, short: "Нагашар (только обычка)", item: { type: 'license', icon: "icon_item_2762.png", grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный" } },
+        "8298": { codexId: 8000058, short: "Нагашар (только обычка)", slot: { item: ITEMS["8000749"] } },
         "8300": { codexId: 5971, short: "", events: [{ time: "03:20" }, { time: "07:20" }, { time: "11:20" }, { time: "15:20" }, { time: "19:20" }, { time: "23:20" }] },
         "8314": { codexId: 10564, short: "Ифнир - змея", events: [{ time: "22:00", weekdays: [5] }, { time: "16:00", weekdays: [6] }] },
-        "8316": { codexId: 8000061, short: "Сады наслаждений (только хард)", item: { type: 'license', icon: "icon_item_2762.png", grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" } },
+        "8316": { codexId: 8000061, short: "Сады наслаждений (только хард)", slot: { item: ITEMS["8000752"] } },
         "8318": { codexId: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
-        "8320": { codexId: 9152, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа", count: 60 } },
+        "8320": { codexId: 9152, short: "", veksel: 'blue_salt', slot: { item: ITEMS["16327"], count: 60 } },
         "8322": { codexId: 8435, short: 'Портал "Лягушачьи пруды"' },
-        "8324": { codexId: 10510, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], item: { type: 'archive', icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной", count: 8 } },
-        "8326": { codexId: 10511, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], item: { type: 'archive', icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной", count: 25 } },
+        "8324": { codexId: 10510, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["42077"], count: 8 } },
+        "8326": { codexId: 10511, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["42077"], count: 25 } },
         "8328": { codexId: 7657, short: "" },
         "8330": { codexId: 7813, short: "" },
-        "8336": { codexId: 5144, short: "" },
+        "8336": { codexId: 5144, short: "Призрачный (ночной) разлом", events: [{ time: "02:20" }, { time: "06:20" }, { time: "10:20" }, { time: "14:20" }, { time: "18:20" }, { time: "22:20" }] },
         "8338": { codexId: 5885, short: "Анталлон на Солнечных полях", events: [{ time: "01:20" }, { time: "05:20" }, { time: "09:20" }, { time: "13:20" }, { time: "17:20" }, { time: "21:20" }] },
-        "8340": { codexId: 8000060, short: "Сады наслаждений (изи или нормал)", item: { type: 'license', icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы" } },
+        "8340": { codexId: 8000060, short: "Сады наслаждений (изи или нормал)", slot: { item: ITEMS["8000751"] } },
         "8346": { codexId: 10056, short: "" },
         "8348": { codexId: 11154, short: "Лиловый (армия фантомов)", events: [{ time: "01:50" }, { time: "05:50" }, { time: "09:50" }, { time: "13:50" }, { time: "17:50" }, { time: "21:50" }] },
         "8350": { codexId: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
-        "8352": { codexId: 9147, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0356.png", grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань", count: 60 } },
+        "8352": { codexId: 9147, short: "", veksel: 'blue_salt', slot: { item: ITEMS["8256"], count: 60 } },
         "8354": { codexId: 8000136, short: "Квест Нуи на 2500 ремесленки" },
-        "8356": { codexId: 10506, short: "", veksel: 'north', locations: ["Замок Ош"], item: { type: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 10 } },
-        "8358": { codexId: 10507, short: "", veksel: 'north', locations: ["Замок Ош"], item: { type: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 30 } },
+        "8356": { codexId: 10506, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["42076"], count: 10 } },
+        "8358": { codexId: 10507, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["42076"], count: 30 } },
         "8360": { codexId: 5091, short: "" },
         "8362": { codexId: 9101, short: "Библа, 3-ий босс" },
         "8364": { codexId: 7656, short: "" },
@@ -798,10 +989,10 @@
         "8372": { codexId: 9297, short: "" },
         "8380": { codexId: 7815, short: "Изи/нормал Сады наслаждений" },
         "8382": { codexId: 10735, short: "Эншака на Солнечных полях", events: [{ time: "01:20" }, { time: "05:20" }, { time: "09:20" }, { time: "13:20" }, { time: "17:20" }, { time: "21:20" }] },
-        "8388": { codexId: 9153, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа", count: 100 } },
+        "8388": { codexId: 9153, short: "", veksel: 'blue_salt', slot: { item: ITEMS["16327"], count: 100 } },
         "8390": { codexId: 5062, short: "" },
-        "8392": { codexId: 10514, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], item: { type: 'archive', icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной", count: 7 } },
-        "8394": { codexId: 10515, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], item: { type: 'archive', icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной", count: 20 } },
+        "8392": { codexId: 10514, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43177"], count: 7 } },
+        "8394": { codexId: 10515, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43177"], count: 20 } },
         "8396": { codexId: 7155, short: "Нагашар обычка" },
         "8398": { codexId: 9398, short: "100 мобов на Пустоши Корвуса" },
         "8400": { codexId: 7152, short: "" },
@@ -810,10 +1001,10 @@
         "8414": { codexId: 10952, short: "" },
         "8422": { codexId: 10304, short: "" },
         "8424": { codexId: 9099, short: "Библа, первый босс" },
-        "8426": { codexId: 9143, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0041.png", grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Строительная древесина", count: 100 } },
-        "8434": { codexId: 10504, short: "", veksel: 'north', locations: ["Замок Ош"], item: { type: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 30 } },
-        "8436": { codexId: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], item: { type: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 90 } },
-        "8438": { codexId: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", item: { type: 'license', icon: "icon_item_2762.png", grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" } },
+        "8426": { codexId: 9143, short: "", veksel: 'blue_salt', slot: { item: ITEMS["8337"], count: 100 } },
+        "8434": { codexId: 10504, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["35461"], count: 30 } },
+        "8436": { codexId: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["35461"], count: 90 } },
+        "8438": { codexId: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", slot: { item: ITEMS["8000753"] } },
         "8448": { codexId: 2943, short: "Кровавый (дневной) разлом - 3-я волна", events: [{ time: "00:20" }, { time: "04:20" }, { time: "08:20" }, { time: "12:20" }, { time: "16:20" }, { time: "20:20" }] },
         "8450": { codexId: 7935, short: "" },
         "8452": { codexId: 7660, short: "" },
@@ -851,8 +1042,9 @@
         return res.text();
     };
 
+    /** @returns {Promise<ApiInfoResponse>} */
     const fetchApiInfo = async () => {
-        const res = await fetch('/minigames/marathon_of_heroes/api/info', {
+        const res = await fetch(API_INFO_PATH, {
             credentials: 'include',
             cache: 'no-store',
         });
@@ -898,6 +1090,9 @@
         }
     };
 
+    let API_INFO_DATA_JSON = null; // JSON-строка data для сравнения
+
+    /** Сбрасывает кэш, загружает свежие данные и перерисовывает UI, если данные изменились. */
     const refreshApiInfo = async () => {
         if (isRefreshing) return;
         isRefreshing = true;
@@ -905,6 +1100,7 @@
 
         try {
             // Сбрасываем кэш, промис и время для получения свежих данных
+            const prevDataJson = API_INFO_DATA_JSON;
             API_INFO_CACHE = null;
             API_INFO_PROMISE = null;
             NOW_MS = null;
@@ -913,12 +1109,23 @@
             API_INFO_CACHE = await fetchApiInfo();
 
             // Обновляем смещение серверного времени
-            if (NOW_MS != null) {
+            if (NOW_MS !== null) {
                 SERVER_TIME_OFFSET = NOW_MS - Date.now();
             }
 
+            // Сравниваем data — если не изменилось, пропускаем перерисовку
+            const newDataJson = JSON.stringify(API_INFO_CACHE?.data);
+            API_INFO_DATA_JSON = newDataJson;
+
+            if (newDataJson === prevDataJson) return;
+
             // Перерисовываем список задач
             await renderTasksForSelectedDay();
+
+            // Автозабор подарков (если включён и данные изменились)
+            if (loadAutoClaimState()) {
+                await claimAllLevelRewards();
+            }
         } catch (e) {
             console.warn('[AA Marathon] refreshApiInfo failed:', e);
         } finally {
@@ -1012,11 +1219,11 @@
             // Обновляем href всех уже отрендеренных ссылок на вексель
             document.querySelectorAll('.tm-veksel-link').forEach(link => {
                 const veksel = link.dataset.veksel;
-                let item = null;
+                let slot = null;
                 let locations = null;
-                try { item = link.dataset.item ? JSON.parse(link.dataset.item) : null; } catch {}
+                try { slot = link.dataset.slot ? JSON.parse(link.dataset.slot) : null; } catch {}
                 try { locations = link.dataset.locations ? JSON.parse(link.dataset.locations) : null; } catch {}
-                link.href = buildVekselUrl(VEkselUrlResolved, veksel, item, locations);
+                link.href = buildVekselUrl(veksel, slot, locations);
             });
         } catch {
             VEkselUrlResolved = VEKSEL_BASE;
@@ -1064,38 +1271,117 @@
         return a;
     };
 
-    // Создаёт иконку предмета с рамкой редкости (и опциональным overlay для сундучков)
-    const makeItemIconLink = ({ itemIcon, grade, itemUrl, title, overlay }) => {
-        const a = document.createElement('a');
-        a.className = 'tm-item-icon-link';
-        a.href = itemUrl;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        if (title) a.title = title;
+    /**
+     * Создаёт иконку предмета с рамкой редкости, overlay типа и всплывашкой.
+     *
+     * Иконка состоит из слоёв: изображение предмета → overlay типа → рамка грейда.
+     *
+     * @param {Object} params
+     * @param {ItemBase} params.item - Предмет.
+     * @param {string} [params.overlay] - URL overlay-изображения типа предмета (из ITEM_TYPES).
+     * @param {boolean} [params.linked=false] - Оборачивать в `<a>` со ссылкой item.url.
+     * @param {'small'|'medium'} [params.size='medium'] - Размер иконки: `'small'` (30px) или `'medium'` (42px).
+     * @param {number} [params.count] - Количество предмета (бейдж снизу-справа, показывается при > 1).
+     * @param {boolean} [params.iconOnly=false] - Вернуть только `.tm-item-icon` без обёртки и всплывашки.
+     * @returns {HTMLElement} `.tm-item` (обёртка) или `.tm-item-icon` (при `iconOnly`).
+     */
+    const makeItemIconLink = ({ item, overlay, linked = false, size = 'medium', count, iconOnly = false }) => {
+        const icon = document.createElement('div');
+        icon.className = `tm-item-icon tm-item-icon--${size}`;
 
         const itemImg = document.createElement('img');
         itemImg.className = 'tm-item-icon-img';
-        itemImg.src = itemIcon.startsWith('http') ? itemIcon : `${CODEX_ITEMS_BASE}${itemIcon}`;
-        itemImg.alt = 'item';
+        itemImg.src = item.icon.startsWith('http') ? item.icon : `${CODEX_ITEMS_BASE}${item.icon}`;
 
-        a.appendChild(itemImg);
+        icon.appendChild(itemImg);
 
         // Overlay слой (между иконкой и рамкой редкости)
         if (overlay) {
             const overlayImg = document.createElement('img');
             overlayImg.className = 'tm-item-icon-overlay';
             overlayImg.src = overlay;
-            overlayImg.alt = '';
-            a.appendChild(overlayImg);
+            icon.appendChild(overlayImg);
         }
 
+        const gradeInfo = GRADES[item.grade];
         const gradeImg = document.createElement('img');
         gradeImg.className = 'tm-item-icon-grade';
-        gradeImg.src = `${CODEX_IMAGES_BASE}icon_grade${grade}.png`;
-        gradeImg.alt = 'grade';
+        gradeImg.src = gradeInfo?.overlay || `${CODEX_IMAGES_BASE}icon_grade${item.grade}.png`;
+        gradeImg.alt = gradeInfo?.title || '';
 
-        a.appendChild(gradeImg);
-        return a;
+        icon.appendChild(gradeImg);
+
+        if (count && count > 1) {
+            const countEl = document.createElement('span');
+            countEl.className = 'tm-item-icon-count';
+            countEl.textContent = count;
+            icon.appendChild(countEl);
+        }
+
+        if (iconOnly) return icon;
+
+        const el = document.createElement(linked ? 'a' : 'div');
+        el.className = 'tm-item';
+        if (linked) {
+            el.href = item.url;
+            el.target = '_blank';
+            el.rel = 'noopener noreferrer';
+        }
+
+        el.appendChild(icon);
+
+        // Всплывашка
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tm-item-tooltip';
+
+        // Секция 1: иконка + мета
+        const headerSection = document.createElement('div');
+        headerSection.className = 'tm-item-tooltip-header';
+
+        headerSection.appendChild(makeItemIconLink({ item, overlay, iconOnly: true, linked: true }));
+
+        const tipMeta = document.createElement('div');
+        tipMeta.className = 'tm-item-tooltip-meta';
+
+        const typeInfo = ITEM_TYPES[item.type];
+        if (typeInfo?.title) {
+            const typeLine = document.createElement('div');
+            typeLine.className = 'tm-item-tooltip-type';
+            typeLine.textContent = typeInfo.title;
+            tipMeta.appendChild(typeLine);
+        }
+
+        if (gradeInfo?.title) {
+            const gradeLine = document.createElement('div');
+            gradeLine.className = 'tm-item-tooltip-grade';
+            if (gradeInfo.color) gradeLine.style.color = gradeInfo.color;
+            gradeLine.textContent = gradeInfo.title;
+            tipMeta.appendChild(gradeLine);
+        }
+
+        const nameLine = document.createElement('div');
+        nameLine.className = 'tm-item-tooltip-name';
+        if (gradeInfo?.color) nameLine.style.color = gradeInfo.color;
+        nameLine.textContent = item.name || '';
+        tipMeta.appendChild(nameLine);
+
+        headerSection.appendChild(tipMeta);
+        tooltip.appendChild(headerSection);
+
+        // Секция 2: описание (если есть)
+        if (item.description) {
+            const sep = document.createElement('div');
+            sep.className = 'tm-item-tooltip-sep';
+            tooltip.appendChild(sep);
+
+            const descriptionSection = document.createElement('div');
+            descriptionSection.className = 'tm-item-tooltip-desc';
+            descriptionSection.textContent = item.description;
+            tooltip.appendChild(descriptionSection);
+        }
+
+        el.appendChild(tooltip);
+        return el;
     };
 
     const makeRewardBlock = (amount, isDone) => {
@@ -1126,7 +1412,7 @@
         return t;
     };
 
-    const makeLinksRow = ({ codexId, short, questTitle, item, veksel, locations, events }) => {
+    const makeLinksRow = ({ codexId, short, questTitle, slot, veksel, locations, events }) => {
         const row = document.createElement('div');
         row.className = 'tm-links-row';
 
@@ -1135,26 +1421,17 @@
         leftPart.className = 'tm-links-left';
 
         // Предмет с количеством и иконкой (если есть данные)
+        const item = slot?.item;
         if (item?.url) {
             const hasIcon = item.icon && item.grade;
-            const hasCount = item.count && item.count > 1;
-
-            if (hasCount) {
-                const countEl = document.createElement('span');
-                countEl.className = 'tm-item-count';
-                countEl.textContent = `${item.count} ×`;
-                leftPart.appendChild(countEl);
-            }
 
             if (hasIcon) {
                 leftPart.appendChild(makeItemIconLink({
-                    itemIcon: item.icon,
-                    grade: item.grade,
-                    itemUrl: item.url,
-                    title: item.name || 'Открыть предмет в ArcheageCodex',
-                    overlay: item.type === 'license' ? ICON_LICENSE_OVERLAY
-                        : (item.type === 'archive' || item.type === 'sack') ? ICON_CHEST_OVERLAY
-                            : null,
+                    item,
+                    overlay: ITEM_TYPES[item.type]?.icon || null,
+                    linked: true,
+                    size: 'small',
+                    count: slot.count,
                 }));
             } else if (item.name) {
                 // Без иконки - показываем название ссылкой
@@ -1239,13 +1516,13 @@
 
         if (veksel === 'blue_salt' || veksel === 'north') {
             const link = makeVekselIconLink({
-                href: buildVekselUrl(VEkselUrlResolved, veksel, item, locations),
+                href: buildVekselUrl(veksel, slot, locations),
                 title: 'Открыть таблицу векселей',
                 vekselIcon: veksel === 'blue_salt' ? ICON_VEKSEL : ICON_VEKSEL_NORTH,
             });
             link.classList.add('tm-veksel-link');
             link.dataset.veksel = veksel;
-            if (item) link.dataset.item = JSON.stringify(item);
+            if (slot) link.dataset.slot = JSON.stringify(slot);
             if (locations) link.dataset.locations = JSON.stringify(locations);
             icons.appendChild(link);
         }
@@ -1253,7 +1530,7 @@
         return row;
     };
 
-    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, item, veksel, locations, events }) => {
+    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, slot, veksel, locations, events }) => {
         const card = document.createElement('div');
         card.className = `tasks__item tasks__item--${amount || 1}`;
 
@@ -1300,9 +1577,127 @@
 
         card.appendChild(makeRewardBlock(amount, isDone));
         card.appendChild(makeTaskText(q.description));
-        card.appendChild(makeLinksRow({ codexId, short, questTitle: q.title, item, veksel, locations, events }));
+        card.appendChild(makeLinksRow({ codexId, short, questTitle: q.title, slot, veksel, locations, events }));
 
         return card;
+    };
+
+    // ==================== UI: обновление блока уровня ====================
+
+    const updateLevelBlock = (json) => {
+        const userInfo = json?.data?.user_info;
+        if (!userInfo) return;
+
+        const level = Number(userInfo.level || 1);
+        const expTotal = Number(userInfo.exp_total || 0);
+        const expForLevel = Number(json?.data?.action_info?.exp_for_level || 10);
+
+        // Прогресс до следующего уровня
+        const progress = expTotal - (level - 1) * expForLevel;
+        const clampedProgress = Math.max(0, Math.min(expForLevel, progress));
+
+        const levelBlock = document.querySelector('.level');
+        if (!levelBlock) return;
+
+        // Пересобираем блок level
+        levelBlock.innerHTML = '';
+
+        // Левая часть - текущий уровень
+        const levelCurrent = document.createElement('div');
+        levelCurrent.className = 'level__current';
+
+        const levelCurrentTitle = document.createElement('div');
+        levelCurrentTitle.className = 'level__current-title';
+        levelCurrentTitle.textContent = 'Ваш уровень:';
+        levelCurrent.appendChild(levelCurrentTitle);
+
+        const iconLevel = document.createElement('div');
+        iconLevel.className = 'icon_level';
+
+        const iconLevelText = document.createElement('div');
+        iconLevelText.className = 'icon_level-text';
+        iconLevelText.textContent = String(level);
+        iconLevel.appendChild(iconLevelText);
+
+        const iconsStar = document.createElement('div');
+        iconsStar.className = 'icons-star';
+        iconLevel.appendChild(iconsStar);
+
+        levelCurrent.appendChild(iconLevel);
+
+        // Tooltip
+        const iconInfo = document.createElement('div');
+        iconInfo.className = 'icon-info tooltip-on';
+
+        const tooltipWrap = document.createElement('div');
+        tooltipWrap.className = 'tooltip-wrap';
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+
+        const tooltipText = document.createElement('div');
+        tooltipText.className = 'tooltip__text';
+        tooltipText.textContent = 'Выполняйте внутриигровые задания — и получайте за это уровни в событии «Марафон героев»!';
+        tooltip.appendChild(tooltipText);
+        tooltipWrap.appendChild(tooltip);
+        iconInfo.appendChild(tooltipWrap);
+
+        levelCurrent.appendChild(iconInfo);
+        levelBlock.appendChild(levelCurrent);
+
+        // Правая часть - прогресс до следующего уровня
+        const levelNext = document.createElement('div');
+        levelNext.className = 'level__next';
+
+        const levelNextTitle = document.createElement('div');
+        levelNextTitle.className = 'level__next-title';
+        levelNextTitle.textContent = 'Прогресс до следующего уровня:';
+        levelNext.appendChild(levelNextTitle);
+
+        const levelNextList = document.createElement('div');
+        levelNextList.className = 'level__next-list';
+
+        for (let i = 0; i < expForLevel; i++) {
+            const iconPoint = document.createElement('div');
+            iconPoint.className = i < clampedProgress ? 'icon-point icon-point--received' : 'icon-point icon-point--not-received';
+            levelNextList.appendChild(iconPoint);
+        }
+
+        levelNext.appendChild(levelNextList);
+        levelBlock.appendChild(levelNext);
+    };
+
+    // ==================== UI: обновление tasks__header ====================
+
+    const updateTasksHeader = (json) => {
+        const userInfo = json?.data?.user_info;
+        if (!userInfo) return;
+
+        const weekExp = Number(userInfo.week_exp || 0);
+        const maxWeekExp = Number(json?.data?.action_info?.increase_max_exp_per_week || 100);
+
+        if (!DOM.tasksHeader || !DOM.tasksHeader.isConnected) {
+            DOM.tasksHeader = document.querySelector('.section.tasks .tasks__header');
+        }
+        if (!DOM.tasksHeader) return;
+
+        // Ищем или создаём tasks__balance
+        let balanceEl = DOM.tasksHeader.querySelector('.tasks__balance');
+        if (!balanceEl) {
+            balanceEl = document.createElement('div');
+            balanceEl.className = 'tasks__balance';
+            DOM.tasksHeader.appendChild(balanceEl);
+        }
+
+        // Обновляем содержимое
+        balanceEl.innerHTML = '';
+
+        const label = document.createTextNode(`Заработано за эту неделю: ${weekExp} / ${maxWeekExp}`);
+        balanceEl.appendChild(label);
+
+        const iconPoint = document.createElement('div');
+        iconPoint.className = 'icon-point icon-point--received';
+        balanceEl.appendChild(iconPoint);
     };
 
     // ==================== UI: навигация по датам ====================
@@ -1418,36 +1813,25 @@
             const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
 
             if (isToday && isThursdayByTZ(selectedDayUtcMs) && selectedSegment === 'post') {
-                selectedSegment = 'pre';
-                const c0 = clampSelectedDay(selectedDayUtcMs, selectedSegment);
-                selectedDayUtcMs = c0.dayUtcMs;
-                selectedSegment = c0.segment;
+                applySlot(selectedDayUtcMs, 'pre');
                 await onSelectedDateChanged();
                 return;
             }
 
             const prev = getPrevSlot(selectedDayUtcMs, selectedSegment);
             const np = clampNotPast(prev.dayUtcMs, prev.segment);
-            const c = clampSelectedDay(np.dayUtcMs, np.segment);
-            selectedDayUtcMs = c.dayUtcMs;
-            selectedSegment = c.segment;
+            applySlot(np.dayUtcMs, np.segment);
             await onSelectedDateChanged();
         });
 
         right.addEventListener('click', async () => {
             const next = getNextSlot(selectedDayUtcMs, selectedSegment);
-            const c = clampSelectedDay(next.dayUtcMs, next.segment);
-            selectedDayUtcMs = c.dayUtcMs;
-            selectedSegment = c.segment;
+            applySlot(next.dayUtcMs, next.segment);
             await onSelectedDateChanged();
         });
 
         todayBtn.addEventListener('click', async () => {
-            selectedDayUtcMs = getTodayUtcMsByTZ();
-            selectedSegment = 'auto';
-            const c = clampSelectedDay(selectedDayUtcMs, selectedSegment);
-            selectedDayUtcMs = c.dayUtcMs;
-            selectedSegment = c.segment;
+            applySlot(getTodayUtcMsByTZ(), 'auto');
             await onSelectedDateChanged();
         });
 
@@ -1570,10 +1954,6 @@
             else if (hasPre) MAX_SEG = 'pre';
             else MAX_SEG = 'pre';
         }
-
-        const c = clampSelectedDay(selectedDayUtcMs, selectedSegment);
-        selectedDayUtcMs = c.dayUtcMs;
-        selectedSegment = c.segment;
     };
 
     const renderTasksForSelectedDay = async () => {
@@ -1581,19 +1961,20 @@
         if (!listEl) return;
 
         const json = await getApiInfoCached();
+        API_INFO_DATA_JSON = JSON.stringify(json?.data);
         const all = getQuestsArrayFromInfo(json);
+
+        // Обновляем блок уровня и баланс очков
+        updateLevelBlock(json);
+        updateTasksHeader(json);
 
         const todayUtc = getTodayUtcMsByTZ();
         const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
         const isThu = isThursdayByTZ(selectedDayUtcMs);
 
         let unixPoint;
-        if (isToday && selectedSegment === 'auto') {
-            unixPoint = getNowUnix();
-        } else if (isThu && selectedSegment === 'pre') {
+        if (isThu && selectedSegment === 'pre') {
             unixPoint = getUnixForDayAtHour(selectedDayUtcMs, THU_PRE_HOUR);
-        } else if (isThu && selectedSegment === 'post') {
-            unixPoint = getUnixForDayAtHour(selectedDayUtcMs, DEFAULT_HOUR);
         } else {
             unixPoint = getUnixForDayAtHour(selectedDayUtcMs, DEFAULT_HOUR);
         }
@@ -1623,7 +2004,7 @@
                 q, amount, codexId, short,
                 isDone: doneInSlot,
                 showLastDone: doneInSlot,
-                item: meta.item,
+                slot: meta.slot || null,
                 veksel: meta.veksel,
                 locations: meta.locations,
                 events: meta.events,
@@ -1640,6 +2021,10 @@
         style.textContent = `
             .${DONE_CLASS} {
                 opacity: 0.6;
+            }
+
+            .tasks__item {
+                overflow: visible;
             }
 
             .tasks__item-done {
@@ -1678,6 +2063,7 @@
                 opacity: 0.95;
                 justify-content: space-between;
                 align-items: center;
+                z-index: 1;
             }
 
             .tm-links-left {
@@ -1686,11 +2072,16 @@
                 gap: 6px;
             }
 
-            .tm-item-count {
-                font-size: 12px;
-                font-weight: 500;
-                opacity: 0.9;
-                white-space: nowrap;
+            .tm-item-icon-count {
+                position: absolute;
+                right: 9%;
+                bottom: 12.5%;
+                line-height: 0.5;
+                letter-spacing: 0.02em;
+                color: #fff;
+                text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;
+                pointer-events: none;
+                z-index: 3;
             }
 
             .tm-item-name-link {
@@ -1783,12 +2174,11 @@
                 justify-content: center;
                 border-radius: 6px;
                 background: rgba(255,255,255,0.06);
-                transition: transform 120ms ease, opacity 120ms ease;
+                transition: box-shadow 150ms ease, opacity 150ms ease;
             }
 
             .tm-icon-link:hover {
                 transform: translateY(-1px);
-                opacity: 1;
             }
 
             .tm-icon-link img {
@@ -1796,17 +2186,40 @@
                 display: block;
             }
 
-            .tm-item-icon-link {
+            .tm-item {
                 position: relative;
                 display: inline-block;
-                width: 30px;
-                height: 30px;
                 flex-shrink: 0;
-                transition: transform 120ms ease, opacity 120ms ease;
             }
 
-            .tm-item-icon-link:hover {
-                transform: translateY(-1px);
+            .tm-item-icon {
+                position: relative;
+            }
+
+            .tm-item-icon--small {
+                width: 30px;
+                height: 30px;
+                font-size: 11.5px;
+            }
+
+            .tm-item-icon--medium {
+                width: 42px;
+                height: 42px;
+                font-size: 11.5px;
+            }
+
+            .tm-item-icon::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                opacity: 0;
+                box-shadow:
+                    inset 0 0 12px rgba(255, 255, 255, 0.35),
+                    inset 0 0 4px rgba(255, 255, 255, 0.6);
+            }
+
+            .tm-item:hover .tm-item-icon::after {
                 opacity: 1;
             }
 
@@ -1835,6 +2248,76 @@
                 width: 100%;
                 height: 100%;
                 pointer-events: none;
+            }
+
+            /* Всплывашка предмета */
+            .tm-item-tooltip {
+                display: none;
+                position: absolute;
+                top: calc(100% - 8px);
+                right: calc(100% - 8px);
+                z-index: 100;
+                width: 248px;
+                padding: 15px 16px;
+                background: rgba(0, 8, 24, 0.85);
+                border: 1px solid rgba(255, 255, 255, 0.25);
+                pointer-events: none;
+                white-space: normal;
+                font-size: 14px;
+                line-height: 18px;
+                color: #cfd6e0;
+                /* font-family: Arial, sans-serif; */
+            }
+
+            .tm-item:hover .tm-item-tooltip {
+                display: block;
+            }
+
+            .tm-item-tooltip-header {
+                display: flex;
+                gap: 6px;
+                align-items: flex-start;
+                padding: 0;
+            }
+
+            .tm-item-tooltip-header > .tm-item-icon {
+                flex-shrink: 0;
+            }
+
+            .tm-item-tooltip-meta {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+                padding: 8px 0 0;
+            }
+
+            .tm-item-tooltip-type {
+                opacity: 0.7;
+                font-size: 13px;
+                line-height: 16px;
+            }
+
+            .tm-item-tooltip-grade {
+                font-size: 13px;
+                line-height: 17px;
+            }
+
+            .tm-item-tooltip-name {
+                font-size: 15px;
+                line-height: 20px;
+            }
+
+            .tm-item-tooltip-sep {
+                height: 1px;
+                margin: 5px 0;
+                background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25) 20%, rgba(255, 255, 255, 0.25) 80%, transparent);
+                padding: 0;
+            }
+
+            .tm-item-tooltip-desc {
+                padding: 0 3px;
+                font-size: 13px;
+                line-height: 16px;
             }
 
             .tm-veksel-icon-link {
@@ -2091,15 +2574,6 @@
         return false;
     };
 
-    // Проверить, виден ли уровень на текущей странице
-    const isLevelVisible = (targetLevel) => {
-        const visibleLevels = getVisibleLevels();
-        if (visibleLevels.length === 0) return false;
-        const minVisible = Math.min(...visibleLevels);
-        const maxVisible = Math.max(...visibleLevels);
-        return targetLevel >= minVisible && targetLevel <= maxVisible;
-    };
-
     // Пролистать к первому нужному подарку
     const scrollToFirstRelevantPrize = async () => {
         const targetLevel = getTargetPrizeLevelFromApi();
@@ -2129,7 +2603,7 @@
         }
     };
 
-    // Забрать все доступные подарки
+    // Забрать все доступные подарки (клик по DOM-элементам при загрузке страницы)
     const claimAllActivePrizes = async () => {
         const prizesList = getPrizesList();
         if (!prizesList) return;
@@ -2141,6 +2615,60 @@
             if (imageEl) {
                 imageEl.click();
                 await new Promise(r => setTimeout(r, CLAIM_DELAY_MS));
+            }
+        }
+    };
+
+    /**
+     * Забирает подарок за уровень через API.
+     * @param {number} level
+     * @param {boolean} isPremium
+     * @returns {Promise<ApiFarmRewardResponse>}
+     */
+    const farmLevelReward = async (level, isPremium) => {
+        const body = new FormData();
+        body.append('level', String(level));
+        body.append('is_premium', isPremium ? '1' : '0');
+        const res = await fetch(API_FARM_REWARD_PATH, {
+            method: 'POST',
+            credentials: 'include',
+            body,
+        });
+        if (!res.ok) throw new Error(`farm-level-reward failed: ${res.status}`);
+        return res.json();
+    };
+
+    /**
+     * Забирает все доступные подарки за уровни через API.
+     * Обновляет `farmed_rewards` в кэше после каждого успешного забора.
+     */
+    const claimAllLevelRewards = async () => {
+        const userInfo = API_INFO_CACHE?.data?.user_info;
+        if (!userInfo) return;
+
+        const currentLevel = userInfo.level || 1;
+        const status = userInfo.status || 'trial';
+        const isPremium = status === 'premium';
+
+        // Какие типы наград забирать
+        const rewardTypes = isPremium ? ['trial', 'premium'] : ['trial'];
+
+        for (const type of rewardTypes) {
+            const farmed = new Set((userInfo.farmed_rewards?.[type] || []).map(Number));
+
+            for (let level = 1; level <= currentLevel; level++) {
+                if (farmed.has(level)) continue;
+
+                try {
+                    const resp = await farmLevelReward(level, type === 'premium');
+                    if (resp?.state === 'Success' && resp.data?.farmed_rewards) {
+                        // Обновляем кэш
+                        userInfo.farmed_rewards = resp.data.farmed_rewards;
+                    }
+                    await new Promise(r => setTimeout(r, CLAIM_DELAY_MS));
+                } catch (e) {
+                    console.warn(`[AA Marathon] claimLevelReward(${level}, ${type}) failed:`, e);
+                }
             }
         }
     };
@@ -2175,11 +2703,6 @@
             }
         });
 
-        // Если галочка была включена, забираем подарки при загрузке
-        if (checkbox.checked) {
-            // Небольшая задержка чтобы страница полностью загрузилась
-            setTimeout(() => claimAllActivePrizes(), 500);
-        }
     };
 
     // Инициализация блока подарков
@@ -2193,6 +2716,11 @@
 
         // Пролистываем к первому нужному подарку
         await scrollToFirstRelevantPrize();
+
+        // Автозабор при загрузке (кликаем по DOM, т.к. блок подарков уже отрендерен)
+        if (loadAutoClaimState()) {
+            await claimAllActivePrizes();
+        }
     };
 
     // ==================== Инициализация ====================
@@ -2211,11 +2739,7 @@
         initServerTimeOffset();
         startCountdownInterval();
 
-        if (!selectedDayUtcMs) selectedDayUtcMs = getTodayUtcMsByTZ();
-
         ensureDateNavInHeader();
-        updateDateNavLabel();
-        updateDateNavButtons();
 
         try {
             await computeDateBoundsFromApiInfo();
@@ -2223,8 +2747,11 @@
             console.warn('[AA Marathon] computeDateBoundsFromApiInfo failed:', e);
         }
 
+        // Применяем сегодняшний слот (резолвим 'auto' после вычисления границ)
+        applySlot(selectedDayUtcMs || getTodayUtcMsByTZ(), 'auto');
+
         try {
-            await renderTasksForSelectedDay();
+            await onSelectedDateChanged();
         } catch (e) {
             console.warn('[AA Marathon] renderTasksForSelectedDay failed:', e);
         }
