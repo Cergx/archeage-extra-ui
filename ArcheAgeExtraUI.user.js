@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.5.1
+// @version      4.5.2
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -3657,6 +3657,7 @@
 
         .guild_tab.cart_items .gh_1 {
             width: 0%;
+            max-width: 0px;
         }
 
         .guild_tab.cart_items .gh_2 {
