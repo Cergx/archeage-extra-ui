@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.0.0
+// @version      4.0.1
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -436,7 +436,7 @@
 
     const nowMs = () => {
         if (NOW_MS == null) {
-            throw new Error('[AA Marathon] NOW_MS is not initialized');
+            throw new Error('[ArcheAgeExtraUI] NOW_MS is not initialized');
         }
         return NOW_MS;
     };
@@ -692,7 +692,7 @@
         });
         const mskTime = fmt.format(d);
         const gameTime = getGameTime(serverNow);
-        DOM.serverClock.innerHTML = `${mskTime} (мск)<br>${gameTime} (игр.)`;
+        DOM.serverClock.innerHTML = `мск: ${mskTime}<br>игровое: ${gameTime}`;
     };
 
     // Обновляет все countdown элементы на странице
@@ -949,7 +949,7 @@
             historyEntries = mergeQuestHistory(quests);
             renderHistoryTable();
         } catch (e) {
-            console.warn('[AA Marathon] updateQuestHistory failed:', e);
+            console.warn('[ArcheAgeExtraUI] updateQuestHistory failed:', e);
         }
     };
 
@@ -1128,11 +1128,21 @@
      * @param {number} dayUtcMs
      * @param {Segment} seg
      */
-    const isDoneInSelectedSlot = (q, dayUtcMs, seg) => {
-        const t = Number(q?.last_complete_time || 0);
-        if (!t) return false;
+    /**
+     * Ищет в истории время выполнения квеста в указанном слоте.
+     * @param {string} code
+     * @param {number} dayUtcMs
+     * @param {Segment} seg
+     * @returns {number} unix timestamp или 0
+     */
+    const getCompletionTimeInSlot = (code, dayUtcMs, seg) => {
         const b = getSlotBoundsUnix(dayUtcMs, seg);
-        return b.start <= t && t < b.end;
+        const entry = historyEntries.find(e => e.code === code && b.start <= e.completedAt && e.completedAt < b.end);
+        return entry ? entry.completedAt : 0;
+    };
+
+    const isDoneInSelectedSlot = (q, dayUtcMs, seg) => {
+        return getCompletionTimeInSlot(q.code, dayUtcMs, seg) > 0;
     };
 
     /** @param {ApiQuest} q */
@@ -1186,9 +1196,9 @@
         let params = null;
         const item = slot?.item;
 
-        if (slot?.count && item?.name) {
+        if (slot?.count && (item?.vekselName || item?.name)) {
             if (isBlueSalt) {
-                params = `res=${encodeURIComponent(item.name)}&amount=${slot.count}`;
+                params = `res=${encodeURIComponent(item.vekselName || item.name)}&amount=${slot.count}`;
             } else if (isNorth) {
                 // Для северных - тип иконки берём из item.vekselType, локации из locations
                 const iconType = item.vekselType || 'sack';
@@ -1241,8 +1251,19 @@
         'unconfirmed': { icon: 'https://wiki.archerage.to/static/images/icons/top_unconfirmed.dds.png', title: 'Неопознанный предмет' },
         'quest':       { icon: 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png', title: 'Задание' },
         'magical':     { title: 'Магический предмет' },
-        'costume':     { title: 'Костюм' },
         'box':         { title: 'Ящик' },
+        'equipment':   { title: 'Снаряжение' },
+        'material':    { title: 'Материал' },
+        'potion':      { title: 'Микстура' }
+    };
+
+    /** @type {Record<string, ItemType>} */
+    const ITEM_SUB_TYPES = {
+        'ingot':   { title: 'Слиток металла' },
+        'leather': { title: 'Кожа' },
+        'cloth':   { title: 'Ткань' },
+        'lumber':  { title: 'Древесина' },
+        'costume': { title: 'Костюм' },
     };
 
     /**
@@ -1252,6 +1273,8 @@
      * @property {string} url - Ссылка на предмет в ArcheageCodex.
      * @property {string} name - Название предмета.
      * @property {string} [type] - Ключ в ITEM_TYPES (например, 'quest', 'unconfirmed').
+     * @property {string} [subType] - Ключ в ITEM_SUB_TYPES (например, 'ingot', 'costume').
+     * @property {string} [vekselName] - Название предмета для таблицы векселей (если отличается от name).
      * @property {string} [vekselType] - Тип для таблицы векселей ('sack' | 'archive' | 'license').
      * @property {string} [description] - Описание предмета (отображается во второй секции всплывашки).
      */
@@ -1261,10 +1284,10 @@
 
     /** @type {Record<string, ItemBase>} */
     const ITEMS = {
-        "8256":    { icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань" }, // icon_item_0356.png
-        "8318":    { icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа" }, // icon_item_quest053.png
-        "8337":    { icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Строительная древесина" }, // icon_item_0041.png
-        "16327":   { icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа" }, // icon_item_0352.png
+        "8256":    { type: 'material', subType: 'cloth', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань" }, // icon_item_0356.png
+        "8318":    { type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа" }, // icon_item_quest053.png
+        "8337":    { type: 'material', subType: 'lumber', icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Упаковка строительной древесины", vekselName: "Строительная древесина" }, // icon_item_0041.png
+        "16327":   { type: 'material', subType: 'leather', icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа" }, // icon_item_0352.png
         "35461":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром" }, // icon_item_1839.png
         "40928":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}d9df620283926e6f4a9ab47ebacf499c.png`, grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк" }, // icon_item_3101.png
         "42076":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}66ed119fca00abf78ddf2602ed55e659.png`, grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной" }, // icon_item_3619.png
@@ -1276,42 +1299,42 @@
         "8000752": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" },
         "8000753": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" },
 
-        "48894":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, url: 'https://archeagecodex.com/ru/item/48894/', name: 'Драгоценная эфенская сфера бронника' },
+        "48894":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, url: 'https://archeagecodex.com/ru/item/48894/', name: 'Драгоценная эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет. Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в <span class="orange_text">2</span> раза.<br><br>Можно использовать только при уровне усиления <span class="orange_text">18 и выше</span>.' },
         "54915":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, url: 'https://archeagecodex.com/ru/item/54915/', name: 'Свиток чар ифнирского героя' },
         "45508":   { icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, url: 'https://archeagecodex.com/ru/item/45508/', name: 'Сфера анимага' },
         "8001565": { icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001565/', name: 'Новенькая кирка' },
         "8002452": { icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002452/', name: 'Универсальный алхимический кристалл' },
         "8002449": { icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002449/', name: 'Дополнительная сумка' },
-        "47943":   { icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47943/', name: 'Настойка усердного ремесленника' },
+        "47943":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47943/', name: 'Настойка усердного ремесленника' },
         "39424":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, url: 'https://archeagecodex.com/ru/item/39424/', name: 'Ирамийская гадальная руна' },
         "46180":   { icon: 'https://archeagecodex.com/items/icon_item_1395.png', grade: 3, url: 'https://archeagecodex.com/ru/item/46180/', name: 'Солнечный настой' },
-        "47130":   { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, url: 'https://archeagecodex.com/ru/item/47130/', name: 'Хрустальная руна' },
+        "47130":   { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, url: 'https://archeagecodex.com/ru/item/47130/', name: 'Хрустальная руна', description: '<span class="light_blue_text">Можно получить одну из хрустальных рун на выбор:</span><br>- хрустальная руна багровой луны,<br>- хрустальная руна осенней луны,<br>- хрустальная руна молодой луны,<br>- хрустальная руна безмолвной луны,<br>- хрустальная руна колдовской луны.' },
         "47104":   { icon: 'https://archeagecodex.com/items/icon_item_4570.png', grade: 2, url: 'https://archeagecodex.com/ru/item/47104/', name: 'Парниковый купол' },
-        "48903":   { icon: 'https://archeagecodex.com/items/icon_item_3282.png', grade: 1, url: 'https://archeagecodex.com/ru/item/48903/', name: 'Набор сверкающих эфенских сфер' },
-        "48474":   { icon: 'https://archeagecodex.com/items/icon_item_3275.png', grade: 11, url: 'https://archeagecodex.com/ru/item/48474/', name: 'Большой набор мифических эссенций' },
+        "48903":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3282.png', grade: 1, url: 'https://archeagecodex.com/ru/item/48903/', name: 'Набор сверкающих эфенских сфер' },
+        "48474":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3275.png', grade: 11, url: 'https://archeagecodex.com/ru/item/48474/', name: 'Большой набор мифических эссенций' },
         "8002297": { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, url: 'https://archeagecodex.com/ru/item/8002297/', name: 'Королевский лунный изумруд' },
         "35727":   { icon: 'https://archeagecodex.com/items/icon_item_1982.png', grade: 2, url: 'https://archeagecodex.com/ru/item/35727/', name: 'Буровая установка' },
         "47082":   { icon: 'https://archeagecodex.com/items/icon_item_3369.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47082/', name: 'Патент на транспортное средство' },
-        "55783":   { icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, url: 'https://archeagecodex.com/ru/item/55783/', name: 'Сундучок с зачарованной гравировкой для украшений' },
+        "55783":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, url: 'https://archeagecodex.com/ru/item/55783/', name: 'Сундучок с зачарованной гравировкой для украшений' },
         "31892":   { icon: 'https://archeagecodex.com/items/icon_item_1733.png', grade: 1, url: 'https://archeagecodex.com/ru/item/31892/', name: 'Земельный вексель' },
         "55722":   { icon: 'https://archeagecodex.com/items/icon_item_5864.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55722/', name: 'Искусная цитриновая гравировка' },
-        "48886":   { icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, url: 'https://archeagecodex.com/ru/item/48886/', name: 'Сверкающая эфенская сфера бронника' },
+        "48886":   { icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, url: 'https://archeagecodex.com/ru/item/48886/', name: 'Сверкающая эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет.<br><br>Можно использовать только при уровне усиления <span class="orange_text">18 и выше</span>.' },
         "55723":   { icon: 'https://archeagecodex.com/items/icon_item_5865.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55723/', name: 'Искусная аквамариновая гравировка' },
-        "45747":   { icon: 'https://archeagecodex.com/items/icon_item_4385.png', grade: 5, url: 'https://archeagecodex.com/ru/item/45747/', name: 'Драгоценный флакон с зельем охотника' },
-        "49270":   { icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, url: 'https://archeagecodex.com/ru/item/49270/', name: 'Набор больших эфенских кубов' },
-        "45160":   { icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, url: 'https://archeagecodex.com/ru/item/45160/', name: 'Настойка спорыньи' },
-        "46623":   { icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, url: 'https://archeagecodex.com/ru/item/46623/', name: 'Настойка остролиста' },
+        "45747":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4385.png', grade: 5, url: 'https://archeagecodex.com/ru/item/45747/', name: 'Драгоценный флакон с зельем охотника' },
+        "49270":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, url: 'https://archeagecodex.com/ru/item/49270/', name: 'Набор больших эфенских кубов' },
+        "45160":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, url: 'https://archeagecodex.com/ru/item/45160/', name: 'Настойка спорыньи' },
+        "46623":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, url: 'https://archeagecodex.com/ru/item/46623/', name: 'Настойка остролиста' },
         "8001268": { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001268/', name: 'Свиток дельфийской библиотеки' },
         "46181":   { icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, url: 'https://archeagecodex.com/ru/item/46181/', name: 'Лунный настой' },
         "48546":   { icon: 'https://archeagecodex.com/items/icon_item_3595.png', grade: 1, url: 'https://archeagecodex.com/ru/item/48546/', name: 'Письмена войны' },
-        "8002486": { icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002486/', name: 'Дизайн костюма хоури эпохи Фарвати' },
+        "8002486": { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002486/', name: 'Дизайн костюма хоури эпохи Фарвати' },
         "47655":   { icon: 'https://archeagecodex.com/items/icon_item_4709.png', grade: 4, url: 'https://archeagecodex.com/ru/item/47655/', name: 'Фиона Розовый Лепесток' },
         "47581":   { icon: 'https://archeagecodex.com/items/icon_item_4211.png', grade: 3, url: 'https://archeagecodex.com/ru/item/47581/', name: 'Лиловое эмалевое стекло' },
         "47479":   { icon: 'https://archeagecodex.com/items/icon_item_3519.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47479/', name: 'Инкрустированный флакон с целебным эликсиром' },
         "47480":   { icon: 'https://archeagecodex.com/items/icon_item_3520.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47480/', name: 'Инкрустированный флакон с эликсиром маны' },
         "8003072": { icon: 'https://archeagecodex.com/items/icon_item_6002.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8003072/', name: 'Осколок предела' },
         "8001288": { icon: 'https://archeagecodex.com/items/icon_item_0966.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001288/', name: 'Цитрусовая карамелька' },
-        "8002649": { icon: 'https://archeagecodex.com/items/icon_item_3259.png', grade: 4, url: 'https://archeagecodex.com/ru/item/8002649/', name: 'Набор неверинских фейерверков' },
+        "8002649": { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3259.png', grade: 4, url: 'https://archeagecodex.com/ru/item/8002649/', name: 'Набор неверинских фейерверков' },
         "8000540": { icon: 'https://archeagecodex.com/items/icon_item_3207.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8000540/', name: 'Пушистая неверинская елочка' },
         "49769":   { icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, url: 'https://archeagecodex.com/ru/item/49769/', name: 'Зачарованный свиток пробуждения хранителя знаний' },
         "54653":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, url: 'https://archeagecodex.com/ru/item/54653/', name: 'Сундук с обновленным рамианским снаряжением' },
@@ -1321,19 +1344,21 @@
         "54655":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, url: 'https://archeagecodex.com/ru/item/54655/', name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
         "54654":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, url: 'https://archeagecodex.com/ru/item/54654/', name: 'Сундук с обновленным рамианским оружием эпохи Двенадцати' },
         "51239":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, url: 'https://archeagecodex.com/ru/item/51239/', name: 'Сундук с изначальным рамианским оружием эпохи мифов' },
-        "50924":   { type: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, url: 'https://archeagecodex.com/ru/item/50924/', name: 'Дизайн широкополой шляпы стрелка' },
+        "50924":   { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, url: 'https://archeagecodex.com/ru/item/50924/', name: 'Дизайн широкополой шляпы стрелка' },
         "51940":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, url: 'https://archeagecodex.com/ru/item/51940/', name: 'Сундучок с ценным украшением эпохи чудес' },
         "129":     { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_accessory_0001.png', grade: 1, url: 'https://archeagecodex.com/ru/item/129/', name: 'Дельфийская руна' },
-        "50925":   { type: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, url: 'https://archeagecodex.com/ru/item/50925/', name: 'Дизайн соломенной шляпы' },
+        "50925":   { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, url: 'https://archeagecodex.com/ru/item/50925/', name: 'Дизайн соломенной шляпы' },
         "55280":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, url: 'https://archeagecodex.com/ru/item/55280/', name: 'Легендарная руна ифнирского героя' },
         "55683":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, url: 'https://archeagecodex.com/ru/item/55683/', name: 'Мешочек с магистериями для украшений' },
+        "50536":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, url: 'https://archeagecodex.com/ru/item/50536/', name: 'Мешочек с магистериями', description: 'Открыв мешочек, вы сможете выбрать один из следующих предметов:<br>- мешочек с рубиновыми магистериями,<br>- мешочек с кварцевыми магистериями,<br>- мешочек с сапфировыми магистериями,<br>- мешочек с изумрудными магистериями,<br>- мешочек с янтарными магистериями.' },
         "8001148": { icon: 'https://archeagecodex.com/items/icon_item_3807.png', grade: 2, url: 'https://archeagecodex.com/ru/item/8001148/', name: 'Статуя «Орхидна на троне»' },
         "8001203": { icon: 'https://archeagecodex.com/items/icon_item_3277.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001203/', name: 'Сундучок с фамильными ценностями' },
         "54933":   { icon: 'https://archeagecodex.com/items/icon_item_5809.png', grade: 2, url: 'https://archeagecodex.com/ru/item/54933/', name: 'Замерзший пруд' },
-        "48860":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48860/', name: 'Большая эфенская сфера оружейника' },
-        "48861":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48861/', name: 'Большая эфенская сфера бронника' },
+        "48860":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48860/', name: 'Большая эфенская сфера оружейника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в <span class="orange_text">2</span> раза.' },
+        "48861":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48861/', name: 'Большая эфенская сфера бронника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в <span class="orange_text">2</span> раза.' },
         "44359":   { icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, url: 'https://archeagecodex.com/ru/item/44359/', name: 'Походный фиал славы' },
-        "47941":   { type: '', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, url: 'https://archeagecodex.com/ru/item/47941/', name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
+        "47941":   { type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, url: 'https://archeagecodex.com/ru/item/47941/', name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
+        "55800":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55800/', name: 'Сундучок с фрагментами судьбы', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:<br>- пыль судьбы (25 шт.),<br>- слиток судьбы<br> (5 шт.),<br>- призма судьбы.' },
         "":   { type: '', icon: '', grade: 1, url: '', name: '' },
     };
 
@@ -1481,7 +1506,7 @@
             const halfRtt = (t1 - t0) / 2;
             NOW_MS = parsed + halfRtt;
         } else if (NOW_MS == null) {
-            throw new Error('[AA Marathon] Cannot read server Date header');
+            throw new Error('[ArcheAgeExtraUI] Cannot read server Date header');
         }
 
         return res.json();
@@ -1576,7 +1601,7 @@
                 await claimAllLevelRewards();
             }
         } catch (e) {
-            console.warn('[AA Marathon] refreshApiInfo failed:', e);
+            console.warn('[ArcheAgeExtraUI] refreshApiInfo failed:', e);
         } finally {
             isRefreshing = false;
             hideRefreshLoader();
@@ -1769,7 +1794,8 @@
         const tipMeta = document.createElement('div');
         tipMeta.className = 'tm-item-tooltip-meta';
 
-        const typeInfo = ITEM_TYPES[item.type];
+        const subTypeInfo = ITEM_SUB_TYPES[item.subType];
+        const typeInfo = subTypeInfo || ITEM_TYPES[item.type];
         if (typeInfo?.title) {
             const typeLine = document.createElement('div');
             typeLine.className = 'tm-item-tooltip-type';
@@ -1777,7 +1803,7 @@
             tipMeta.appendChild(typeLine);
         }
 
-        if (gradeInfo?.title) {
+        if (gradeInfo?.title && !(item.grade === 1 && item.type !== 'equipment')) {
             const gradeLine = document.createElement('div');
             gradeLine.className = 'tm-item-tooltip-grade';
             if (gradeInfo.color) gradeLine.style.color = gradeInfo.color;
@@ -2090,7 +2116,7 @@
      * @param {QuestEvent[]} [params.events]
      * @param {boolean} [params.animateCompletion=false] - Добавить анимацию "только что выполнено"
      */
-    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, slot, veksel, locations, events, animateCompletion = false }) => {
+    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, completionTime, isToday, slot, veksel, locations, events, animateCompletion = false }) => {
         const card = document.createElement('div');
         card.className = `tasks__item tasks__item--${amount || 1}`;
 
@@ -2113,8 +2139,10 @@
             const progress = Number(q?.progress || 0);
             const progressEl = document.createElement('span');
             progressEl.className = 'tm-done-progress';
-            if (maxStep === 0) {
+            if (maxStep === 0 && isToday) {
                 progressEl.textContent = 'Можно выполнить повторно';
+            } else if (maxStep === 0) {
+                progressEl.textContent = '';
             } else {
                 progressEl.textContent = `${progress}/${maxStep}`;
             }
@@ -2128,8 +2156,7 @@
             done.appendChild(row);
 
             if (showLastDone) {
-                const t = Number(q?.last_complete_time || 0);
-                const time = formatTimeMSK(t);
+                const time = formatTimeMSK(completionTime || 0);
                 if (time) {
                     const timeEl = document.createElement('span');
                     timeEl.className = 'tm-done-time';
@@ -2382,18 +2409,8 @@
         });
 
         left.addEventListener('click', async () => {
-            const todayUtc = getTodayUtcMsByTZ();
-            const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
-
-            if (isToday && isThursdayByTZ(selectedDayUtcMs) && selectedSegment === 'post') {
-                applySlot(selectedDayUtcMs, 'pre');
-                await onSelectedDateChanged();
-                return;
-            }
-
             const prev = getPrevSlot(selectedDayUtcMs, selectedSegment);
-            const np = clampNotPast(prev.dayUtcMs, prev.segment);
-            applySlot(np.dayUtcMs, np.segment);
+            applySlot(prev.dayUtcMs, prev.segment);
             await onSelectedDateChanged();
         });
 
@@ -2451,16 +2468,15 @@
         const maxKey = MAX_DAY_UTC_MS != null ? slotKey(MAX_DAY_UTC_MS, MAX_SEG) : null;
 
         if (DOM.prevBtn) {
-            const todayUtc = getTodayUtcMsByTZ();
-            const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
-            const allowBackWithinTodayThu = isToday && isThursdayByTZ(selectedDayUtcMs) && selectedSegment === 'post';
-            const notPastBlock = isToday && !allowBackWithinTodayThu;
-
-            DOM.prevBtn.disabled = (minKey != null && curKey <= minKey) || notPastBlock;
+            DOM.prevBtn.disabled = (minKey != null && curKey <= minKey);
         }
 
         if (DOM.nextBtn) {
             DOM.nextBtn.disabled = (maxKey != null) && (curKey >= maxKey);
+        }
+
+        if (DOM.todayBtn) {
+            DOM.todayBtn.disabled = isSameDayByTZ(selectedDayUtcMs, getTodayUtcMsByTZ());
         }
     };
 
@@ -2470,7 +2486,7 @@
         try {
             await renderTasksForSelectedDay();
         } catch (e) {
-            console.warn('[AA Marathon] renderTasksForSelectedDay failed:', e);
+            console.warn('[ArcheAgeExtraUI] renderTasksForSelectedDay failed:', e);
         }
     };
 
@@ -2583,7 +2599,8 @@
             const codexId = Number(meta.codexId);
             const short = (meta.short || '').trim();
             const amount = getRewardAmount(q);
-            const doneInSlot = isDoneInSelectedSlot(q, selectedDayUtcMs, selectedSegment);
+            const completionTime = getCompletionTimeInSlot(q.code, selectedDayUtcMs, selectedSegment);
+            const doneInSlot = completionTime > 0;
 
             if (doneInSlot) currentDoneIds.add(questId);
 
@@ -2594,6 +2611,8 @@
                 q, amount, codexId, short,
                 isDone: doneInSlot,
                 showLastDone: doneInSlot,
+                completionTime,
+                isToday,
                 slot: meta.slot || null,
                 veksel: meta.veksel,
                 locations: meta.locations,
@@ -2708,6 +2727,7 @@
                 border: 1px solid rgba(255, 255, 255, 0.25);
                 pointer-events: none;
                 white-space: normal;
+                font-family: Calibri, Arial, Verdana, Tahoma;
                 font-size: 14px;
                 line-height: 18px;
                 color: #cfd6e0;
@@ -2749,12 +2769,12 @@
             }
 
             .tm-item-tooltip-grade {
-                font-size: 13px;
+                font-size: 14px;
                 line-height: 17px;
             }
 
             .tm-item-tooltip-name {
-                font-size: 15px;
+                font-size: 16px;
                 line-height: 20px;
             }
 
@@ -2769,6 +2789,14 @@
                 padding: 0 3px;
                 font-size: 13px;
                 line-height: 16px;
+            }
+
+            .orange_text {
+                color: #ff9c27;
+            }
+
+            .light_blue_text {
+                color: #74b0ca;
             }
         `;
     };
@@ -3431,7 +3459,7 @@
                     claimed = true;
                     await new Promise(r => setTimeout(r, CLAIM_DELAY_MS));
                 } catch (e) {
-                    console.warn(`[AA Marathon] claimLevelReward(${level}, ${type}) failed:`, e);
+                    console.warn(`[ArcheAgeExtraUI] claimLevelReward(${level}, ${type}) failed:`, e);
                 }
             }
         }
@@ -3488,7 +3516,7 @@
         const boxesAvailable = lootbox.getChestNum;
         if (boxesAvailable <= 0) return;
 
-        console.log(`[AA Marathon] Автооткрытие сундука (осталось: ${boxesAvailable})`);
+        console.log(`[ArcheAgeExtraUI] Автооткрытие сундука (осталось: ${boxesAvailable})`);
         lootbox.openBox();
     };
 
@@ -3614,7 +3642,7 @@
         try {
             await computeDateBoundsFromApiInfo();
         } catch (e) {
-            console.warn('[AA Marathon] computeDateBoundsFromApiInfo failed:', e);
+            console.warn('[ArcheAgeExtraUI] computeDateBoundsFromApiInfo failed:', e);
         }
 
         // Применяем сегодняшний слот (резолвим 'auto' после вычисления границ)
@@ -3623,7 +3651,7 @@
         try {
             await onSelectedDateChanged();
         } catch (e) {
-            console.warn('[AA Marathon] renderTasksForSelectedDay failed:', e);
+            console.warn('[ArcheAgeExtraUI] renderTasksForSelectedDay failed:', e);
         }
 
         // Обновляем историю выполнений заданий
@@ -3643,14 +3671,14 @@
         try {
             await initPrizes();
         } catch (e) {
-            console.warn('[AA Marathon] initPrizes failed:', e);
+            console.warn('[ArcheAgeExtraUI] initPrizes failed:', e);
         }
 
         // Инициализация автооткрытия сундуков
         try {
             initAutoOpenBoxesCheckbox();
         } catch (e) {
-            console.warn('[AA Marathon] initAutoOpenBoxesCheckbox failed:', e);
+            console.warn('[ArcheAgeExtraUI] initAutoOpenBoxesCheckbox failed:', e);
         }
 
         // Запускаем автообновление с нужным интервалом
