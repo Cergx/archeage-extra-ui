@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.2.0
+// @version      4.2.1
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -951,10 +951,10 @@
         try {
             const quests = getQuestsArrayFromInfo(API_INFO_CACHE);
             historyEntries = mergeQuestHistory(quests);
-            renderHistoryTable();
         } catch (e) {
             console.warn('[ArcheAgeExtraUI] updateQuestHistory failed:', e);
         }
+        renderHistoryTable();
     };
 
     // ==================== Слоты и сегменты (четверг pre/post) ====================
@@ -3811,14 +3811,13 @@
         // Применяем сегодняшний слот (резолвим 'auto' после вычисления границ)
         applySlot(selectedDayUtcMs || getTodayUtcMsByTZ(), 'auto');
 
+        updateQuestHistory();
+
         try {
             await onSelectedDateChanged();
         } catch (e) {
             console.warn('[ArcheAgeExtraUI] renderTasksForSelectedDay failed:', e);
         }
-
-        // Обновляем историю выполнений заданий
-        updateQuestHistory();
 
         requestAnimationFrame(() => {
             const el = document.querySelector('.section.tasks .tasks__header');
@@ -4034,7 +4033,6 @@
     /**
      * Парсит персонажей из DOM.
      * @param {Element} layout - Корневой элемент .cart_layout
-     * @returns {CartCharacter[]}
      */
     const parseCartCharacters = (layout) => {
         const labels = layout.querySelectorAll('.char_select label');
@@ -5133,11 +5131,10 @@
                 width: 0%;
             }
 
-            .itemrestore__table th.n4 {
+            .itemrestore__table .n4 {
                 white-space: nowrap;
                 width: 0%;
                 text-align: right;
-                border-right: none;
                 min-width: 24px;
             }
 
