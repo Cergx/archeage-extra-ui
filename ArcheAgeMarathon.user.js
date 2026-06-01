@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      3.6
+// @version      3.7
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -42,7 +42,11 @@
             document.head.appendChild(style);
         };
 
-        // Подсвечивает строки в таблицах Запад/Восток: зелёным подходящие, красным неподходящие
+        /**
+         * Подсвечивает строки в таблицах Запад/Восток: зелёным подходящие, красным неподходящие.
+         * @param {string} resourceName
+         * @param {number} amount
+         */
         const highlightWestEastRow = (resourceName, amount) => {
             const blocks = ['#table-block-west', '#table-block-east'];
             for (const blockId of blocks) {
@@ -71,7 +75,12 @@
             }
         };
 
-        // Подсвечивает только запрошенные локации в таблице Север: зелёным подходящую, красным неподходящие
+        /**
+         * Подсвечивает только запрошенные локации в таблице Север: зелёным подходящие, красным неподходящие.
+         * @param {string[]} locations
+         * @param {number} amount
+         * @param {'archive'|'sack'} iconType
+         */
         const highlightNorthRow = (locations, amount, iconType) => {
             const block = document.querySelector('#table-block-north');
             if (!block) return;
@@ -177,8 +186,14 @@
     const DEFAULT_HOUR = 16;  // 16:00 МСК — после профработ
     /** Эндпоинт информации о марафоне. Ответ: {@link ApiInfoResponse}. */
     const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
-    const LS_HIDE_DONE_KEY = 'tm_aa_hide_done';
-    const LS_AUTO_CLAIM_KEY = 'tm_aa_auto_claim';
+    const LS_KEYS = {
+        HIDE_DONE: 'tm_aa_hide_done',
+        AUTO_CLAIM: 'tm_aa_auto_claim',
+        QUEST_HISTORY: 'tm_aa_quest_history',
+        AUTO_OPEN_BOXES: 'tm_aa_auto_open_boxes',
+    };
+    const HISTORY_MAX_ENTRIES = 500;
+    const HISTORY_PER_PAGE = 10;
     const DAY_RESET_HOUR = 0; // 00:00 МСК — начало нового дня для сброса галочки
     const CLAIM_DELAY_MS = 400; // Задержка между запросами автозабора
 
@@ -186,8 +201,8 @@
 
     /**
      * @typedef {Object} ApiReward
-     * @property {string} type - Тип награды (например, `'moh_experience'`, `'cart_item'`).
-     * @property {{ amount?: number, id?: number, count?: number, site_count?: number }} value
+     * @property {'moh_experience'|'cart_item'|'currency'|string} type
+     * @property {{ amount?: number, id?: number, count?: number, site_count?: number, code?: string }} value
      * @property {string} [title] - Название (для `cart_item`).
      */
 
@@ -206,7 +221,7 @@
      * @property {string} group
      * @property {number} end_time
      * @property {number} start_time
-     * @property {string} time_status - `'active'` | `'future'` | `'past'`.
+     * @property {'now'|'future'|'past'} time_status
      * @property {number} max_completed_step
      * @property {number} progress
      * @property {number} max_target
@@ -222,7 +237,7 @@
     /**
      * @typedef {Object} ApiUserInfo
      * @property {number} level
-     * @property {string} status - `'trial'` | `'premium'`.
+     * @property {'trial'|'premium'} status
      * @property {number} count_boxes_for_open
      * @property {number} week_exp
      * @property {number} exp_total
@@ -253,7 +268,7 @@
      * @typedef {Object} ApiInfoResponse
      * @property {ApiInfoData} data
      * @property {any} meta
-     * @property {string} state - `'Success'` | `'Error'`.
+     * @property {'Success'|'Fail'} state
      */
 
         // ==================== Состояние ====================
@@ -303,6 +318,7 @@
 
     // ==================== Перехват API ====================
 
+    /** @param {string|URL} url */
     const normalizeUrlToPath = (url) => {
         try {
             return new URL(url, location.href).pathname;
@@ -355,6 +371,7 @@
 
     // ==================== Форматирование title квеста ====================
 
+    /** @param {number} num */
     const toRoman = (num) => {
         const numerals = [
             ['M', 1000], ['CM', 900], ['D', 500], ['CD', 400],
@@ -371,6 +388,7 @@
         return result;
     };
 
+    /** @param {string} title */
     const formatQuestTitle = (title) => {
         if (!title) return '';
 
@@ -403,6 +421,7 @@
 
     const getNowUnix = () => Math.floor(nowMs() / 1000);
 
+    /** @param {number} utcMs @returns {{ y: number, m: number, d: number }} */
     const getMSKDatePartsFromUtcMs = (utcMs) => {
         const d = new Date(utcMs);
         const fmt = new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -413,8 +432,10 @@
         return { y, m, d: day };
     };
 
+    /** @param {{ y: number, m: number, d: number }} params */
     const formatDMY = ({ y, m, d }) => `${pad2(d)}.${pad2(m)}.${y}`;
 
+    /** @param {number} unixSec */
     const formatTimeMSK = (unixSec) => {
         if (!unixSec) return '';
         return new Intl.DateTimeFormat('ru-RU', {
@@ -424,6 +445,7 @@
         }).format(new Date(unixSec * 1000));
     };
 
+    /** @param {number} unixSec — Unix-секунды. */
     const dayUtcMsFromUnixByTZ = (unixSec) => {
         const ms = Number(unixSec || 0) * 1000;
         const { y, m, d } = getMSKDatePartsFromUtcMs(ms);
@@ -437,6 +459,7 @@
 
     const addDaysUtcMs = (dayUtcMs, deltaDays) => dayUtcMs + deltaDays * 86400000;
 
+    /** @param {number} dayUtcMs @returns {{ start: number, end: number }} Unix-границы дня в МСК. */
     const getDayBoundsUnix = (dayUtcMs) => {
         const { y, m, d } = getMSKDatePartsFromUtcMs(dayUtcMs);
         const startMs = Date.UTC(y, m - 1, d, 0, 0, 0) - MSK_OFFSET_HOURS * 3600 * 1000;
@@ -444,6 +467,10 @@
         return { start: Math.floor(startMs / 1000), end: Math.floor(endMs / 1000) };
     };
 
+    /**
+     * @param {number} dayUtcMs
+     * @param {number} hourMsk — час МСК (0–23).
+     */
     const getUnixForDayAtHour = (dayUtcMs, hourMsk) => {
         const { start } = getDayBoundsUnix(dayUtcMs);
         return start + hourMsk * 3600;
@@ -507,8 +534,10 @@
         return { hours: h, minutes: m };
     };
 
-    // Вычисляет секунды до ближайшего события
-    // events: Array<{ time: "HH:MM", weekdays?: number[] }>
+    /**
+     * Вычисляет секунды до ближайшего события.
+     * @param {QuestEvent[]} events
+     */
     const getSecondsUntilNextEvent = (events) => {
         if (!events || !events.length) return null;
 
@@ -544,7 +573,7 @@
         return minDiff === Infinity ? null : minDiff;
     };
 
-    // Форматирует events в строку для отображения
+    /** @param {QuestEvent[]} events */
     const formatEventsToString = (events) => {
         if (!events || !events.length) return '';
 
@@ -576,7 +605,7 @@
         return parts.join(' / ');
     };
 
-    // Форматирует секунды: 2 самых крупных показателя
+    /** @param {number|null} seconds */
     const formatCountdown = (seconds) => {
         if (seconds == null || seconds < 0) return '';
 
@@ -673,7 +702,7 @@
 
     const loadHideDoneState = () => {
         try {
-            const raw = localStorage.getItem(LS_HIDE_DONE_KEY);
+            const raw = localStorage.getItem(LS_KEYS.HIDE_DONE);
             if (!raw) return false;
             const data = JSON.parse(raw);
             if (data.dayKey !== getHideDoneDayKey()) return false;
@@ -685,7 +714,7 @@
 
     const saveHideDoneState = (checked) => {
         try {
-            localStorage.setItem(LS_HIDE_DONE_KEY, JSON.stringify({
+            localStorage.setItem(LS_KEYS.HIDE_DONE, JSON.stringify({
                 checked,
                 dayKey: getHideDoneDayKey(),
             }));
@@ -694,19 +723,240 @@
         }
     };
 
+    // ==================== История выполнений заданий ====================
+
+    /**
+     * @typedef {Object} HistoryEntry
+     * @property {string} code
+     * @property {number} completedAt — unix timestamp (last_complete_time)
+     */
+
+    /** @returns {HistoryEntry[]} */
+    const loadQuestHistory = () => {
+        try {
+            return JSON.parse(localStorage.getItem(LS_KEYS.QUEST_HISTORY)) || [];
+        } catch {
+            return [];
+        }
+    };
+
+    /** @param {HistoryEntry[]} entries */
+    const saveQuestHistory = (entries) => {
+        try {
+            localStorage.setItem(LS_KEYS.QUEST_HISTORY, JSON.stringify(entries));
+        } catch {
+            // ignore
+        }
+    };
+
+    /**
+     * Сравнивает квесты из API с сохранённой историей, добавляет новые записи.
+     * @param {ApiQuest[]} quests
+     * @returns {HistoryEntry[]}
+     */
+    const mergeQuestHistory = (quests) => {
+        const history = loadQuestHistory();
+        const existing = new Set(history.map(e => `${e.code}:${e.completedAt}`));
+
+        for (const q of quests) {
+            const t = Number(q.last_complete_time || 0);
+            if (!t) continue;
+            const key = `${q.code}:${t}`;
+            if (existing.has(key)) continue;
+            history.push({
+                code: q.code,
+                completedAt: t,
+            });
+            existing.add(key);
+        }
+
+        history.sort((a, b) => b.completedAt - a.completedAt);
+
+        // Обрезаем до лимита
+        if (history.length > HISTORY_MAX_ENTRIES) {
+            history.length = HISTORY_MAX_ENTRIES;
+        }
+
+        saveQuestHistory(history);
+        return history;
+    };
+
+    let historyCurrentPage = 1;
+    /** @type {HistoryEntry[]} */
+    let historyEntries = [];
+
+    /** Форматирует unix-секунды в строку «DD.MM.YYYY HH:MM» (МСК). */
+    const formatDateTimeMSK = (unixSec) => {
+        if (!unixSec) return '';
+        const ms = unixSec * 1000;
+        const { y, m, d } = getMSKDatePartsFromUtcMs(ms);
+        const time = formatTimeMSK(unixSec);
+        return `${pad2(d)}.${pad2(m)}.${y} ${time}`;
+    };
+
+    /** Перерисовывает таблицу истории выполнений в DOM. */
+    const renderHistoryTable = () => {
+        const section = document.querySelector('section.history-events');
+        if (!section) return;
+
+        const layout = section.querySelector('.layout');
+        if (!layout) return;
+
+        // Удаляем старую таблицу и пагинацию (нативные или наши)
+        const oldWrap = layout.querySelector('.table__wrap');
+        if (oldWrap) oldWrap.remove();
+
+        if (!historyEntries.length) return;
+
+        const totalPages = Math.ceil(historyEntries.length / HISTORY_PER_PAGE);
+        if (historyCurrentPage > totalPages) historyCurrentPage = totalPages;
+
+        const start = (historyCurrentPage - 1) * HISTORY_PER_PAGE;
+        const pageItems = historyEntries.slice(start, start + HISTORY_PER_PAGE);
+
+        // Маппинг code → description из текущего кэша API
+        const questsMap = API_INFO_CACHE?.data?.quests || {};
+
+        // Таблица
+        const table = document.createElement('table');
+        table.className = 'table table--history_events';
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = '<tr><th>Дата</th><th>Задание</th><th>Опыт</th></tr>';
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        for (const entry of pageItems) {
+            const tr = document.createElement('tr');
+
+            const tdDate = document.createElement('td');
+            tdDate.textContent = formatDateTimeMSK(entry.completedAt);
+            tr.appendChild(tdDate);
+
+            const tdTitle = document.createElement('td');
+            tdTitle.textContent = questsMap[entry.code]?.description || entry.code;
+            tr.appendChild(tdTitle);
+
+            const tdReward = document.createElement('td');
+            const quest = questsMap[entry.code];
+            if (quest) {
+                const span = document.createElement('span');
+                span.className = 'table__status';
+                const dots = Math.max(1, getRewardAmount(quest));
+                for (let i = 0; i < dots; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'icon-point icon-point--received';
+                    span.appendChild(dot);
+                }
+                tdReward.appendChild(span);
+            }
+            tr.appendChild(tdReward);
+
+            tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+
+        // Обёртка
+        const wrap = document.createElement('div');
+        wrap.className = 'table__wrap';
+        wrap.appendChild(table);
+
+        // Пагинация
+        if (totalPages > 1) {
+            const ul = document.createElement('ul');
+            ul.className = 'pagination';
+
+            // «←»
+            const prevLi = document.createElement('li');
+            prevLi.className = 'pagination__item pagination__item--prev'
+                + (historyCurrentPage <= 1 ? ' disabled' : '');
+            prevLi.innerHTML = '<i class="icons-arrow"></i>';
+            prevLi.addEventListener('click', () => {
+                if (historyCurrentPage > 1) {
+                    historyCurrentPage--;
+                    renderHistoryTable();
+                }
+            });
+            ul.appendChild(prevLi);
+
+            // Номера страниц
+            for (let p = 1; p <= totalPages; p++) {
+                const li = document.createElement('li');
+                li.className = 'pagination__item' + (p === historyCurrentPage ? ' active' : '');
+                li.textContent = String(p);
+                li.addEventListener('click', () => {
+                    historyCurrentPage = p;
+                    renderHistoryTable();
+                });
+                ul.appendChild(li);
+            }
+
+            // «→»
+            const nextLi = document.createElement('li');
+            nextLi.className = 'pagination__item pagination__item--next'
+                + (historyCurrentPage >= totalPages ? ' disabled' : '');
+            nextLi.innerHTML = '<i class="icons-arrow"></i>';
+            nextLi.addEventListener('click', () => {
+                if (historyCurrentPage < totalPages) {
+                    historyCurrentPage++;
+                    renderHistoryTable();
+                }
+            });
+            ul.appendChild(nextLi);
+
+            wrap.appendChild(ul);
+        }
+
+        layout.appendChild(wrap);
+    };
+
+    /**
+     * Обновляет историю из текущего кэша API и перерисовывает таблицу.
+     * Вызывается при загрузке и после каждого обновления данных.
+     */
+    const updateQuestHistory = () => {
+        if (!API_INFO_CACHE) return;
+        try {
+            const quests = getQuestsArrayFromInfo(API_INFO_CACHE);
+            historyEntries = mergeQuestHistory(quests);
+            renderHistoryTable();
+        } catch (e) {
+            console.warn('[AA Marathon] updateQuestHistory failed:', e);
+        }
+    };
+
     // ==================== Слоты и сегменты (четверг pre/post) ====================
 
+    /** @typedef {'pre'|'post'|'auto'|null} Segment */
+
+    /** @typedef {{ dayUtcMs: number, segment: Segment }} SlotPosition */
+
+    /**
+     * @param {number} dayUtcMs
+     * @param {Segment} segment
+     */
     const slotKey = (dayUtcMs, segment) => {
         const seg = segment === 'pre' ? 0 : segment === 'post' ? 2 : 1;
         return dayUtcMs * 10 + seg;
     };
 
+    /**
+     * @param {number} dayUtcMs
+     * @param {Segment} seg
+     * @returns {Segment}
+     */
     const normalizeSegmentForDay = (dayUtcMs, seg) => {
         if (!isThursdayByTZ(dayUtcMs)) return null;
         if (seg === 'pre' || seg === 'post' || seg === 'auto') return seg;
         return 'post';
     };
 
+    /**
+     * Резолвит 'auto' в конкретный сегмент ('pre'/'post') или null для не-четверга.
+     * @param {number} dayUtcMs
+     * @param {Segment} seg
+     * @returns {'pre'|'post'|null}
+     */
     const effectiveSegment = (dayUtcMs, seg) => {
         if (!isThursdayByTZ(dayUtcMs)) return null;
         if (seg === 'pre' || seg === 'post') return seg;
@@ -720,6 +970,11 @@
         return getNowUnix() < cut ? 'pre' : 'post';
     };
 
+    /**
+     * @param {number} dayUtcMs
+     * @param {Segment} seg
+     * @returns {{ start: number, end: number }}
+     */
     const getSlotBoundsUnix = (dayUtcMs, seg) => {
         const { start, end } = getDayBoundsUnix(dayUtcMs);
         if (!isThursdayByTZ(dayUtcMs)) return { start, end };
@@ -730,6 +985,11 @@
         return { start: cut, end };
     };
 
+    /**
+     * @param {number} dayUtcMs
+     * @param {Segment} seg
+     * @returns {SlotPosition}
+     */
     const getPrevSlot = (dayUtcMs, seg) => {
         const isThu = isThursdayByTZ(dayUtcMs);
 
@@ -747,6 +1007,11 @@
         return { dayUtcMs: prevDay, segment: null };
     };
 
+    /**
+     * @param {number} dayUtcMs
+     * @param {Segment} seg
+     * @returns {SlotPosition}
+     */
     const getNextSlot = (dayUtcMs, seg) => {
         const isThu = isThursdayByTZ(dayUtcMs);
 
@@ -764,6 +1029,11 @@
         return { dayUtcMs: nextDay, segment: null };
     };
 
+    /**
+     * @param {number} dayUtcMs
+     * @param {Segment} segment
+     * @returns {SlotPosition}
+     */
     const clampNotPast = (dayUtcMs, segment) => {
         const todayUtc = getTodayUtcMsByTZ();
 
@@ -779,6 +1049,11 @@
         return { dayUtcMs, segment };
     };
 
+    /**
+     * @param {number} dayUtcMs
+     * @param {Segment} segment
+     * @returns {SlotPosition}
+     */
     const clampSelectedDay = (dayUtcMs, segment) => {
         if (dayUtcMs == null) return { dayUtcMs, segment };
 
@@ -809,6 +1084,10 @@
 
     // ==================== Квесты ====================
 
+    /**
+     * @param {ApiQuest} q
+     * @param {number} unix
+     */
     const isQuestActiveAtUnix = (q, unix) => {
         const qs = Number(q?.start_time || 0);
         const qe = Number(q?.end_time || 0);
@@ -816,6 +1095,11 @@
         return qs <= unix && unix < qe;
     };
 
+    /**
+     * @param {ApiQuest} q
+     * @param {number} dayUtcMs
+     * @param {Segment} seg
+     */
     const isDoneInSelectedSlot = (q, dayUtcMs, seg) => {
         const t = Number(q?.last_complete_time || 0);
         if (!t) return false;
@@ -823,6 +1107,7 @@
         return b.start <= t && t < b.end;
     };
 
+    /** @param {ApiQuest} q */
     const getRewardAmount = (q) => {
         const steps = q?.steps;
         const step1 = steps?.['1'] || steps?.[1];
@@ -830,6 +1115,10 @@
         return Number(amount || 0);
     };
 
+    /**
+     * @param {ApiInfoResponse} json
+     * @returns {ApiQuest[]}
+     */
     const getQuestsArrayFromInfo = (json) => {
         const quests = json?.data?.quests;
         if (!quests || typeof quests !== 'object') throw new Error('api/info: quests not found');
@@ -856,9 +1145,12 @@
 
     let VEkselUrlResolved = VEKSEL_BASE;
 
-    // Формирует URL для gisaa с параметрами
-    // veksel: 'blue_salt' | 'north' | undefined
-    // locations: string[] | undefined — массив локаций для северных квестов
+    /**
+     * Формирует URL для gisaa с параметрами.
+     * @param {'blue_salt'|'north'|undefined} veksel
+     * @param {Slot|null} slot
+     * @param {string[]|undefined} locations — локации для северных квестов.
+     */
     const buildVekselUrl = (veksel, slot, locations) => {
         const isBlueSalt = veksel === 'blue_salt';
         const isNorth = veksel === 'north';
@@ -1009,7 +1301,7 @@
         "8336": { codexId: 5144, short: "Призрачный (ночной) разлом", events: [{ time: "02:20" }, { time: "06:20" }, { time: "10:20" }, { time: "14:20" }, { time: "18:20" }, { time: "22:20" }] },
         "8338": { codexId: 5885, short: "Анталлон на Солнечных полях", events: [{ time: "01:20" }, { time: "05:20" }, { time: "09:20" }, { time: "13:20" }, { time: "17:20" }, { time: "21:20" }] },
         "8340": { codexId: 8000060, short: "Сады наслаждений (изи или нормал)", slot: { item: ITEMS["8000751"] } },
-        "8346": { codexId: 10056, short: "" },
+        "8346": { codexId: 10056, short: "Квест можно взять в любое время, боссы:", events: [{ time: "03:00" }, { time: "07:00" }, { time: "11:00" }, { time: "15:00" }, { time: "19:00" }, { time: "23:00" }] },
         "8348": { codexId: 11154, short: "Лиловый (армия фантомов)", events: [{ time: "01:50" }, { time: "05:50" }, { time: "09:50" }, { time: "13:50" }, { time: "17:50" }, { time: "21:50" }] },
         "8350": { codexId: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
         "8352": { codexId: 9147, short: "", veksel: 'blue_salt', slot: { item: ITEMS["8256"], count: 60 } },
@@ -1064,12 +1356,14 @@
 
     // ==================== API-запросы ====================
 
+    /** @param {string} url @returns {Promise<any>} */
     const fetchJson = async (url) => {
         const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
         return res.json();
     };
 
+    /** @param {string} url */
     const fetchText = async (url) => {
         const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
@@ -1100,6 +1394,7 @@
         return res.json();
     };
 
+    /** @returns {Promise<ApiInfoResponse>} */
     const getApiInfoCached = async () => {
         if (API_INFO_CACHE) return API_INFO_CACHE;
         if (API_INFO_PROMISE) {
@@ -1180,6 +1475,9 @@
                 await renderTasksForSelectedDay();
             }
 
+            // Обновляем историю выполнений
+            updateQuestHistory();
+
             // Автозабор подарков (если включён и данные изменились)
             if (loadAutoClaimState()) {
                 await claimAllLevelRewards();
@@ -1199,6 +1497,7 @@
         }
     };
 
+    /** @param {number} intervalMs */
     const startAutoRefresh = (intervalMs) => {
         stopAutoRefresh();
         autoRefreshIntervalId = setInterval(refreshApiInfo, intervalMs);
@@ -1222,6 +1521,7 @@
         }
     };
 
+    /** @returns {Promise<string>} */
     const getUidFromCheckUser = async () => {
         const json = await fetchJson('/dynamic/auth/?a=checkuser');
         const uid = json?.user?.uid;
@@ -1229,6 +1529,7 @@
         return String(uid);
     };
 
+    /** @param {string} html @returns {string[]} */
     const parseServersFromCharListHtml = (html) => {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         return [...doc.querySelectorAll('li')]
@@ -1240,6 +1541,7 @@
             .filter(Boolean);
     };
 
+    /** @param {string[]} servers @returns {string|null} */
     const pickMainServer = (servers) => {
         if (!servers.length) return null;
 
@@ -1290,6 +1592,7 @@
 
     // ==================== UI: создание карточек ====================
 
+    /** @param {{ href: string, iconSrc: string, title: string, className?: string }} params */
     const makeIconLink = ({ href, iconSrc, title, className }) => {
         const a = document.createElement('a');
         a.className = `tm-icon-link ${className || ''}`.trim();
@@ -1305,7 +1608,10 @@
         return a;
     };
 
-    // Создаёт иконку для ссылки на таблицу векселей (gisaa + маленькая иконка векселя)
+    /**
+     * Создаёт иконку для ссылки на таблицу векселей (gisaa + маленькая иконка векселя).
+     * @param {{ href: string, title?: string, vekselIcon: string }} params
+     * */
     const makeVekselIconLink = ({ href, title, vekselIcon }) => {
         const a = document.createElement('a');
         a.className = 'tm-veksel-icon-link';
@@ -1331,7 +1637,6 @@
 
     /**
      * Создаёт иконку предмета с рамкой редкости, overlay типа и всплывашкой.
-     *
      * Иконка состоит из слоёв: изображение предмета → overlay типа → рамка грейда.
      *
      * @param {Object} params
@@ -1442,6 +1747,10 @@
         return el;
     };
 
+    /**
+     * @param {number} amount
+     * @param {boolean} isDone
+     */
     const makeRewardBlock = (amount, isDone) => {
         const reward = document.createElement('div');
         reward.className = 'tasks__item-reward';
@@ -1463,6 +1772,7 @@
         return reward;
     };
 
+    /** @param {string} desc */
     const makeTaskText = (desc) => {
         const t = document.createElement('div');
         t.className = 'tasks__item-text';
@@ -1470,6 +1780,16 @@
         return t;
     };
 
+    /**
+     * @param {Object} params
+     * @param {number} params.codexId
+     * @param {string} params.short
+     * @param {string} params.questTitle
+     * @param {Slot|null} [params.slot]
+     * @param {'blue_salt'|'north'} [params.veksel]
+     * @param {string[]} [params.locations]
+     * @param {QuestEvent[]} [params.events]
+     */
     const makeLinksRow = ({ codexId, short, questTitle, slot, veksel, locations, events }) => {
         const row = document.createElement('div');
         row.className = 'tm-links-row';
@@ -1588,6 +1908,19 @@
         return row;
     };
 
+    /**
+     * @param {Object} params
+     * @param {ApiQuest} params.q
+     * @param {number} params.amount
+     * @param {number} params.codexId
+     * @param {string} params.short
+     * @param {boolean} params.isDone
+     * @param {boolean} params.showLastDone
+     * @param {Slot|null} [params.slot]
+     * @param {'blue_salt'|'north'} [params.veksel]
+     * @param {string[]} [params.locations]
+     * @param {QuestEvent[]} [params.events]
+     */
     const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, slot, veksel, locations, events }) => {
         const card = document.createElement('div');
         card.className = `tasks__item tasks__item--${amount || 1}`;
@@ -1642,6 +1975,7 @@
 
     // ==================== UI: обновление блока уровня ====================
 
+    /** @param {ApiInfoResponse} json */
     const updateLevelBlock = (json) => {
         const userInfo = json?.data?.user_info;
         if (!userInfo) return;
@@ -1727,6 +2061,7 @@
 
     // ==================== UI: обновление tasks__header ====================
 
+    /** @param {ApiInfoResponse} json */
     const updateTasksHeader = (json) => {
         const userInfo = json?.data?.user_info;
         if (!userInfo) return;
@@ -1966,6 +2301,11 @@
 
     // ==================== Рендеринг списка ====================
 
+    /**
+     * @param {number} dayUtcMs
+     * @param {ApiQuest[]} questsArr
+     * @returns {{ hasPre: boolean, hasPost: boolean }}
+     */
     const computeThuSegmentsAvailability = (dayUtcMs, questsArr) => {
         const preUnix = getUnixForDayAtHour(dayUtcMs, THU_PRE_HOUR);
         const postUnix = getUnixForDayAtHour(dayUtcMs, DEFAULT_HOUR);
@@ -2576,13 +2916,41 @@
                 height: 16px;
                 cursor: pointer;
             }
+
+            /* Автооткрытие сундуков */
+            .lootbox__title {
+                gap: 30px;
+                flex-wrap: wrap;
+            }
+
+            .lootbox__title .icon-info {
+                margin-left: 0;
+            }
+
+            .tm-auto-open-label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 14px;
+                font-weight: normal;
+                cursor: pointer;
+                user-select: none;
+                white-space: nowrap;
+                text-transform: none;
+            }
+
+            .tm-auto-open-checkbox {
+                width: 16px;
+                height: 16px;
+                cursor: pointer;
+            }
         `;
         document.head.appendChild(style);
     };
 
     // ==================== Подарки за уровни ====================
 
-    // Получить статус пользователя (trial/premium) из кэша API
+    /** Получить статус пользователя (trial/premium) из кэша API. @returns {'trial'|'premium'} */
     const getUserStatus = () => {
         return API_INFO_CACHE?.data?.user_info?.status || 'trial';
     };
@@ -2590,16 +2958,16 @@
     // Загрузить состояние автозабора из localStorage
     const loadAutoClaimState = () => {
         try {
-            return localStorage.getItem(LS_AUTO_CLAIM_KEY) === 'true';
+            return localStorage.getItem(LS_KEYS.AUTO_CLAIM) === 'true';
         } catch {
             return false;
         }
     };
 
-    // Сохранить состояние автозабора в localStorage
+    /** Сохранить состояние автозабора в localStorage. @param {boolean} enabled */
     const saveAutoClaimState = (enabled) => {
         try {
-            localStorage.setItem(LS_AUTO_CLAIM_KEY, enabled ? 'true' : 'false');
+            localStorage.setItem(LS_KEYS.AUTO_CLAIM, enabled ? 'true' : 'false');
         } catch {
             // ignore
         }
@@ -2768,6 +3136,107 @@
         }
     };
 
+    // ==================== Автооткрытие сундуков ====================
+
+    const loadAutoOpenBoxesState = () => {
+        try {
+            return localStorage.getItem(LS_KEYS.AUTO_OPEN_BOXES) === 'true';
+        } catch {
+            return false;
+        }
+    };
+
+    const saveAutoOpenBoxesState = (enabled) => {
+        try {
+            localStorage.setItem(LS_KEYS.AUTO_OPEN_BOXES, String(enabled));
+        } catch {
+            // ignore
+        }
+    };
+
+    /**
+     * Получить Vue-инстанс компонента Lootbox.
+     * @returns {Vue|null}
+     */
+    const getLootboxVm = () => {
+        const el = document.querySelector('.lootbox');
+        return el?.__vue__ ?? null;
+    };
+
+    let autoOpenBoxesIntervalId = null;
+
+    /**
+     * Проверяет условия и открывает один сундук, если возможно.
+     * Вызывается по интервалу.
+     */
+    const tryOpenNextBox = () => {
+        if (!loadAutoOpenBoxesState()) return;
+
+        const lootbox = getLootboxVm();
+        if (!lootbox || typeof lootbox.openBox !== 'function') return;
+
+        // Проверяем, что popup закрыт и не идёт открытие
+        if (lootbox.is_show_popup || lootbox.is_button_pushed) return;
+
+        // Проверяем, есть ли сундуки
+        const boxesAvailable = lootbox.getChestNum;
+        if (boxesAvailable <= 0) return;
+
+        console.log(`[AA Marathon] Автооткрытие сундука (осталось: ${boxesAvailable})`);
+        lootbox.openBox();
+    };
+
+    const startAutoOpenBoxesInterval = () => {
+        if (autoOpenBoxesIntervalId != null) return;
+        autoOpenBoxesIntervalId = setInterval(tryOpenNextBox, 500);
+    };
+
+    const stopAutoOpenBoxesInterval = () => {
+        if (autoOpenBoxesIntervalId != null) {
+            clearInterval(autoOpenBoxesIntervalId);
+            autoOpenBoxesIntervalId = null;
+        }
+    };
+
+    /**
+     * Инициализация галочки "Открывать при получении" в блоке lootbox.
+     */
+    const initAutoOpenBoxesCheckbox = () => {
+        const lootboxTitle = document.querySelector('.lootbox__title');
+        if (!lootboxTitle) return;
+
+        // Проверяем, что галочка ещё не добавлена
+        if (lootboxTitle.querySelector('.tm-auto-open-label')) return;
+
+        const label = document.createElement('label');
+        label.className = 'tm-auto-open-label';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'tm-auto-open-checkbox';
+        checkbox.checked = loadAutoOpenBoxesState();
+
+        const text = document.createTextNode('Открывать при получении');
+        label.appendChild(checkbox);
+        label.appendChild(text);
+
+        lootboxTitle.appendChild(label);
+
+        checkbox.addEventListener('change', () => {
+            saveAutoOpenBoxesState(checkbox.checked);
+            if (checkbox.checked) {
+                startAutoOpenBoxesInterval();
+            } else {
+                stopAutoOpenBoxesInterval();
+            }
+        });
+
+        // Запускаем интервал, если галочка уже включена
+        if (checkbox.checked) {
+            startAutoOpenBoxesInterval();
+        }
+    };
+
     // Инициализация галочки автозабора
     const initAutoClaimCheckbox = () => {
         const prizesTitle = document.querySelector('.prizes__title');
@@ -2851,6 +3320,9 @@
             console.warn('[AA Marathon] renderTasksForSelectedDay failed:', e);
         }
 
+        // Обновляем историю выполнений заданий
+        updateQuestHistory();
+
         requestAnimationFrame(() => {
             const el = document.querySelector('.section.tasks .tasks__header');
             if (el) {
@@ -2866,6 +3338,13 @@
             await initPrizes();
         } catch (e) {
             console.warn('[AA Marathon] initPrizes failed:', e);
+        }
+
+        // Инициализация автооткрытия сундуков
+        try {
+            initAutoOpenBoxesCheckbox();
+        } catch (e) {
+            console.warn('[AA Marathon] initAutoOpenBoxesCheckbox failed:', e);
         }
 
         // Запускаем автообновление с нужным интервалом
