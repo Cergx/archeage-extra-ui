@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.5.3
+// @version      4.5.4
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -552,12 +552,12 @@
         }
     };
 
-    // Получить день недели в МСК (0 = воскресенье)
+    // Получить день недели в МСК (1=Пн, 2=Вт, ..., 6=Сб, 7=Вс)
     const getMSKWeekday = (utcMs) => {
         const fmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' });
         const dayStr = fmt.format(new Date(utcMs));
-        const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-        return map[dayStr] ?? 0;
+        const map = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+        return map[dayStr] ?? 1;
     };
 
     // Получить текущее время МСК в секундах от начала дня
@@ -574,8 +574,8 @@
         return h * 3600 + m * 60 + s;
     };
 
-    // Названия дней недели для отображения
-    const WEEKDAY_NAMES = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+    // Названия дней недели для отображения (1=Пн, ..., 7=Вс)
+    const WEEKDAY_NAMES = { 1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт', 6: 'Сб', 7: 'Вс' };
 
     // Парсит время из строки "HH:MM" в { hours, minutes }
     const parseTime = (timeStr) => {
@@ -3655,9 +3655,9 @@
             top: 0;
         }
 
-        .guild_tab.cart_items .gh_1 {
-            width: 0%;
-            max-width: 0px;
+        .guild_tab.cart_items .gh_1,
+        .guild_tab.cart_items .gс_1 {
+            width: 1%;
         }
 
         .guild_tab.cart_items .gh_2 {
