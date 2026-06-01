@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      2.6
+// @version      3.0
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -177,7 +177,10 @@
     const DEFAULT_HOUR = 16;  // 16:00 МСК — после профработ
     const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
     const LS_HIDE_DONE_KEY = 'tm_aa_hide_done';
+    const LS_AUTO_CLAIM_KEY = 'tm_aa_auto_claim';
     const DAY_RESET_HOUR = 0; // 00:00 МСК — начало нового дня для сброса галочки
+    const CLAIM_DELAY_MS = 500; // Задержка между кликами при автозаборе
+    const SCROLL_DELAY_MS = 500; // Задержка между кликами при пролистывании
 
     // ==================== Состояние ====================
 
@@ -1983,8 +1986,213 @@
                     transform: rotate(360deg);
                 }
             }
+
+            /* Автозабор подарков */
+            .prizes__title {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+            }
+
+            .tm-auto-claim-label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 14px;
+                font-weight: normal;
+                cursor: pointer;
+                user-select: none;
+                white-space: nowrap;
+            }
+
+            .tm-auto-claim-checkbox {
+                width: 16px;
+                height: 16px;
+                cursor: pointer;
+            }
         `;
         document.head.appendChild(style);
+    };
+
+    // ==================== Подарки за уровни ====================
+
+    // Получить статус пользователя (trial/premium) из кэша API
+    const getUserStatus = () => {
+        return API_INFO_CACHE?.data?.user_info?.status || 'trial';
+    };
+
+    // Загрузить состояние автозабора из localStorage
+    const loadAutoClaimState = () => {
+        try {
+            return localStorage.getItem(LS_AUTO_CLAIM_KEY) === 'true';
+        } catch {
+            return false;
+        }
+    };
+
+    // Сохранить состояние автозабора в localStorage
+    const saveAutoClaimState = (enabled) => {
+        try {
+            localStorage.setItem(LS_AUTO_CLAIM_KEY, enabled ? 'true' : 'false');
+        } catch {
+            // ignore
+        }
+    };
+
+    // Получить список подарков в зависимости от статуса пользователя
+    const getPrizesList = () => {
+        const status = getUserStatus();
+        const prizesWrap = document.querySelector('.prizes__wrap');
+        if (!prizesWrap) return null;
+
+        // trial - только бесплатные, premium - премиальные (full)
+        const selector = status === 'premium' ? '.prizes__list.full' : '.prizes__list.free';
+        return prizesWrap.querySelector(selector);
+    };
+
+    // Получить текущие видимые уровни на странице
+    const getVisibleLevels = () => {
+        const levelItems = document.querySelectorAll('.prizes__level .prizes__level-item .icon_level-text');
+        return Array.from(levelItems).map(el => parseInt(el.textContent, 10)).filter(n => !isNaN(n));
+    };
+
+    // Определить целевой уровень из данных API
+    const getTargetPrizeLevelFromApi = () => {
+        const userInfo = API_INFO_CACHE?.data?.user_info;
+        if (!userInfo) return 1;
+
+        const currentLevel = userInfo.level || 1;
+        const status = userInfo.status || 'trial';
+        const farmedKey = status === 'premium' ? 'premium' : 'trial';
+        const farmedRewards = userInfo.farmed_rewards?.[farmedKey] || [];
+
+        // Преобразуем в Set чисел для быстрого поиска
+        const farmedSet = new Set(farmedRewards.map(x => parseInt(x, 10)));
+
+        // Ищем первый незабранный подарок (от 1 до currentLevel)
+        for (let level = 1; level <= currentLevel; level++) {
+            if (!farmedSet.has(level)) {
+                return level; // Первый активный (незабранный)
+            }
+        }
+
+        // Все забраны - показываем следующий уровень (первый disabled)
+        return currentLevel + 1;
+    };
+
+    // Кликнуть на стрелку навигации
+    const clickPrizesArrow = (direction) => {
+        const arrow = document.querySelector(`.prizes__arrow--${direction}`);
+        if (arrow) {
+            arrow.click();
+            return true;
+        }
+        return false;
+    };
+
+    // Проверить, виден ли уровень на текущей странице
+    const isLevelVisible = (targetLevel) => {
+        const visibleLevels = getVisibleLevels();
+        if (visibleLevels.length === 0) return false;
+        const minVisible = Math.min(...visibleLevels);
+        const maxVisible = Math.max(...visibleLevels);
+        return targetLevel >= minVisible && targetLevel <= maxVisible;
+    };
+
+    // Пролистать к первому нужному подарку
+    const scrollToFirstRelevantPrize = async () => {
+        const targetLevel = getTargetPrizeLevelFromApi();
+
+        // Кликаем по стрелкам пока не долистаем до нужного уровня
+        for (let attempt = 0; attempt < 100; attempt++) {
+            // Ждём и проверяем
+            await new Promise(r => setTimeout(r, SCROLL_DELAY_MS));
+
+            const visibleLevels = getVisibleLevels();
+            if (visibleLevels.length === 0) continue;
+
+            const minVisible = Math.min(...visibleLevels);
+            const maxVisible = Math.max(...visibleLevels);
+
+            // Уровень уже виден - готово
+            if (targetLevel >= minVisible && targetLevel <= maxVisible) {
+                return;
+            }
+
+            // Определяем направление
+            if (targetLevel < minVisible) {
+                if (!clickPrizesArrow('left')) return;
+            } else {
+                if (!clickPrizesArrow('right')) return;
+            }
+        }
+    };
+
+    // Забрать все доступные подарки
+    const claimAllActivePrizes = async () => {
+        const prizesList = getPrizesList();
+        if (!prizesList) return;
+
+        const activeItems = prizesList.querySelectorAll('.prizes__item--active');
+
+        for (const item of activeItems) {
+            const imageEl = item.querySelector('.item__image');
+            if (imageEl) {
+                imageEl.click();
+                await new Promise(r => setTimeout(r, CLAIM_DELAY_MS));
+            }
+        }
+    };
+
+    // Инициализация галочки автозабора
+    const initAutoClaimCheckbox = () => {
+        const prizesTitle = document.querySelector('.prizes__title');
+        if (!prizesTitle) return;
+
+        // Проверяем, что галочка ещё не добавлена
+        if (prizesTitle.querySelector('.tm-auto-claim-label')) return;
+
+        const label = document.createElement('label');
+        label.className = 'tm-auto-claim-label';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'tm-auto-claim-checkbox';
+        checkbox.checked = loadAutoClaimState();
+
+        const text = document.createTextNode(' Забирать автоматически');
+        label.appendChild(checkbox);
+        label.appendChild(text);
+
+        prizesTitle.appendChild(label);
+
+        // Обработчик изменения
+        checkbox.addEventListener('change', async () => {
+            saveAutoClaimState(checkbox.checked);
+            if (checkbox.checked) {
+                await claimAllActivePrizes();
+            }
+        });
+
+        // Если галочка была включена, забираем подарки при загрузке
+        if (checkbox.checked) {
+            // Небольшая задержка чтобы страница полностью загрузилась
+            setTimeout(() => claimAllActivePrizes(), 500);
+        }
+    };
+
+    // Инициализация блока подарков
+    const initPrizes = async () => {
+        // Ждём появления блока подарков
+        const prizesWrap = document.querySelector('.prizes__wrap');
+        if (!prizesWrap) return;
+
+        // Добавляем галочку автозабора
+        initAutoClaimCheckbox();
+
+        // Пролистываем к первому нужному подарку
+        await scrollToFirstRelevantPrize();
     };
 
     // ==================== Инициализация ====================
@@ -2030,6 +2238,13 @@
         });
 
         resolveVekselUrl();
+
+        // Инициализация блока подарков
+        try {
+            await initPrizes();
+        } catch (e) {
+            console.warn('[AA Marathon] initPrizes failed:', e);
+        }
 
         // Запускаем автообновление с нужным интервалом
         const initialInterval = document.hidden
