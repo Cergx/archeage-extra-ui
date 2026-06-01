@@ -1,15 +1,10 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.3.1
+// @version      4.4.1
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
-// @match        *://archeage.ru/promo/marathon
-// @match        *://archeage.ru/promo/marathon/
-// @match        *://archeage.ru/cart
-// @match        *://archeage.ru/cart/
-// @match        *://archeage.ru/itemrestore
-// @match        *://archeage.ru/itemrestore/
+// @match        *://archeage.ru/*
 // @match        *://gisaa.ru/veksel/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=archeage.ru
 // @grant        none
@@ -22,6 +17,7 @@
     const isArcheageSite = location.hostname.includes('archeage.ru');
     const isCartPage = isArcheageSite && (location.pathname === '/cart' || location.pathname === '/cart/');
     const isItemRestorePage = isArcheageSite && (location.pathname === '/itemrestore' || location.pathname === '/itemrestore/');
+    const isEventsPage = isArcheageSite && (location.pathname === '/a' || location.pathname === '/a/');
 
     // ============================================================
     // ====================== GISAA.RU ============================
@@ -213,7 +209,7 @@
     const LS_KEYS = {
         HIDE_DONE: 'tm_aa_hide_done',
         AUTO_CLAIM: 'tm_aa_auto_claim',
-        QUEST_HISTORY: 'tm_aa_quest_history',
+        QUEST_HISTORY: 'tm_aa_qh',
         AUTO_OPEN_BOXES: 'tm_aa_auto_open_boxes',
         IR_PER_PAGE: 'tm_aa_ir_per_page',
     };
@@ -333,7 +329,6 @@
         nextBtn: null,
         todayBtn: null,
         hideDoneCheckbox: null,
-        serverClock: null,
         refreshLoader: null,
         tasksHeader: null,
         tasksList: null,
@@ -538,6 +533,24 @@
         }
     };
 
+    // Синхронизировать серверное время (для страниц без API марафона)
+    const syncServerTime = async () => {
+        if (SERVER_TIME_OFFSET != null) return;
+        try {
+            const t0 = Date.now();
+            const res = await fetch(location.href, { method: 'HEAD', credentials: 'include', cache: 'no-store' });
+            const t1 = Date.now();
+            const dateHeader = res.headers.get('Date');
+            const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
+            if (Number.isFinite(parsed)) {
+                NOW_MS = parsed + (t1 - t0) / 2;
+                SERVER_TIME_OFFSET = NOW_MS - Date.now();
+            }
+        } catch {
+            // ignore
+        }
+    };
+
     // Получить день недели в МСК (0 = воскресенье)
     const getMSKWeekday = (utcMs) => {
         const fmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' });
@@ -713,26 +726,8 @@
         return `${pad2(gh)}:${pad2(gm)}`;
     };
 
-    // Обновляет серверные и игровые часы на странице
-    const updateServerClock = () => {
-        if (!DOM.serverClock) return;
-        const serverNow = getServerNowMs();
-        const d = new Date(serverNow);
-        const fmt = new Intl.DateTimeFormat('ru-RU', {
-            timeZone: TZ,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-        });
-        const mskTime = fmt.format(d);
-        const gameTime = getGameTime(serverNow);
-        DOM.serverClock.innerHTML = `мск: ${mskTime}<br>игровое: ${gameTime}`;
-    };
-
     // Обновляет все countdown элементы на странице
     const updateAllCountdowns = () => {
-        updateServerClock();
         document.querySelectorAll('.tm-countdown').forEach(el => {
             const eventsJson = el.dataset.events;
             if (!eventsJson) return;
@@ -794,31 +789,28 @@
      * @property {number} completedAt — unix timestamp (last_complete_time)
      */
 
-    /** @returns {HistoryEntry[]} */
-    const loadQuestHistory = () => {
+    /** @returns {Record<string, HistoryEntry[]>} */
+    const loadAllQuestHistory = () => {
         try {
-            return JSON.parse(localStorage.getItem(LS_KEYS.QUEST_HISTORY)) || [];
+            return JSON.parse(localStorage.getItem(LS_KEYS.QUEST_HISTORY)) || {};
         } catch {
-            return [];
-        }
-    };
-
-    /** @param {HistoryEntry[]} entries */
-    const saveQuestHistory = (entries) => {
-        try {
-            localStorage.setItem(LS_KEYS.QUEST_HISTORY, JSON.stringify(entries));
-        } catch {
-            // ignore
+            return {};
         }
     };
 
     /**
-     * Сравнивает квесты из API с сохранённой историей, добавляет новые записи.
+     * Читает историю из localStorage, мержит новые записи из API и сохраняет обратно.
+     * Один read–modify–write цикл без промежуточных чтений,
+     * чтобы минимизировать гонку между вкладками.
      * @param {ApiQuest[]} quests
      * @returns {HistoryEntry[]}
      */
     const mergeQuestHistory = (quests) => {
-        const history = loadQuestHistory();
+        if (!cachedUid) return [];
+
+        // Единственное чтение — максимально свежее состояние
+        const all = loadAllQuestHistory();
+        const history = all[cachedUid] || [];
         const existing = new Set(history.map(e => `${e.code}:${e.completedAt}`));
 
         for (const q of quests) {
@@ -840,9 +832,20 @@
             history.length = HISTORY_MAX_ENTRIES;
         }
 
-        saveQuestHistory(history);
+        // Единственная запись — используем тот же объект all,
+        // чтобы данные других пользователей не потерялись
+        try {
+            all[cachedUid] = history;
+            localStorage.setItem(LS_KEYS.QUEST_HISTORY, JSON.stringify(all));
+        } catch {
+            // ignore
+        }
+
         return history;
     };
+
+    /** UID текущего пользователя; заполняется при инициализации. */
+    let cachedUid = null;
 
     let historyCurrentPage = 1;
     /** @type {HistoryEntry[]} */
@@ -1301,6 +1304,8 @@
         'cloth':   { title: 'Ткань' },
         'lumber':  { title: 'Древесина' },
         'costume': { title: 'Костюм' },
+        'cloak':   { title: 'Плащ' },
+        'windInstrument':   { title: 'Духовой инструмент' },
     };
 
     /**
@@ -1316,6 +1321,7 @@
      * @property {boolean} [isPersonal] - Персональный предмет (отображается в секции требований).
      * @property {string} [description] - Описание предмета (отображается во второй секции всплывашки).
      * @property {string} [useDescription] - Описание использования (выводится под description зелёным цветом).
+     * @property {string} [tempEquipDescription] - Описание временной экипировки (выводится аналогично useDescription).
      * @property {number} [price] - Цена продажи (0 = не продаётся).
      * @property {number} [reqLevel] - Требуемый уровень.
      */
@@ -1377,7 +1383,7 @@
         { id: '8002452', icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, name: 'Универсальный алхимический кристалл' },
         { id: '8002449', icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, name: 'Дополнительная сумка' },
         { id: '47943', type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, name: 'Настойка усердного ремесленника' },
-        { id: '39424', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, name: 'Ирамийская гадальная руна', description: 'Позволяет заменить один из <span class="orange_text">эффектов синтеза костюма, эфенского снаряжения, рамианского снаряжения или трофейного снаряжения мифических противников</span> другим, выбранным случайным образом.', useDescription: 'Распаковать.<br>Удерживая Shift, щелкните левой кнопкой мыши, чтобы распаковать все предметы этого типа, находящиеся в рюкзаке.' },
+        { id: '39424', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, name: 'Ирамийская гадальная руна', description: 'Позволяет заменить один из |nc;эффектов синтеза костюма, эфенского снаряжения, рамианского снаряжения или трофейного снаряжения мифических противников|r другим, выбранным случайным образом.', useDescription: 'Распаковать.\nУдерживая Shift, щелкните левой кнопкой мыши, чтобы распаковать все предметы этого типа, находящиеся в рюкзаке.' },
         { id: '46180', icon: 'https://archeagecodex.com/items/icon_item_1395.png', grade: 3, name: 'Солнечный настой' },
         { id: '47130', type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, name: 'Хрустальная руна', description: '|nd;Можно получить одну из хрустальных рун на выбор:|r\n- хрустальная руна багровой луны,\n- хрустальная руна осенней луны,\n- хрустальная руна молодой луны,\n- хрустальная руна безмолвной луны,\n- хрустальная руна колдовской луны.' },
         { id: '47104', icon: 'https://archeagecodex.com/items/icon_item_4570.png', grade: 2, name: 'Парниковый купол' },
@@ -1410,7 +1416,7 @@
         { id: '49769', icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, name: 'Зачарованный свиток пробуждения хранителя знаний' },
         { id: '54653', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, name: 'Сундук с обновленным рамианским снаряжением' },
         { id: '51236', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундучок с драгоценным украшением эпохи мифов' },
-        { id: '53515', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, isPersonal: true, price: 0, reqLevel: 1, name: 'Заговоренная рамианская руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.<br><br><span class="blue_text">Подходит для проклятого, изначального, обновленного и совершенного рамианского снаряжения.</span>', useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
+        { id: '53515', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, isPersonal: true, price: 0, reqLevel: 1, name: 'Заговоренная рамианская руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для проклятого, изначального, обновленного и совершенного рамианского снаряжения.|r', useDescription: 'Приступить к замене эффекта.\nРасход очков работы: |nc;50|r.' },
         { id: '52207', icon: 'https://archeagecodex.com/items/icon_item_3022.png', grade: 1, name: 'Мешочек с микстурами', description: 'Содержимое:\n- инкрустированный флакон с эликсиром маны (300 шт.),\n- инкрустированный флакон с целебным эликсиром (300 шт.),\n- солнечный настой (30 шт.),\n- лунный настой (30 шт.)' },
         { id: '54655', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
         { id: '54654', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с обновленным рамианским оружием эпохи Двенадцати' },
@@ -1433,6 +1439,10 @@
         { id: '8002772', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем', description: 'Сняв печать, вы получите Квадрума, Мистериона или Мистериона, Ужаса Ночи (на выбор).' },
         { id: '50635', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, isPersonal: true, name: 'Заговоренная гадальная руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для эфенского и рамианского снаряжения; трофеев, полученных за победу над мифическими противниками; ожерелий, полученных на Последнем рубеже; перстней говорящего с духами; а также для костюмов, плащей и украшений чемпионов Порт-Аргенто.|r', useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
         { id: '8002769', icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, isPersonal: true, name: 'Знак «Ключевая фигура»', description: 'Позволяет получить титул «Ключевая фигура».', useDescription: 'Получить титул.' },
+        { id: '30604', icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x100' },
+        { id: '55450', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
+        { id: '8002410', type: 'equipment', subType: 'cloak', icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', description: 'Неизвестно, в чем причина, но к человеку в таком шарфе окружающие почему-то относятся с особенным уважением (и даже с некоторой опаской).\n\n|nc;Усиливающие эффекты костюма действуют 30 дней. Чтобы активировать их заново, костюм нужно постирать.|r', tempEquipDescription: 'Скорость передвижения +|nc;3|r%\nСкорость плавания +|nc;3|r%\nСкорость занятия ремеслом |nc;+10%|r\nСкорость занятия животноводством |nc;+10%|r\nОпыт при занятии ремеслом |nc;+10|r%' },
+        { id: '34685', type: 'equipment', subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', grade: 1, name: 'Укрепленный аргенитовый кларнет' },
         { id: '', type: '', icon: '', grade: 1, name: '' },
     ].map(i => [i.id, i]));
 
@@ -1516,7 +1526,7 @@
         { eventId: '8396', id: 7155, short: "Нагашар обычка" },
         { eventId: '8398', id: 9398, short: "100 мобов на Пустоши Корвуса" },
         { eventId: '8400', id: 7152, short: "" },
-        { eventId: '8402', id: 9102, short: "Библа, последний босс" },
+        { eventId: '8402', id: 9102, short: "Библа, голем" },
         { eventId: '8404', id: 9205, short: "", events: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
         { eventId: '8414', id: 10952, short: "" },
         { eventId: '8422', id: 10304, short: "" },
@@ -1550,6 +1560,44 @@
 
     /** @type {Record<string, QuestMeta>} */
     const QUEST_META = Object.fromEntries(QUESTS.map(q => [q.eventId, q]));
+
+    /**
+     * @typedef {Object} EventQuest
+     * @property {number} id - ID квеста в ArcheageCodex.
+     * @property {string} title - Название квеста.
+     */
+
+    /**
+     * @typedef {Object} EventEntry
+     * @property {string} title - Название события.
+     * @property {EventQuest[]} [quests] - Связанные квесты.
+     * @property {string[]} [locations] - Локации проведения.
+     * @property {QuestEvent[]} schedule - Расписание события.
+     */
+
+    /** @type {EventEntry[]} Расписание игровых событий (для страницы /a). */
+    const EVENTS = [
+        { title: "Ифнир", quests: [{ id: 10569, title: "Оборона Ифнира" }, { id: 10564, title: "Освобожденные узницы Нагашара" }], locations: ["Ифнир"], schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] },
+        { title: "Луг - Битва хранителей", locations: ["Великий луг"], quests: [{ id: 11132, title: "Битва хранителей" }, { id: 11096, title: "Турнир в честь Отца-Солнца" }], schedule: [{ timeStart: "18:00", weekdays: [6, 0] }] },
+
+        { title: "Сады матери - 4 босса", quests: [{ id: 10056, title: "Садовые работы" }], schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] },
+
+        { title: "Кровавый (дневной) разлом - Анталлон/Эншака", quests: [{ id: 5885, title: "Советник Кириоса" }], locations: ["Солнечные поля"], schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
+        { title: "Кровавый (дневной) разлом - собака", quests: [{ id: 2943, title: "Элитные войска Кровавой армии" }], schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
+        { title: "Призрачный (ночной) разлом", quests: [{ id: 5144, title: "Разгром призрачного легиона" }], schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
+        { title: "Лиловый (армия фантомов)", quests: [{ id: 11154, title: "Бой с тенью" }], schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] },
+
+        { title: "Ашьяра/Гленн/Лорея", quests: [{ id: 5971, title: "Чешуя Ашьяры" }, { id: 5970, title: "Кольцо капитана Гленна" }, { id: 5969, title: "Кольцо Лореи" }], locations: ["Бездна", "Солнечные поля"], schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+
+        /* Инстансы - Рейды */
+        { title: "Логово дракона", schedule: [{ timeStart: "13:20", timeEnd: "14:00" }, { timeStart: "18:20", timeEnd: "19:00" }, { timeStart: "21:20", timeEnd: "22:00" }] },
+        { title: "Гардум (Ущелье кровавой росы)", quests: [{ id: 7935, title: "Хранитель Звенящего ущелья" }], schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
+        { title: "Последний день Ирамканда", quests: [{ id: 9205, title: "Последний день Ирамканда" }], schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
+
+        /* Инстансы - Фракции */
+        { title: "Битва за Даскшир", schedule: [{ timeStart: "16:00", timeEnd: "17:00", weekdays: [1, 3, 5] }, { timeStart: "22:30", timeEnd: "23:59", weekdays: [1, 3, 5] }, { timeStart: "19:00", timeEnd: "20:00", weekdays: [0, 2, 3, 6] }] },
+        { title: "Битва за Зачарованные пруды", schedule: [{ timeStart: "14:30", timeEnd: "15:15" }, { timeStart: "17:00", timeEnd: "18:00" }, { timeStart: "21:00", timeEnd: "21:45" }] },
+    ];
 
     // ==================== API-запросы ====================
 
@@ -1665,15 +1713,16 @@
 
             if (newDataJson === prevDataJson && !dayChanged) return;
 
+            // Обновляем историю выполнений ДО рендера,
+            // т.к. renderTasksForSelectedDay читает historyEntries
+            updateQuestHistory();
+
             // Перерисовываем список задач (и обновляем лейбл/кнопки навигации при смене дня)
             if (dayChanged) {
                 await onSelectedDateChanged();
             } else {
                 await renderTasksForSelectedDay({ animateNewlyDone: true });
             }
-
-            // Обновляем историю выполнений
-            updateQuestHistory();
 
             // Автозабор подарков (если включён и данные изменились)
             if (loadAutoClaimState()) {
@@ -1921,7 +1970,7 @@
         }
 
         // Секция: описание (если есть)
-        if (item.description || item.useDescription) {
+        if (item.description || item.useDescription || item.tempEquipDescription) {
             const sep = document.createElement('div');
             sep.className = 'tm-item-tooltip-sep';
             tooltip.appendChild(sep);
@@ -1945,6 +1994,19 @@
                 useBlock.appendChild(useLabel);
                 useBlock.appendChild(useText);
                 descriptionSection.appendChild(useBlock);
+            }
+            if (item.tempEquipDescription) {
+                const equipBlock = document.createElement('div');
+                equipBlock.className = 'tm-item-tooltip-use';
+                const equipLabel = document.createElement('div');
+                equipLabel.className = 'tm-item-tooltip-use-label';
+                equipLabel.textContent = 'Экипировка (временно)';
+                const equipText = document.createElement('div');
+                equipText.className = 'tm-item-tooltip-use-text';
+                equipText.innerHTML = parseGameMarkup(item.tempEquipDescription);
+                equipBlock.appendChild(equipLabel);
+                equipBlock.appendChild(equipText);
+                descriptionSection.appendChild(equipBlock);
             }
             tooltip.appendChild(descriptionSection);
         }
@@ -2535,11 +2597,6 @@
         wrapper.appendChild(nav);
         wrapper.appendChild(hideDoneLabel);
         wrapper.appendChild(refreshBtn);
-
-        const serverClock = document.createElement('div');
-        serverClock.className = 'tm-server-clock';
-        DOM.serverClock = serverClock;
-        document.body.appendChild(serverClock);
 
         DOM.tasksHeader.insertAdjacentElement('afterbegin', wrapper);
         DOM.nav = nav;
@@ -3331,25 +3388,6 @@
             display: none;
         }
 
-        .tm-server-clock {
-            position: fixed;
-            top: 50%;
-            right: 12px;
-            transform: translateY(-50%);
-            z-index: 9999;
-            padding: 6px 12px;
-            border-radius: 6px;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
-            font-size: 13px;
-            font-family: monospace;
-            color: rgba(255, 255, 255, 0.85);
-            white-space: nowrap;
-            user-select: none;
-            pointer-events: none;
-            line-height: 1.4;
-        }
-
         .tm-refresh-btn {
             width: 26px;
             height: 26px;
@@ -3632,8 +3670,129 @@
                 background-position: left 0px;
                 cursor: pointer;
             }
+
         `;
         document.head.appendChild(style);
+    };
+
+    // ==================== Компонент: кнопка перезагрузки ====================
+
+    let reloadBtnStylesInjected = false;
+
+    const injectReloadBtnStyles = () => {
+        if (reloadBtnStylesInjected) return;
+        reloadBtnStylesInjected = true;
+        const style = document.createElement('style');
+        style.textContent = `
+            .guild_header2.tm-has-reload {
+                display: flex;
+                align-items: center;
+            }
+            .tm-reload-btn {
+                width: 22px;
+                height: 22px;
+                margin-left: 8px;
+                padding: 0;
+                border: none;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.15);
+                color: rgba(255, 255, 255, 0.75);
+                font-size: 15px;
+                line-height: 1;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 150ms ease, color 150ms ease;
+                flex-shrink: 0;
+            }
+            .tm-reload-btn:hover {
+                background: rgba(255, 255, 255, 0.25);
+                color: #fff;
+            }
+            .tm-reload-btn:active {
+                transform: scale(0.92);
+            }
+        `;
+        document.head.appendChild(style);
+    };
+
+    /**
+     * Создаёт кнопку ↻ для перезагрузки страницы и вставляет её в заголовок.
+     * Автоматически инжектит стили при первом вызове.
+     * @param {HTMLElement} header — элемент `.guild_header2`, в который добавляется кнопка.
+     */
+    const appendReloadBtn = (header) => {
+        injectReloadBtnStyles();
+        header.classList.add('tm-has-reload');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tm-reload-btn';
+        btn.title = 'Обновить страницу';
+        btn.innerHTML = '&#x21bb;';
+        btn.addEventListener('click', () => location.reload());
+        header.appendChild(btn);
+    };
+
+    // ==================== Компонент: серверные часы ====================
+
+    let serverClockEl = null;
+    let serverClockStylesInjected = false;
+
+    const injectServerClockStyles = () => {
+        if (serverClockStylesInjected) return;
+        serverClockStylesInjected = true;
+        const style = document.createElement('style');
+        style.textContent = `
+            .tm-server-clock {
+                position: fixed;
+                top: 50%;
+                right: 12px;
+                transform: translateY(-50%);
+                z-index: 9999;
+                padding: 6px 12px;
+                border-radius: 6px;
+                background: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(4px);
+                font-size: 13px;
+                font-family: monospace;
+                color: rgba(255, 255, 255, 0.85);
+                white-space: nowrap;
+                user-select: none;
+                line-height: 1.4;
+                text-decoration: none;
+                display: block;
+                cursor: pointer;
+            }
+        `;
+        document.head.appendChild(style);
+    };
+
+    const updateServerClockContent = () => {
+        if (!serverClockEl) return;
+        const serverNow = getServerNowMs();
+        const d = new Date(serverNow);
+        const fmt = new Intl.DateTimeFormat('ru-RU', {
+            timeZone: TZ,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        });
+        const mskTime = fmt.format(d);
+        const gameTime = getGameTime(serverNow);
+        serverClockEl.innerHTML = `мск: ${mskTime}<br>игровое: ${gameTime}`;
+    };
+
+    const initServerClock = async () => {
+        await syncServerTime();
+        injectServerClockStyles();
+        serverClockEl = document.createElement('a');
+        serverClockEl.className = 'tm-server-clock';
+        serverClockEl.href = '/a/';
+        document.body.appendChild(serverClockEl);
+        updateServerClockContent();
+        setInterval(updateServerClockContent, 1000);
     };
 
     /** Инжектит все стили для страницы марафона (itemIcon + marathon). */
@@ -3975,6 +4134,13 @@
         } catch (e) {
             console.warn(e);
             return;
+        }
+
+        // Получаем UID текущего пользователя для per-user хранения истории
+        try {
+            cachedUid = await getUidFromCheckUser();
+        } catch (e) {
+            console.warn('[ArcheAgeExtraUI] getUidFromCheckUser failed:', e);
         }
 
         // Инициализируем смещение серверного времени и запускаем countdown
@@ -4373,6 +4539,7 @@
         const leftHeader = document.createElement('div');
         leftHeader.className = 'guild_header2 blue';
         leftHeader.textContent = 'Список доступных предметов';
+        appendReloadBtn(leftHeader);
         left.appendChild(leftHeader);
 
         const tableWrapper = document.createElement('div');
@@ -4902,6 +5069,7 @@
         const leftTitle = document.createElement('div');
         leftTitle.className = 'guild_header2 green';
         leftTitle.textContent = 'Удалённые предметы';
+        appendReloadBtn(leftTitle);
         panelLeft.appendChild(leftTitle);
 
         const tableWrapper = document.createElement('div');
@@ -5412,8 +5580,303 @@
     };
 
     // ============================================================
+    // ====================== EVENTS PAGE =========================
+    // ============================================================
+
+    const CODEX_QUEST_BASE = 'https://archeagecodex.com/ru/quest/';
+
+    const injectEventsPageStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = `
+            .tm-events-page {
+                max-width: 860px;
+                margin: 20px auto;
+                font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;
+            }
+            .tm-events-page h2 {
+                text-align: center;
+                margin-bottom: 16px;
+                font-size: 20px;
+            }
+            .tm-events-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .tm-events-table th {
+                background: #3a5a7c;
+                color: #fff;
+                padding: 8px 12px;
+                text-align: left;
+                font-weight: normal;
+            }
+            .tm-events-table td {
+                padding: 6px 12px;
+                border-bottom: 1px solid #ddd;
+                vertical-align: middle;
+            }
+            .tm-events-table tr:nth-child(even) td {
+                background: #f5f5f5;
+            }
+            .tm-events-table tr.tm-event-active td {
+                background: #d4edda;
+            }
+            .tm-events-table tr.tm-event-beyond td {
+                opacity: 0.6;
+            }
+            .tm-events-table .tm-event-time {
+                white-space: nowrap;
+                font-family: monospace;
+                font-size: 13px;
+            }
+            .tm-event-time details {
+                cursor: pointer;
+            }
+            .tm-event-time summary {
+                display: list-item;
+            }
+            .tm-event-time summary::marker {
+                font-size: 10px;
+            }
+            .tm-event-time .tm-schedule-detail {
+                margin-top: 4px;
+                padding-left: 18px;
+                font-size: 12px;
+                color: #555;
+                white-space: normal;
+            }
+            .tm-event-time--active summary {
+                color: #155724;
+                font-weight: bold;
+            }
+            .tm-event-time--waiting summary {
+                color: #856404;
+            }
+            .tm-events-table a {
+                color: #2a6496;
+                text-decoration: none;
+            }
+            .tm-events-table a:hover {
+                text-decoration: underline;
+            }
+        `;
+        document.head.appendChild(style);
+    };
+
+    const initEventsPage = () => {
+        const content = document.getElementById('content');
+        if (!content || !content.textContent.includes('Запрашиваемая страница не найдена')) return;
+
+        document.title = 'Расписание | ArcheAge';
+        content.innerHTML = '';
+        injectEventsPageStyles();
+
+        const wrap = document.createElement('div');
+        wrap.className = 'tm-events-page';
+
+        const heading = document.createElement('h2');
+        heading.textContent = 'Расписание событий';
+        wrap.appendChild(heading);
+
+        const table = document.createElement('table');
+        table.className = 'tm-events-table';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        for (const col of ['Время', 'Название', 'Локации']) {
+            const th = document.createElement('th');
+            th.textContent = col;
+            headerRow.appendChild(th);
+        }
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        content.appendChild(wrap);
+
+        const DAY_SEC = 86400;
+
+        /**
+         * Собирает все ближайшие вхождения событий.
+         * В пределах 24ч — каждое вхождение отдельной строкой.
+         * Если у события нет вхождений в 24ч — одна строка с ближайшим.
+         * @returns {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]}
+         */
+        const collectOccurrences = () => {
+            const serverNow = getServerNowMs();
+            const nowWd = getMSKWeekday(serverNow);
+            const nowSec = getMSKTimeOfDaySeconds(serverNow);
+
+            /** @type {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]} */
+            const within = [];
+            /** @type {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]} */
+            const beyond = [];
+
+            for (const ev of EVENTS) {
+                let hasWithin = false;
+                /** @type {{ ev: EventEntry, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }|null} */
+                let nearest = null;
+
+                for (const entry of ev.schedule) {
+                    const { hours, minutes } = parseTime(entry.timeStart);
+                    const startSec = hours * 3600 + minutes * 60;
+                    const timeStr = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
+
+                    // Проверка: событие идёт прямо сейчас
+                    if (entry.timeEnd) {
+                        const end = parseTime(entry.timeEnd);
+                        const endSec = end.hours * 3600 + end.minutes * 60;
+                        const isToday = !entry.weekdays?.length || entry.weekdays.includes(nowWd);
+                        if (isToday && nowSec >= startSec && nowSec < endSec) {
+                            within.push({ ev, label: timeStr, secondsUntil: -(endSec - nowSec), isActive: true, isBeyond: false });
+                            hasWithin = true;
+                            continue;
+                        }
+                    }
+
+                    if (!entry.weekdays?.length) {
+                        // Ежедневное — всегда в пределах 24ч
+                        let diff = startSec - nowSec;
+                        if (diff <= 0) diff += DAY_SEC;
+                        within.push({ ev, label: timeStr, secondsUntil: diff, isActive: false, isBeyond: false });
+                        hasWithin = true;
+                    } else {
+                        // По дням недели — ищем ближайшее вхождение
+                        let minDiff = Infinity;
+                        for (const wd of entry.weekdays) {
+                            let d = wd - nowWd;
+                            if (d < 0) d += 7;
+                            let diff = d * DAY_SEC + (startSec - nowSec);
+                            if (diff <= 0) diff += 7 * DAY_SEC;
+                            if (diff < minDiff) minDiff = diff;
+                        }
+                        const dayName = WEEKDAY_NAMES[getMSKWeekday(serverNow + minDiff * 1000)];
+                        const fullLabel = `${dayName} ${timeStr}`;
+
+                        if (minDiff <= DAY_SEC) {
+                            within.push({ ev, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: false });
+                            hasWithin = true;
+                        } else if (!nearest || minDiff < nearest.secondsUntil) {
+                            nearest = { ev, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: true };
+                        }
+                    }
+                }
+
+                if (!hasWithin && nearest) {
+                    beyond.push(nearest);
+                }
+            }
+
+            // Активные первыми, затем по возрастанию countdown
+            within.sort((a, b) => {
+                if (a.isActive && !b.isActive) return -1;
+                if (!a.isActive && b.isActive) return 1;
+                return a.secondsUntil - b.secondsUntil;
+            });
+            beyond.sort((a, b) => a.secondsUntil - b.secondsUntil);
+
+            return [...within, ...beyond];
+        };
+
+        /** Ключи раскрытых <details> — сохраняются между перерисовками */
+        const openDetails = new Set();
+
+        /** Формирует строки расписания для раскрывающегося списка */
+        const buildScheduleLines = (schedule) => {
+            const lines = [];
+            for (const entry of schedule) {
+                const time = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
+                if (entry.weekdays?.length) {
+                    const days = entry.weekdays.map(d => WEEKDAY_NAMES[d]).join(', ');
+                    lines.push(`${days} ${time}`);
+                } else {
+                    lines.push(time);
+                }
+            }
+            return lines;
+        };
+
+        const renderTable = () => {
+            const occs = collectOccurrences();
+            const frag = document.createDocumentFragment();
+
+            for (const occ of occs) {
+                const key = `${EVENTS.indexOf(occ.ev)}:${occ.label}`;
+                const tr = document.createElement('tr');
+                if (occ.isActive) tr.classList.add('tm-event-active');
+                if (occ.isBeyond) tr.classList.add('tm-event-beyond');
+
+                // Время
+                const timeTd = document.createElement('td');
+                timeTd.className = 'tm-event-time';
+                if (occ.isActive) timeTd.classList.add('tm-event-time--active');
+                else timeTd.classList.add('tm-event-time--waiting');
+
+                const details = document.createElement('details');
+                if (openDetails.has(key)) details.open = true;
+                details.addEventListener('toggle', () => {
+                    if (details.open) openDetails.add(key);
+                    else openDetails.delete(key);
+                });
+
+                const summary = document.createElement('summary');
+                if (occ.isActive) {
+                    summary.textContent = `${occ.label} — идёт, ещё ${formatCountdown(-occ.secondsUntil)}`;
+                } else {
+                    summary.textContent = `${occ.label} — через ${formatCountdown(occ.secondsUntil)}`;
+                }
+                details.appendChild(summary);
+
+                const schedDiv = document.createElement('div');
+                schedDiv.className = 'tm-schedule-detail';
+                for (const line of buildScheduleLines(occ.ev.schedule)) {
+                    const div = document.createElement('div');
+                    div.textContent = line;
+                    schedDiv.appendChild(div);
+                }
+                details.appendChild(schedDiv);
+
+                timeTd.appendChild(details);
+                tr.appendChild(timeTd);
+
+                // Название
+                const nameTd = document.createElement('td');
+                nameTd.textContent = occ.ev.title || '—';
+                if (occ.ev.quests?.length) {
+                    for (const q of occ.ev.quests) {
+                        const a = document.createElement('a');
+                        a.href = CODEX_QUEST_BASE + q.id + '/';
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        a.textContent = ` (#${q.id})`;
+                        nameTd.appendChild(a);
+                    }
+                }
+                tr.appendChild(nameTd);
+
+                // Локации
+                const locTd = document.createElement('td');
+                locTd.textContent = (occ.ev.locations || []).join(', ');
+                tr.appendChild(locTd);
+
+                frag.appendChild(tr);
+            }
+
+            tbody.textContent = '';
+            tbody.appendChild(frag);
+        };
+
+        renderTable();
+        setInterval(renderTable, 1000);
+    };
+
+    // ============================================================
     // ===================== INITIALIZATION =======================
     // ============================================================
+
+    // Серверные часы на всех страницах archeage.ru
+    initServerClock();
 
     if (isCartPage) {
         if (document.readyState === 'loading') {
@@ -5423,7 +5886,9 @@
         }
     } else if (isItemRestorePage) {
         initItemRestore();
-    } else {
+    } else if (isEventsPage) {
+        initEventsPage();
+    } else if (location.pathname.startsWith('/promo/marathon')) {
         // Marathon page
         const observer = new MutationObserver(() => {
             if (document.querySelector('.section.tasks')) {
