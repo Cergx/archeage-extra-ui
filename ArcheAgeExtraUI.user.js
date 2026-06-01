@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.5.8
+// @version      4.6.0
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -216,6 +216,16 @@
     };
     const HISTORY_MAX_ENTRIES = 500;
     const HISTORY_PER_PAGE = 10;
+    const DEBUG_PREFIX = '[ArcheAgeExtraUI]';
+    const DEBUG_ENABLED = true;
+
+    const debugLog = (...args) => {
+        if (DEBUG_ENABLED) console.log(DEBUG_PREFIX, ...args);
+    };
+
+    const debugWarn = (...args) => {
+        console.warn(DEBUG_PREFIX, ...args);
+    };
     const DAY_RESET_HOUR = 0; // 00:00 МСК — начало нового дня для сброса галочки
     const CLAIM_DELAY_MS = 400; // Задержка между запросами автозабора
 
@@ -1302,6 +1312,37 @@
         return Object.values(quests);
     };
 
+    /** @param {number} unix */
+    const debugTime = (unix) => {
+        if (!unix) return null;
+        return new Date(unix * 1000).toISOString();
+    };
+
+    /** @param {ApiQuest} q */
+    const summarizeQuestForDebug = (q) => ({
+        id: q?.id,
+        code: q?.code,
+        title: q?.title,
+        group: q?.group,
+        type: q?.type,
+        time_status: q?.time_status,
+        start_time: q?.start_time,
+        start_iso: debugTime(Number(q?.start_time || 0)),
+        end_time: q?.end_time,
+        end_iso: debugTime(Number(q?.end_time || 0)),
+        progress: q?.progress,
+        max_completed_step: q?.max_completed_step,
+        reward: getRewardAmount(q),
+        known_meta: !!MARATHON_QUESTS?.[Number(q?.id)],
+    });
+
+    const renderEmptyTasksDiagnostic = (listEl, message) => {
+        const empty = document.createElement('div');
+        empty.className = 'tasks__item tm-tasks-empty';
+        empty.textContent = message;
+        listEl.appendChild(empty);
+    };
+
     // ==================== Внешние ссылки (Codex, Veksel) ====================
 
     const CODEX_BASE = 'https://archeagecodex.com/ru/quest/';
@@ -1601,7 +1642,7 @@
     /**
      * @typedef {Object} Quest
      * @property {number} id - ID квеста.
-     * @property {number} marathonId - ID задания в марафоне (ключ в MARATHON_QUESTS).
+     * @property {number[]} marathonId - ID заданий в марафоне (ключи в MARATHON_QUESTS).
      * @property {string} short - Краткое описание / пояснение.
      * @property {'blue_salt'|'north'} [veksel] - Тип векселя.
      * @property {string[]} [locations] - Локации выполнения.
@@ -1611,94 +1652,95 @@
 
     /** @type {Quest[]} */
     const QUESTS = [
-        { marathonId: 8246, id: 10559, short: "" },
-        { marathonId: 8248, id: 9142, short: "", veksel: 'blue_salt' },
-        { marathonId: 8250, id: 9318, short: 'Квест на Взрослого ольхона (портал "Укромный утес")' },
-        { marathonId: 8252, id: 10512, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43176], count: 20 } },
-        { marathonId: 8254, id: 10513, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43176], count: 60 } },
-        { marathonId: 8256, id: 9100, short: "" },
-        { marathonId: 8258, id: 7658, short: "" },
-        { marathonId: 8260, id: 6797, short: "" },
-        { marathonId: 8262, id: 8998, short: "" },
-        { marathonId: 8268, id: 5972, short: "" },
-        { marathonId: 8274, id: 10480, short: "" },
-        { marathonId: 8282, id: 7154, short: "" },
-        { marathonId: 8284, id: 9137, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8318], count: 60 } },
-        { marathonId: 8286, id: 8000131, short: "Квест Нуи на 500 очков работы" },
-        { marathonId: 8288, id: 10508, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 25 } },
-        { marathonId: 8290, id: 10509, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 75 } },
-        { marathonId: 8292, id: 5092, short: "" },
-        { marathonId: 8294, id: 7659, short: "" },
-        { marathonId: 8296, id: 7817, short: "" },
-        { marathonId: 8298, id: 8000058, short: "Нагашар (только обычка)", slot: { item: ITEMS[8000749] } },
-        { marathonId: 8300, id: 5971, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-        { marathonId: 8314, id: 10564, short: "Ифнир - змея", schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] },
-        { marathonId: 8316, id: 8000061, short: "Сады наслаждений (только хард)", slot: { item: ITEMS[8000752] } },
-        { marathonId: 8318, id: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
-        { marathonId: 8320, id: 9152, short: "", veksel: 'blue_salt', slot: { item: ITEMS[16327], count: 60 } },
-        { marathonId: 8322, id: 8435, short: 'Портал "Лягушачьи пруды"' },
-        { marathonId: 8324, id: 10510, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[42077], count: 8 } },
-        { marathonId: 8326, id: 10511, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[42077], count: 25 } },
-        { marathonId: 8328, id: 7657, short: "" },
-        { marathonId: 8330, id: 7813, short: "" },
-        { marathonId: 8336, id: 5144, short: "Призрачный (ночной) разлом", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
-        { marathonId: 8338, id: 5885, short: "Анталлон на Солнечных полях", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
-        { marathonId: 8340, id: 8000060, short: "Сады наслаждений (изи или нормал)", slot: { item: ITEMS[8000751] } },
-        { marathonId: 8346, id: 10056, short: "Квест можно взять в любое время, боссы:", schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] },
-        { marathonId: 8348, id: 11154, short: "Лиловый (армия фантомов)", schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] },
-        { marathonId: 8350, id: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
-        { marathonId: 8352, id: 9147, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8256], count: 60 } },
-        { marathonId: 8354, id: 8000136, short: "Квест Нуи на 2500 ремесленки" },
-        { marathonId: 8356, id: 10506, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 10 } },
-        { marathonId: 8358, id: 10507, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 30 } },
-        { marathonId: 8360, id: 5091, short: "" },
-        { marathonId: 8362, id: 9101, short: "Библа, 3-ий босс" },
-        { marathonId: 8364, id: 7656, short: "" },
-        { marathonId: 8366, id: 9320, short: "" },
-        { marathonId: 8372, id: 9297, short: "" },
-        { marathonId: 8380, id: 7815, short: "Изи/нормал Сады наслаждений" },
-        { marathonId: 8382, id: 10735, short: "Эншака на Солнечных полях", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
-        { marathonId: 8388, id: 9153, short: "", veksel: 'blue_salt', slot: { item: ITEMS[16327], count: 100 } },
-        { marathonId: 8390, id: 5062, short: "" },
-        { marathonId: 8392, id: 10514, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43177], count: 7 } },
-        { marathonId: 8394, id: 10515, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43177], count: 20 } },
-        { marathonId: 8396, id: 7155, short: "Нагашар обычка" },
-        { marathonId: 8398, id: 9398, short: "100 мобов на Пустоши Корвуса" },
-        { marathonId: 8400, id: 7152, short: "" },
-        { marathonId: 8402, id: 9102, short: "Библа, голем" },
-        { marathonId: 8404, id: 9205, short: "", schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
-        { marathonId: 8414, id: 10952, short: "" },
-        { marathonId: 8422, id: 10304, short: "" },
-        { marathonId: 8424, id: 9099, short: "Библа, первый босс" },
-        { marathonId: 8426, id: 9143, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8337], count: 100 } },
-        { marathonId: 8434, id: 10504, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[35461], count: 30 } },
-        { marathonId: 8436, id: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[35461], count: 90 } },
-        { marathonId: 8438, id: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", slot: { item: ITEMS[8000753] } },
-        { marathonId: 8448, id: 2943, short: "Кровавый (дневной) разлом - 3-я волна", schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
-        { marathonId: 8450, id: 7935, short: "Гардум", schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
-        { marathonId: 8452, id: 7660, short: "" },
-        { marathonId: 8470, id: 10739, short: "Призрачный (ночной) разлом - Эншака", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
-        { marathonId: 8478, id: 10423, short: "" },
-        { marathonId: 8494, id: 8635, short: "" },
-        { marathonId: 8496, id: 9295, short: "" },
-        { marathonId: 8498, id: 9294, short: "" },
-        { marathonId: 8500, id: 8637, short: "Бухта - Жакар" },
-        { marathonId: 8502, id: 7327, short: "50 мобов (100 очков) на Сверкающем побережье" },
-        { marathonId: 8504, id: 9296, short: "" },
-        { marathonId: 8506, id: 5969, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-        { marathonId: 8508, id: 8641, short: "Эфен - жаба (через 5 минут после начала войны)" },
-        { marathonId: 8510, id: 5077, short: "" },
-        { marathonId: 8512, id: 8605, short: "" },
-        { marathonId: 8514, id: 11096, short: "Луг - Битва хранителей", schedule: [{ timeStart: "18:00", weekdays: [6, 0] }] },
-        { marathonId: 8516, id: 8000129, short: "" },
-        { marathonId: 8518, id: 1415, short: "" },
-        { marathonId: 8520, id: 5970, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-        { marathonId: 8522, id: 10188, short: "", slot: { item: ITEMS[49252], count: 20 } },
-        { marathonId: 8524, id: 8618, short: "Эфен - мобы" },
+        { marathonId: [8246, 8802], id: 10559, short: "" }, // Чужие коконы
+        { marathonId: [8248, 8804], id: 9142, short: "", veksel: 'blue_salt' }, // Плотницкая нужда
+        { marathonId: [8250, 8806], id: 9318, short: 'Квест на Взрослого ольхона (портал "Укромный утес")' }, // Дети Ольха
+        { marathonId: [8252, 8808], id: 10512, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43176], count: 20 } }, // Котомки эфенского странника I
+        { marathonId: [8254, 8810], id: 10513, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43176], count: 60 } }, // Котомки эфенского странника II
+        { marathonId: [8256, 8812], id: 9100, short: "" }, // Старый враг
+        { marathonId: [8258, 8814], id: 7658, short: "" }, // Требуется экзорцист (героич.)
+        { marathonId: [8260, 8816], id: 6797, short: "" }, // Опасность для моряков
+        { marathonId: [8262, 8818], id: 8998, short: "" }, // Бесконечный бой
+        { marathonId: [8268, 8824], id: 5972, short: "" }, // И на дару бывает прору...
+        { marathonId: [8274, 8830], id: 10480, short: "" }, // Состязание союзов в Академии
+        { marathonId: [8282, 8838], id: 7154, short: "" }, // Темница Дауты
+        { marathonId: [8284, 8840], id: 9137, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8318], count: 60 } }, // Железо для корабелов
+        { marathonId: [8286, 8842], id: 8000131, short: "Квест Нуи на 500 очков работы" }, // Вдали от обезумевшего мира
+        { marathonId: [8288, 8844], id: 10508, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 25 } }, // Расшитые жемчугом кошельки I
+        { marathonId: [8290, 8846], id: 10509, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 75 } }, // Расшитые жемчугом кошельки II
+        { marathonId: [8292, 8848], id: 5092, short: "" }, // Отличные фитили
+        { marathonId: [8294, 8850], id: 7659, short: "" }, // Требуются работники (героич.)
+        { marathonId: [8296, 8852], id: 7817, short: "" }, // Опасности окольных дорог
+        { marathonId: [8298, 8854], id: 8000058, short: "Нагашар (только обычка)", slot: { item: ITEMS[8000749] } }, // Лицензия на убийство: Баррага Безумный
+        { marathonId: [8300, 8856], id: 5971, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] }, // Чешуя Ашьяры
+        { marathonId: [8314, 8870], id: 10564, short: "Ифнир - змея", schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] }, // Освобожденные узницы Нагашара
+        { marathonId: [8316, 8872], id: 8000061, short: "Сады наслаждений (только хард)", slot: { item: ITEMS[8000752] } }, // Лицензия на убийство: Иштар
+        { marathonId: [8318, 8874], id: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' }, // Охота на крупную дичь
+        { marathonId: [8320, 8876], id: 9152, short: "", veksel: 'blue_salt', slot: { item: ITEMS[16327], count: 60 } }, // Книжные обложки
+        { marathonId: [8322, 8878], id: 8435, short: 'Портал "Лягушачьи пруды"' }, // Чистота и порядок
+        { marathonId: [8324, 8880], id: 10510, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[42077], count: 8 } }, // Фермерские сундучки со всякой всячиной I
+        { marathonId: [8326, 8882], id: 10511, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[42077], count: 25 } }, // Фермерские сундучки со всякой всячиной II
+        { marathonId: [8328, 8884], id: 7657, short: "" }, // Разыскивается: О'Карф (героич.)
+        { marathonId: [8330, 8886], id: 7813, short: "" }, // Преграда на пути
+        { marathonId: [8336, 8892], id: 5144, short: "Призрачный (ночной) разлом", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] }, // Разгром призрачного легиона
+        { marathonId: [8338, 8894], id: 5885, short: "Анталлон на Солнечных полях", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] }, // Советник Кириоса
+        { marathonId: [8340, 8896], id: 8000060, short: "Сады наслаждений (изи или нормал)", slot: { item: ITEMS[8000751] } }, // Лицензия на убийство: иферийцы (низк., обычн.)
+        { marathonId: [8346, 8902], id: 10056, short: "Квест можно взять в любое время, боссы:", schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] }, // Садовые работы**
+        { marathonId: [8348, 8904], id: 11154, short: "Лиловый (армия фантомов)", schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] }, // Бой с тенью
+        { marathonId: [8350, 8906], id: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' }, // Билет в один конец
+        { marathonId: [8352, 8908], id: 9147, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8256], count: 60 } }, // С миру по нитке
+        { marathonId: [8354, 8910], id: 8000136, short: "Квест Нуи на 2500 ремесленки" }, // В гармонии с собой
+        { marathonId: [8356, 8912], id: 10506, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 10 } }, // Резные сундучки со всякой всячиной I
+        { marathonId: [8358, 8914], id: 10507, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 30 } }, // Резные сундучки со всякой всячиной II
+        { marathonId: [8360, 8916], id: 5091, short: "" }, // Взрывоопасное поручение
+        { marathonId: [8362, 8918], id: 9101, short: "Библа, 3-ий босс" }, // Неприступная башня
+        { marathonId: [8364, 8920], id: 7656, short: "" }, // Разыскивается: Акмит (героич.)
+        { marathonId: [8366, 8922], id: 9320, short: "" }, // Война во имя славы союза
+        { marathonId: [8372, 8928], id: 9297, short: "" }, // Орды Земель покоя
+        { marathonId: [8380, 8936], id: 7815, short: "Изи/нормал Сады наслаждений" }, // Три новости, и все плохие
+        { marathonId: [8382, 8938], id: 10735, short: "Эншака на Солнечных полях", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] }, // Предводитель демонов
+        { marathonId: [8388, 8944], id: 9153, short: "", veksel: 'blue_salt', slot: { item: ITEMS[16327], count: 100 } }, // Ремесленная одежда
+        { marathonId: [8390, 8946], id: 5062, short: "" }, // Бей мандрагору!
+        { marathonId: [8392, 8948], id: 10514, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43177], count: 7 } }, // Эфенские сундучки со всякой всячиной I
+        { marathonId: [8394, 8950], id: 10515, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43177], count: 20 } }, // Эфенские сундучки со всякой всячиной II
+        { marathonId: [8396, 8952], id: 7155, short: "Нагашар обычка" }, // Откровение Бездны
+        { marathonId: [8398, 8954], id: 9398, short: "100 мобов на Пустоши Корвуса" }, // Состязание союзов
+        { marathonId: [8400, 8956], id: 7152, short: "" }, // Мемориальная доска (гер.)
+        { marathonId: [8402, 8958], id: 9102, short: "Библа, голем" }, // Стокнижное чудище
+        { marathonId: [8404], id: 9205, short: "", schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] }, // Последний день Ирамканда
+        { marathonId: [8414, 8972], id: 10952, short: "" }, // Бой с «Летучим харнийцем»
+        { marathonId: [8422, 8980], id: 10304, short: "" }, // Тайны святилища
+        { marathonId: [8424, 8982], id: 9099, short: "Библа, первый босс" }, // Обитель архивариуса
+        { marathonId: [8426, 8984], id: 9143, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8337], count: 100 } }, // Раз трактир, два трактир
+        { marathonId: [8434, 8992], id: 10504, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[35461], count: 30 } }, // Полновесные мешочки с серебром I
+        { marathonId: [8436, 8994], id: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[35461], count: 90 } }, // Полновесные мешочки с серебром II
+        { marathonId: [8438, 8996], id: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", slot: { item: ITEMS[8000753] } }, // Лицензия на убийство: повелитель подземелья (героич.)
+        { marathonId: [8448, 9006], id: 2943, short: "Кровавый (дневной) разлом - 3-я волна", schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] }, // Элитные войска Кровавой армии
+        { marathonId: [8450, 9008], id: 7935, short: "Гардум", schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] }, // Хранитель Звенящего ущелья**
+        { marathonId: [8452, 9010], id: 7660, short: "" }, // Герой с крепким рассудком (героич.)
+        { marathonId: [8470, 9028], id: 10739, short: "Призрачный (ночной) разлом - Эншака", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] }, // Призрачный предводитель
+        { marathonId: [8478, 9030], id: 10423, short: "" }, // Голиаф, механический скарабей
+        { marathonId: [8494, 9032], id: 8635, short: "" }, // Срочная доставка
+        { marathonId: [8496, 9034], id: 9295, short: "" }, // Орды Сальфимара
+        { marathonId: [8498, 9036], id: 9294, short: "" }, // Орды Нуимара
+        { marathonId: [8500, 9050], id: 8637, short: "Бухта - Жакар" }, // Старый друг – новый враг
+        { marathonId: [8502, 9040], id: 7327, short: "50 мобов (100 очков) на Сверкающем побережье" }, // Взгляд слепца
+        { marathonId: [8504, 9042], id: 9296, short: "" }, // Орды Сангемара
+        { marathonId: [8506, 9044], id: 5969, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] }, // Кольцо Лореи
+        { marathonId: [8508, 9062], id: 8641, short: "Эфен - жаба (через 5 минут после начала войны)" }, // Наступление кир'феров
+        { marathonId: [8510, 9048], id: 5077, short: "" }, // Аромат для важной особы
+        { marathonId: [8512, 9038], id: 8605, short: "" }, // Битва в Бухте китобоев
+        { marathonId: [8514, 9052], id: 11096, short: "Луг - Битва хранителей", schedule: [{ timeStart: "18:00", weekdays: [6, 0] }] }, // Турнир в честь Отца-Солнца
+        { marathonId: [8516, 9054], id: 8000129, short: "" }, // Во славу Орхидны
+        { marathonId: [8518, 9056], id: 1415, short: "" }, // Сирота
+        { marathonId: [8520, 9058], id: 5970, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] }, // Кольцо капитана Гленна
+        { marathonId: [8522, 9060], id: 10188, short: "", slot: { item: ITEMS[49252], count: 20 } }, // Образцы флоры Сада
+        { marathonId: [8524, 9046], id: 8618, short: "Эфен - мобы" }, // Битва за Эфен'Хал
+        { marathonId: [9064], id: 8000311, short: "Предпоследнее испытания для осколков предела" }, // Охота на призраков
     ];
 
     /** @type {Record<string, Quest>} */
-    const MARATHON_QUESTS = Object.fromEntries(QUESTS.map(q => [q.marathonId, q]));
+    const MARATHON_QUESTS = Object.fromEntries(QUESTS.flatMap(q => q.marathonId.map(id => [id, q])));
 
     /**
      * @typedef {Object} EventQuest
@@ -1759,7 +1801,21 @@
     const fetchJson = async (url) => {
         const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-        return res.json();
+        const json = await res.json();
+        const quests = json?.data?.quests;
+        debugLog('api/info loaded', {
+            state: json?.state,
+            hasData: !!json?.data,
+            questContainerType: quests == null ? String(quests) : Array.isArray(quests) ? 'array' : typeof quests,
+            questCount: quests && typeof quests === 'object' ? Object.keys(quests).length : 0,
+            weekNumber: json?.data?.week_number,
+            nextWeekAt: json?.data?.next_week_at,
+            serverNowIso: NOW_MS ? new Date(NOW_MS).toISOString() : null,
+            sampleQuests: quests && typeof quests === 'object'
+                ? Object.values(quests).slice(0, 5).map(summarizeQuestForDebug)
+                : [],
+        });
+        return json;
     };
 
     /** @param {string} url */
@@ -2347,7 +2403,7 @@
 
     /**
      * @param {Object} params
-     * @param {number} params.id
+     * @param {number|null} params.id
      * @param {string} params.short
      * @param {string} params.questTitle
      * @param {Slot|null} [params.slot]
@@ -2449,12 +2505,14 @@
             : 'Открыть задание в ArcheageCodex';
 
         // Иконка квеста (всегда справа, добавляем первой из-за row-reverse)
-        icons.appendChild(makeIconLink({
-            href: `${CODEX_BASE}${id}/`,
-            iconSrc: ICON_QUEST,
-            title: codexTitle,
-            className: 'tm-codex-link',
-        }));
+        if (id) {
+            icons.appendChild(makeIconLink({
+                href: `${CODEX_BASE}${id}/`,
+                iconSrc: ICON_QUEST,
+                title: codexTitle,
+                className: 'tm-codex-link',
+            }));
+        }
 
         if (veksel === 'blue_salt' || veksel === 'north') {
             const link = makeVekselIconLink({
@@ -2670,6 +2728,13 @@
     const ensureTasksListEl = () => {
         if (!DOM.tasksList || !DOM.tasksList.isConnected) {
             DOM.tasksList = document.querySelector('.section.tasks .tasks__list');
+        }
+        if (!DOM.tasksList) {
+            debugWarn('tasks list element not found', {
+                path: location.pathname,
+                hasTasksSection: !!document.querySelector('.section.tasks'),
+                taskSectionHtml: document.querySelector('.section.tasks')?.outerHTML?.slice(0, 1000) || null,
+            });
         }
         return DOM.tasksList;
     };
@@ -2943,6 +3008,27 @@
         }
 
         const active = all.filter(q => isQuestActiveAtUnix(q, unixPoint));
+        const knownActive = active.filter(q => MARATHON_QUESTS?.[Number(q?.id)]);
+        const unknownActive = active.filter(q => !MARATHON_QUESTS?.[Number(q?.id)]);
+
+        debugLog('renderTasksForSelectedDay', {
+            selectedDayUtcMs,
+            selectedSegment,
+            unixPoint,
+            unixPointIso: debugTime(unixPoint),
+            totalQuests: all.length,
+            activeQuests: active.length,
+            knownActiveQuests: knownActive.length,
+            unknownActiveQuests: unknownActive.length,
+            minDayIso: MIN_DAY_UTC_MS ? new Date(MIN_DAY_UTC_MS).toISOString() : null,
+            maxDayIso: MAX_DAY_UTC_MS ? new Date(MAX_DAY_UTC_MS).toISOString() : null,
+        });
+
+        if (!active.length) {
+            debugWarn('No active quests for selected slot. First API quests:', all.slice(0, 10).map(summarizeQuestForDebug));
+        } else if (unknownActive.length) {
+            debugWarn('Active quests without local MARATHON_QUESTS metadata:', unknownActive.map(summarizeQuestForDebug));
+        }
 
         active.sort((a, b) => {
             const da = getRewardAmount(a);
@@ -2955,14 +3041,14 @@
 
         /** @type {Set<number>} */
         const currentDoneIds = new Set();
+        let renderedCount = 0;
 
         for (const q of active) {
             const questId = Number(q.id);
             const meta = MARATHON_QUESTS?.[questId];
-            if (!meta?.id) continue;
 
-            const id = Number(meta.id);
-            const short = (meta.short || '').trim();
+            const id = meta?.id ? Number(meta.id) : null;
+            const short = (meta?.short || '').trim();
             const amount = getRewardAmount(q);
             const completionTime = getCompletionTimeInSlot(q.code, selectedDayUtcMs, selectedSegment);
             const doneInSlot = completionTime > 0;
@@ -2978,14 +3064,21 @@
                 showLastDone: doneInSlot,
                 completionTime,
                 isToday,
-                slot: meta.slot || null,
-                veksel: meta.veksel,
-                locations: meta.locations,
-                schedule: meta.schedule,
+                slot: meta?.slot || null,
+                veksel: meta?.veksel,
+                locations: meta?.locations,
+                schedule: meta?.schedule,
                 animateCompletion: isNewlyDone,
             });
 
             listEl.appendChild(card);
+            renderedCount++;
+        }
+
+        if (active.length && !renderedCount) {
+            renderEmptyTasksDiagnostic(listEl, 'ArcheAgeExtraUI: активные задания есть в API, но карточки не были отрисованы. Проверьте консоль.');
+        } else if (!active.length) {
+            renderEmptyTasksDiagnostic(listEl, 'ArcheAgeExtraUI: для выбранного дня активные задания не найдены. Проверьте консоль.');
         }
 
         previouslyDoneQuestIds = currentDoneIds;
@@ -3317,6 +3410,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            min-width: 0;
         }
 
         .tm-item-name-link {
@@ -3405,7 +3499,7 @@
             flex-direction: row-reverse;
             gap: 8px;
             align-items: center;
-            margin-left: auto;
+            flex: 0 0 auto;
         }
 
         .tm-icon-link {
@@ -4317,11 +4411,17 @@
 
     const init = async () => {
         injectStyles();
+        debugLog('init marathon page', {
+            path: location.pathname,
+            hasTasksSection: !!document.querySelector('.section.tasks'),
+            hasTasksHeader: !!document.querySelector('.section.tasks .tasks__header'),
+            hasTasksList: !!document.querySelector('.section.tasks .tasks__list'),
+        });
 
         try {
             await getApiInfoCached();
         } catch (e) {
-            console.warn(e);
+            debugWarn('getApiInfoCached failed during init', e);
             return;
         }
 
@@ -6445,6 +6545,21 @@
         });
 
         observer.observe(document.body, { childList: true, subtree: true });
+        setTimeout(() => {
+            if (!document.querySelector('.section.tasks')) {
+                debugWarn('marathon tasks section did not appear after 10s', {
+                    path: location.pathname,
+                    sections: [...document.querySelectorAll('section, .section')]
+                        .slice(0, 20)
+                        .map(el => ({
+                            tag: el.tagName,
+                            className: el.className,
+                            id: el.id,
+                            text: el.textContent?.trim().slice(0, 120),
+                        })),
+                });
+            }
+        }, 10000);
     }
 
 })();
