@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      0.9
-// @description  Подсветка выполненных сегодня заданий + иконки + done-блок + возврат истории на 1 страницу
-// @match        https://archeage.ru/*
+// @version      1.0
+// @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
+// @match        *://archeage.ru/promo/marathon/
 // @grant        none
 // ==/UserScript==
 
@@ -13,19 +13,298 @@
     const DONE_CLASS = 'tm-task-completed';
     const TZ = 'Europe/Moscow';
 
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    // ===== date navigation state =====
+    const MSK_OFFSET_HOURS_FALLBACK = 3; // MSK без DST, но пусть будет фолбэк
+    let selectedDayUtcMs = null; // храним "день" как UTC-полночь дня в TZ
+    let selectedSegment = 'auto';
+    // 'auto' | 'pre' | 'post' | null
+    // null = обычный день (не четверг)
+    // auto = “сегодня” по текущему времени (кнопка Сегодня)
 
-    let TITLE_TO_SHORT = null;
+    let API_INFO_CACHE = null; // json from api/info
 
+    let NOW_MS = null; // server time snapshot in ms (fixed once)
+
+    let MIN_DAY_UTC_MS = null;
+    let MAX_DAY_UTC_MS = null;
+
+    // сегменты границ (чтобы “первый четверг pre пустой” не показывать)
+    let MIN_SEG = null; // null|pre|post
+    let MAX_SEG = null; // null|pre|post
+
+    function pad2(n) { return String(n).padStart(2, '0'); }
+
+    function getMSKDatePartsFromUtcMs(utcMs) {
+        const d = new Date(utcMs);
+        const fmt = new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+        const parts = fmt.formatToParts(d);
+        const y = Number(parts.find(p => p.type === 'year')?.value);
+        const m = Number(parts.find(p => p.type === 'month')?.value);
+        const day = Number(parts.find(p => p.type === 'day')?.value);
+        return { y, m, d: day };
+    }
+
+    function formatDMY({ y, m, d }) {
+        return `${pad2(d)}.${pad2(m)}.${y}`;
+    }
+
+    function dayUtcMsFromUnixByTZ(unixSec) {
+        const ms = Number(unixSec || 0) * 1000;
+        const { y, m, d } = getMSKDatePartsFromUtcMs(ms);
+        return Date.UTC(y, m - 1, d, 0, 0, 0);
+    }
+
+    function getTodayUtcMsByTZ() {
+        const { y, m, d } = getMSKDatePartsFromUtcMs(nowMs());
+        return Date.UTC(y, m - 1, d, 0, 0, 0);
+    }
+
+    function addDaysUtcMs(dayUtcMs, deltaDays) {
+        return dayUtcMs + deltaDays * 86400000;
+    }
+
+    function getDayBoundsUnix(dayUtcMs) {
+        const { y, m, d } = getMSKDatePartsFromUtcMs(dayUtcMs);
+        // 00:00 MSK -> UTC = 00:00 UTC - 3h
+        const startMs = Date.UTC(y, m - 1, d, 0, 0, 0) - MSK_OFFSET_HOURS_FALLBACK * 3600 * 1000;
+        const endMs = startMs + 86400000;
+        return { start: Math.floor(startMs / 1000), end: Math.floor(endMs / 1000) };
+    }
+
+    const THU_PRE_HOUR = 3;   // 03:00 МСК (контрольная точка “до профработ”)
+    const DEFAULT_HOUR = 16;  // 16:00 МСК (контрольная точка “после”)
+
+    function nowMs() {
+        if (NOW_MS == null) {
+            throw new Error('[AA Marathon] NOW_MS is not initialized yet (server time missing)');
+        }
+        return NOW_MS;
+    }
+
+    function getUnixForDayAtHour(dayUtcMs, hourMsk) {
+        const { start } = getDayBoundsUnix(dayUtcMs); // 00:00 МСК в unix
+        return start + hourMsk * 3600;
+    }
+
+    function getNowUnix() {
+        return Math.floor(nowMs() / 1000);
+    }
+
+    function isQuestActiveAtUnix(q, unix) {
+        const qs = Number(q?.start_time || 0);
+        const qe = Number(q?.end_time || 0);
+        if (!qs || !qe) return false;
+        return qs <= unix && unix < qe;
+    }
+
+    function isSameDayByTZ(aUtcMs, bUtcMs) {
+        const a = getMSKDatePartsFromUtcMs(aUtcMs);
+        const b = getMSKDatePartsFromUtcMs(bUtcMs);
+        return a.y === b.y && a.m === b.m && a.d === b.d;
+    }
+
+    function isThursdayByTZ(dayUtcMs) {
+        const w = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' })
+            .format(new Date(dayUtcMs));
+        return w === 'Thu';
+    }
+
+    // для clamping’а: четверг имеет 2 позиции: pre и post
+    function slotKey(dayUtcMs, segment) {
+        const seg = segment === 'pre' ? 0 : segment === 'post' ? 2 : 1;
+        return dayUtcMs * 10 + seg;
+    }
+
+    function normalizeSegmentForDay(dayUtcMs, seg) {
+        if (!isThursdayByTZ(dayUtcMs)) return null;
+        if (seg === 'pre' || seg === 'post' || seg === 'auto') return seg;
+        return 'post';
+    }
+
+    function effectiveSegment(dayUtcMs, seg) {
+        // auto используем только для “сегодня”.
+        // Если вдруг авто попало на не-сегодня — считаем как post (логичнее).
+        if (!isThursdayByTZ(dayUtcMs)) return null;
+        if (seg === 'pre' || seg === 'post') return seg;
+
+        const todayUtc = getTodayUtcMsByTZ();
+        const isToday = isSameDayByTZ(dayUtcMs, todayUtc);
+        if (!isToday) return 'post';
+
+        const { start } = getDayBoundsUnix(dayUtcMs);
+        const cut = start + 9 * 3600;
+        const now = getNowUnix();
+        return now < cut ? 'pre' : 'post';
+    }
+
+    function getSlotBoundsUnix(dayUtcMs, seg) {
+        const { start, end } = getDayBoundsUnix(dayUtcMs);
+        if (!isThursdayByTZ(dayUtcMs)) return { start, end };
+
+        const cut = start + 9 * 3600;
+        const s = effectiveSegment(dayUtcMs, seg);
+
+        if (s === 'pre') return { start, end: cut };
+        return { start: cut, end };
+    }
+
+    function formatTimeMSK(unixSec) {
+        if (!unixSec) return '';
+        const d = new Date(unixSec * 1000);
+        // 14:33
+        return new Intl.DateTimeFormat('ru-RU', {
+            timeZone: TZ,
+            hour: '2-digit',
+            minute: '2-digit',
+        }).format(d);
+    }
+
+    function isDoneInSelectedSlot(q, dayUtcMs, seg) {
+        const t = Number(q?.last_complete_time || 0);
+        if (!t) return false;
+        const b = getSlotBoundsUnix(dayUtcMs, seg);
+        return b.start <= t && t < b.end;
+    }
+
+    function getRewardAmount(q) {
+        const steps = q?.steps;
+        const step1 = steps?.['1'] || steps?.[1];
+        const amount = step1?.rewards?.[0]?.value?.amount;
+        return Number(amount || 0);
+    }
+
+    function ensureTasksListEl() {
+        return document.querySelector('.section.tasks .tasks__list');
+    }
+
+    function ensureDateNavInHeader() {
+        const header = document.querySelector('.section.tasks .tasks__header');
+        if (!header) return null;
+
+        let nav = header.querySelector('.tm-date-nav');
+        if (nav) return nav;
+
+        nav = document.createElement('div');
+        nav.className = 'tm-date-nav';
+
+        const left = document.createElement('button');
+        left.className = 'tm-date-btn tm-date-prev';
+        left.type = 'button';
+        left.textContent = '←';
+
+        const right = document.createElement('button');
+        right.className = 'tm-date-btn tm-date-next';
+        right.type = 'button';
+        right.textContent = '→';
+
+        const todayBtn = document.createElement('button');
+        todayBtn.className = 'tm-date-btn tm-date-today';
+        todayBtn.type = 'button';
+        todayBtn.textContent = 'Сегодня';
+
+        const label = document.createElement('div');
+        label.className = 'tm-date-label';
+        label.textContent = '...';
+
+        nav.appendChild(left);
+        nav.appendChild(label);
+        nav.appendChild(right);
+        nav.appendChild(todayBtn);
+
+        header.insertAdjacentElement('afterbegin', nav);
+
+        left.addEventListener('click', async () => {
+            const todayUtc = getTodayUtcMsByTZ();
+            const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
+
+            // единственный разрешённый "назад": сегодня-четверг post -> pre
+            if (isToday && isThursdayByTZ(selectedDayUtcMs) && selectedSegment === 'post') {
+                selectedSegment = 'pre';
+                const c0 = clampSelectedDay(selectedDayUtcMs, selectedSegment);
+                selectedDayUtcMs = c0.dayUtcMs;
+                selectedSegment = c0.segment;
+                await onSelectedDateChanged();
+                return;
+            }
+
+            // иначе: обычный prev-slot, но без ухода в прошлые дни
+            const prev = getPrevSlot(selectedDayUtcMs, selectedSegment);
+
+            // сначала клампим по "не прошлое"
+            const np = clampNotPast(prev.dayUtcMs, prev.segment);
+
+            // потом по min/max эвента
+            const c = clampSelectedDay(np.dayUtcMs, np.segment);
+
+            selectedDayUtcMs = c.dayUtcMs;
+            selectedSegment = c.segment;
+
+            await onSelectedDateChanged();
+        });
+
+        right.addEventListener('click', async () => {
+            const next = getNextSlot(selectedDayUtcMs, selectedSegment);
+            const c = clampSelectedDay(next.dayUtcMs, next.segment);
+            selectedDayUtcMs = c.dayUtcMs;
+            selectedSegment = c.segment;
+            await onSelectedDateChanged();
+        });
+
+        todayBtn.addEventListener('click', async () => {
+            selectedDayUtcMs = getTodayUtcMsByTZ();
+            selectedSegment = 'auto';
+            const c = clampSelectedDay(selectedDayUtcMs, selectedSegment);
+            selectedDayUtcMs = c.dayUtcMs;
+            selectedSegment = c.segment;
+            await onSelectedDateChanged();
+        });
+
+        return nav;
+    }
+
+    function updateDateNavLabel() {
+        const nav = document.querySelector('.tm-date-nav');
+        if (!nav) return;
+        const label = nav.querySelector('.tm-date-label');
+        if (!label) return;
+
+        const parts = getMSKDatePartsFromUtcMs(selectedDayUtcMs);
+        const dateStr = formatDMY(parts);
+
+        const todayUtc = getTodayUtcMsByTZ();
+        const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
+        const isThu = isThursdayByTZ(selectedDayUtcMs);
+
+        let suffix = '';
+        if (isToday && selectedSegment === 'auto') {
+            suffix = ' (сейчас)';
+        } else if (isThu && selectedSegment === 'pre') {
+            suffix = ' (до 09:00)';
+        } else if (isThu && selectedSegment === 'post') {
+            suffix = ' (после 09:00)';
+        }
+
+        label.textContent = dateStr + suffix;
+
+        updateDateNavButtons();
+    }
+
+    async function onSelectedDateChanged() {
+        updateDateNavLabel();
+        updateDateNavButtons();
+        try {
+            await renderTasksForSelectedDay();
+        } catch (e) {
+            console.warn('[AA Marathon] renderTasksForSelectedDay failed:', e);
+        }
+    }
+
+    // ====== Codex / veksel links (оставил как у тебя) ======
     const CODEX_BASE = 'https://archeagecodex.com/ru/quest/';
     const ICON_QUEST = 'https://archeagecodex.com/images/icon_quest_common.png';
     const ICON_VEKSEL = 'https://archeagecodex.com/items/icon_item_3493.png';
 
-    const VEKSEL_URL = 'https://gisaa.ru/veksel/';
-
-// officialId, для которых нужна доп. ссылка на таблицу векселей
     const VEKSEL_OFFICIAL_IDS = new Set([8426, 8388, 8352, 8320, 8284, 8248]);
-
     const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
     const SERVER_TO_VEKSEL_ID = {
         'Ифнир': 49,
@@ -41,7 +320,7 @@
         'Шаеда': 46,
     };
 
-    let VEkselUrlResolved = VEKSEL_BASE; // будет конкретный /veksel/<id> или базовый /veksel/
+    let VEkselUrlResolved = VEKSEL_BASE;
 
     async function fetchJson(url) {
         const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
@@ -66,7 +345,6 @@
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const lis = [...doc.querySelectorAll('li')];
 
-        // сервер — это последний span внутри li
         const servers = lis
             .map(li => {
                 const spans = li.querySelectorAll('span');
@@ -81,7 +359,6 @@
     function pickMainServer(servers) {
         if (!servers.length) return null;
 
-        // частоты + порядок появления
         const counts = new Map();
         const order = [];
         for (const s of servers) {
@@ -112,26 +389,35 @@
 
             if (!mainServer) {
                 VEkselUrlResolved = VEKSEL_BASE;
-                console.log('[AA Marathon] Main server: (none), using base:', VEkselUrlResolved);
                 return VEkselUrlResolved;
             }
 
             const vekselId = SERVER_TO_VEKSEL_ID[mainServer];
             VEkselUrlResolved = vekselId ? `${VEKSEL_BASE}${vekselId}` : VEKSEL_BASE;
-
-            console.log('[AA Marathon] Main server:', mainServer, '=>', VEkselUrlResolved);
             return VEkselUrlResolved;
         } catch (e) {
             VEkselUrlResolved = VEKSEL_BASE;
-            console.warn('[AA Marathon] Failed to resolve main server, using base:', VEkselUrlResolved, e);
             return VEkselUrlResolved;
         }
     }
 
-// будет заполняться автоматически: key(title) -> officialId
-    let TITLE_TO_OFFICIAL_ID = null;
+    function makeIconLink({ href, iconSrc, title, className }) {
+        const a = document.createElement('a');
+        a.className = `tm-icon-link ${className || ''}`.trim();
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.title = title;
 
-// твоя готовая мапа officialId -> codexId (вставь сюда полностью)
+        const img = document.createElement('img');
+        img.src = iconSrc;
+        img.alt = title;
+
+        a.appendChild(img);
+        return a;
+    }
+
+    // ===== QUEST_META_BY_OFFICIAL_ID: оставляю как у тебя (не меняю) =====
     const QUEST_META_BY_OFFICIAL_ID = {
         "8246": {
             "codexId": 10559,
@@ -183,7 +469,7 @@
         },
         "8284": {
             "codexId": 9137,
-            "short": ""
+            "short": "Вексель за 60 железных слитков"
         },
         "8286": {
             "codexId": 8000131,
@@ -211,7 +497,7 @@
         },
         "8298": {
             "codexId": 8000058,
-            "short": ""
+            "short": "Лицуха в Нагашар (только обычка)"
         },
         "8300": {
             "codexId": 5971,
@@ -227,15 +513,15 @@
         },
         "8318": {
             "codexId": 9317,
-            "short": ""
+            "short": "Квест на Космача"
         },
         "8320": {
             "codexId": 9152,
-            "short": ""
+            "short": "Вексель за 60 кожи"
         },
         "8322": {
             "codexId": 8435,
-            "short": ""
+            "short": 'Портал "Лягушачьи пруды"'
         },
         "8324": {
             "codexId": 10510,
@@ -259,11 +545,11 @@
         },
         "8338": {
             "codexId": 5885,
-            "short": ""
+            "short": "Анталлон на Солнечных полях"
         },
         "8340": {
             "codexId": 8000060,
-            "short": ""
+            "short": 'Изи Сады наслаждений с лицухой'
         },
         "8346": {
             "codexId": 10056,
@@ -271,19 +557,19 @@
         },
         "8348": {
             "codexId": 11154,
-            "short": ""
+            "short": "Лиловый (армия фантомов)"
         },
         "8350": {
             "codexId": 11227,
-            "short": ""
+            "short": "Превратиться в руру и получить билет (в данж идти необязательно)"
         },
         "8352": {
             "codexId": 9147,
-            "short": ""
+            "short": "Вексель за 60 ткани"
         },
         "8354": {
             "codexId": 8000136,
-            "short": ""
+            "short": "Квест Нуи на 2500 ремесленки"
         },
         "8356": {
             "codexId": 10506,
@@ -299,7 +585,7 @@
         },
         "8362": {
             "codexId": 9101,
-            "short": ""
+            "short": "Библа, 3-ий босс"
         },
         "8364": {
             "codexId": 7656,
@@ -315,15 +601,15 @@
         },
         "8380": {
             "codexId": 7815,
-            "short": ""
+            "short": "Изи Сады наслаждений"
         },
         "8382": {
             "codexId": 10735,
-            "short": ""
+            "short": "Эншака на Солнечных полях"
         },
         "8388": {
             "codexId": 9153,
-            "short": ""
+            "short": "Вексель за 100 кожи"
         },
         "8390": {
             "codexId": 5062,
@@ -339,11 +625,11 @@
         },
         "8396": {
             "codexId": 7155,
-            "short": ""
+            "short": "Нагашар обычка"
         },
         "8398": {
             "codexId": 9398,
-            "short": ""
+            "short": "100 мобов"
         },
         "8400": {
             "codexId": 7152,
@@ -351,7 +637,7 @@
         },
         "8402": {
             "codexId": 9102,
-            "short": ""
+            "short": "Библа, последний босс"
         },
         "8404": {
             "codexId": 9205,
@@ -367,11 +653,11 @@
         },
         "8424": {
             "codexId": 9099,
-            "short": ""
+            "short": "Библа, первый босс"
         },
         "8426": {
             "codexId": 9143,
-            "short": ""
+            "short": "Вексель за 100 досок"
         },
         "8434": {
             "codexId": 10504,
@@ -383,11 +669,11 @@
         },
         "8438": {
             "codexId": 8000062,
-            "short": ""
+            "short": "Аль-Харба / Ферма Хадира / Колыбель разрушений / Воющая Бездна / Копи пронизывающего ветра / Арсенал Сожженной крепости"
         },
         "8448": {
             "codexId": 2943,
-            "short": ""
+            "short": "Кровавый (дневной) разлом - 3-я волна"
         },
         "8450": {
             "codexId": 7935,
@@ -399,7 +685,7 @@
         },
         "8470": {
             "codexId": 10739,
-            "short": ""
+            "short": "Призрачный (ночной) разлом - Эншака"
         },
         "8478": {
             "codexId": 10423,
@@ -447,7 +733,7 @@
         },
         "8514": {
             "codexId": 11096,
-            "short": ""
+            "short": "Луг"
         },
         "8516": {
             "codexId": 8000129,
@@ -471,170 +757,50 @@
         }
     };
 
+    // ===== cards =====
+    function makeRewardBlock(amount, isDone) {
+        const reward = document.createElement('div');
+        reward.className = 'tasks__item-reward';
 
-// будет заполняться автоматически
-    let TITLE_TO_CODEX = null;
+        const name = document.createElement('span');
+        name.className = 'tasks__item-reward-name';
+        name.textContent = 'Награда:';
+        reward.appendChild(name);
 
-    function normalizeTitle(s) {
-        return (s ?? '')
-            .toString()
-            .toLowerCase()
-            .replace(/\*\*/g, '')
-            .replace(/[«»"“”]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        const n = Math.max(0, Math.min(20, amount));
+        const cls = isDone ? 'icon-point--received' : 'icon-point--not-received';
+
+        for (let i = 0; i < n; i++) {
+            const icon = document.createElement('div');
+            icon.className = `icon-point ${cls}`;
+            reward.appendChild(icon);
+        }
+
+        return reward;
     }
 
-    function extractQuotedTitle(text) {
-        const m = (text ?? '').match(/«(.+?)»/);
-        return m ? m[1].trim() : null;
+    function makeTaskText(desc) {
+        const t = document.createElement('div');
+        t.className = 'tasks__item-text';
+        t.textContent = desc || '';
+        return t;
     }
 
-    async function buildTitleToCodexMapFromApiInfo() {
-        const res = await fetch('/minigames/marathon_of_heroes/api/info', {
-            credentials: 'include',
-            cache: 'no-store',
-        });
-        if (!res.ok) throw new Error(`api/info failed: ${res.status} ${res.statusText}`);
-
-        const json = await res.json();
-        const quests = json?.data?.quests;
-        if (!quests || typeof quests !== 'object') throw new Error('api/info: json.data.quests not found');
-
-        const mapCodex = {};
-        const mapOfficial = {};
-        const mapShort = {};
-
-        for (const q of Object.values(quests)) {
-            if (!q || typeof q.id !== 'number') continue;
-
-            const meta = QUEST_META_BY_OFFICIAL_ID[q.id];
-            if (!meta?.codexId) continue;
-
-            const codexId = meta.codexId;
-            const short = (meta.short || '').trim();
-
-            const keys = [
-                extractQuotedTitle(q.description),
-                extractQuotedTitle(q.title),
-                q.title,
-            ]
-                .filter(Boolean)
-                .map(normalizeTitle);
-
-            for (const k of keys) {
-                if (!mapCodex[k]) mapCodex[k] = codexId;
-                if (!mapOfficial[k]) mapOfficial[k] = q.id;
-                if (short && !mapShort[k]) mapShort[k] = short;
-            }
-        }
-
-        return { titleToCodex: mapCodex, titleToOfficial: mapOfficial, titleToShort: mapShort };
-    }
-
-
-    function resolveKeyFromTaskText(rawText) {
-        const text = (rawText ?? '').toString();
-
-        // 1) если есть «…» — используем как раньше
-        const quoted = extractQuotedTitle(text);
-        if (quoted) {
-            const k = normalizeTitle(quoted);
-            if (TITLE_TO_CODEX?.[k]) return k;
-        }
-
-        // 2) пробуем вытащить “название” из типовых формулировок
-        // Примеры:
-        // - "Выполнить лицензию на убийство: Иштар (....)"
-        // - "Выполнить задание Темница Дауты (....)"  (если вдруг без кавычек)
-        let m = text.match(/Выполнить\s+лицензию\s+на\s+убийство:\s*([^(.\n]+)/i);
-        if (m?.[1]) {
-            const candidate = `Лицензия на убийство: ${m[1].trim()}`;
-            const k = normalizeTitle(candidate);
-            if (TITLE_TO_CODEX?.[k]) return k;
-
-            // иногда в api/title может быть только имя (редко, но пусть будет)
-            const k2 = normalizeTitle(m[1].trim());
-            if (TITLE_TO_CODEX?.[k2]) return k2;
-        }
-
-        m = text.match(/Выполнить\s+задание\s+([^(.\n]+)/i);
-        if (m?.[1]) {
-            const k = normalizeTitle(m[1].trim());
-            if (TITLE_TO_CODEX?.[k]) return k;
-        }
-
-        // 3) последний шанс: contains-match по всем ключам
-        // (работает для случаев, когда в тексте есть точное название, но окружено описанием)
-        const hay = normalizeTitle(text);
-        const keys = TITLE_TO_CODEX ? Object.keys(TITLE_TO_CODEX) : [];
-        for (const k of keys) {
-            if (k && hay.includes(k)) return k;
-        }
-
-        return null;
-    }
-
-    function ensureLinksRow(afterTextEl) {
-        let row = afterTextEl.parentElement?.querySelector(':scope > .tm-links-row');
-        if (row) return row;
-
-        row = document.createElement('div');
+    function makeLinksRow({ codexId, officialId, short }) {
+        const row = document.createElement('div');
         row.className = 'tm-links-row';
+
+        if (short) {
+            const d = document.createElement('div');
+            d.className = 'tm-short';
+            d.textContent = short;
+            row.appendChild(d);
+        }
 
         const icons = document.createElement('div');
         icons.className = 'tm-icons';
         row.appendChild(icons);
 
-        afterTextEl.insertAdjacentElement('afterend', row);
-        return row;
-    }
-
-
-    function makeIconLink({ href, iconSrc, title, className }) {
-        const a = document.createElement('a');
-        a.className = `tm-icon-link ${className || ''}`.trim();
-        a.href = href;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.title = title;
-
-        const img = document.createElement('img');
-        img.src = iconSrc;
-        img.alt = title;
-
-        a.appendChild(img);
-        return a;
-    }
-
-    function linkifyTaskText(taskEl) {
-        const textEl = taskEl.querySelector('.tasks__item-text');
-        if (!textEl) return;
-
-        // чтобы не дублировать (проверяем наличие нашей строки ссылок)
-        const existingRow = taskEl.querySelector(':scope > .tm-links-row');
-        if (existingRow) return;
-
-        const key = resolveKeyFromTaskText(textEl.textContent);
-        if (!key) return;
-
-        const codexId = TITLE_TO_CODEX?.[key];
-        if (!codexId) return;
-
-        const officialId = TITLE_TO_OFFICIAL_ID?.[key];
-
-        const row = ensureLinksRow(textEl);
-        const short = TITLE_TO_SHORT?.[key];
-        if (short && !row.querySelector('.tm-short')) {
-            const d = document.createElement('div');
-            d.className = 'tm-short';
-            d.textContent = short;
-            row.insertBefore(d, row.querySelector('.tm-icons'));
-        }
-
-        const icons = row.querySelector('.tm-icons');
-
-// квест
         icons.appendChild(makeIconLink({
             href: `${CODEX_BASE}${codexId}/`,
             iconSrc: ICON_QUEST,
@@ -642,7 +808,6 @@
             className: 'tm-codex-link',
         }));
 
-// векселя
         if (typeof officialId === 'number' && VEKSEL_OFFICIAL_IDS.has(officialId)) {
             icons.appendChild(makeIconLink({
                 href: VEkselUrlResolved,
@@ -651,32 +816,303 @@
                 className: 'tm-veksel-link',
             }));
         }
+
+        return row;
+    }
+
+    function makeTaskCard({ q, amount, codexId, officialId, short, isDone, showLastDone }) {
+        const item = document.createElement('div');
+        item.className = `tasks__item tasks__item--${amount || 1}`;
+
+        if (isDone) {
+            item.classList.add(DONE_CLASS);
+
+            const done = document.createElement('div');
+            done.className = 'tasks__item-done';
+
+            // время последнего выполнения (только время), если нужно показывать
+            if (showLastDone) {
+                const t = Number(q?.last_complete_time || 0);
+                const time = formatTimeMSK(t);
+                if (time) {
+                    const timeEl = document.createElement('span');
+                    timeEl.className = 'tm-done-time';
+                    timeEl.textContent = time;
+                    done.appendChild(timeEl);
+                }
+            }
+
+            item.appendChild(done);
+        }
+
+        item.appendChild(makeRewardBlock(amount, isDone));
+        item.appendChild(makeTaskText(q.description));
+
+        item.appendChild(makeLinksRow({ codexId, officialId, short }));
+
+        return item;
+    }
+
+    async function fetchApiInfo() {
+        const res = await fetch('/minigames/marathon_of_heroes/api/info', {
+            credentials: 'include',
+            cache: 'no-store',
+        });
+        if (!res.ok) throw new Error(`api/info failed: ${res.status} ${res.statusText}`);
+
+        // Фиксируем "сейчас" один раз: только серверное время, без локальных часов
+        if (NOW_MS == null) {
+            const dateHeader = res.headers.get('Date');
+            const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
+
+            if (!Number.isFinite(parsed)) {
+                // принципиально НЕ фолбэчим на Date.now(), как ты просил
+                throw new Error('[AA Marathon] Cannot read server Date header (NOW_MS not set).');
+            }
+
+            NOW_MS = parsed;
+        }
+
+        return res.json();
     }
 
 
-    function linkifyAllTasksInList() {
-        document
-            .querySelectorAll('.section.tasks .tasks__item')
-            .forEach(task => linkifyTaskText(task));
+    async function getApiInfoCached() {
+        if (API_INFO_CACHE) return API_INFO_CACHE;
+        API_INFO_CACHE = await fetchApiInfo();
+        return API_INFO_CACHE;
     }
 
-    /* ================= utils ================= */
-
-    function getTodayMSK() {
-        return new Intl.DateTimeFormat('ru-RU', {
-            timeZone: TZ,
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        }).format(new Date());
+    function getQuestsArrayFromInfo(json) {
+        const quests = json?.data?.quests;
+        if (!quests || typeof quests !== 'object') throw new Error('api/info: json.data.quests not found');
+        return Object.values(quests);
     }
 
-    function extractTitle(text) {
-        const m = text.match(/«(.+?)»/);
-        return m ? m[1].trim().toLowerCase() : null;
+    function computeThuSegmentsAvailability(dayUtcMs, questsArr) {
+        // pre = активен в 03:00
+        const preUnix = getUnixForDayAtHour(dayUtcMs, THU_PRE_HOUR);
+        const postUnix = getUnixForDayAtHour(dayUtcMs, DEFAULT_HOUR);
+        const hasPre = questsArr.some(q => isQuestActiveAtUnix(q, preUnix));
+        const hasPost = questsArr.some(q => isQuestActiveAtUnix(q, postUnix));
+        return { hasPre, hasPost };
     }
 
-    /* ================= styles ================= */
+    async function computeDateBoundsFromApiInfo() {
+        if (MIN_DAY_UTC_MS != null && MAX_DAY_UTC_MS != null) return;
+
+        const json = await getApiInfoCached();
+        const questsArr = getQuestsArrayFromInfo(json);
+
+        let minStart = Infinity;
+        let maxEnd = -Infinity;
+
+        for (const q of questsArr) {
+            const s = Number(q?.start_time || 0);
+            const e = Number(q?.end_time || 0);
+            if (!s || !e) continue;
+            if (s < minStart) minStart = s;
+            if (e > maxEnd) maxEnd = e;
+        }
+
+        if (!isFinite(minStart) || !isFinite(maxEnd)) {
+            MIN_DAY_UTC_MS = null;
+            MAX_DAY_UTC_MS = null;
+            MIN_SEG = null;
+            MAX_SEG = null;
+            return;
+        }
+
+        MIN_DAY_UTC_MS = dayUtcMsFromUnixByTZ(minStart);
+        MAX_DAY_UTC_MS = dayUtcMsFromUnixByTZ(maxEnd - 1);
+
+        // определяем сегменты-границы
+        MIN_SEG = null;
+        MAX_SEG = null;
+
+        if (MIN_DAY_UTC_MS != null && isThursdayByTZ(MIN_DAY_UTC_MS)) {
+            const { hasPre, hasPost } = computeThuSegmentsAvailability(MIN_DAY_UTC_MS, questsArr);
+            // если pre пустой — не показываем как самый первый
+            if (hasPre) MIN_SEG = 'pre';
+            else if (hasPost) MIN_SEG = 'post';
+            else MIN_SEG = 'post'; // на всякий (не должно быть)
+        }
+
+        if (MAX_DAY_UTC_MS != null && isThursdayByTZ(MAX_DAY_UTC_MS)) {
+            const { hasPre, hasPost } = computeThuSegmentsAvailability(MAX_DAY_UTC_MS, questsArr);
+            // если post пустой — последним делаем pre
+            if (hasPost) MAX_SEG = 'post';
+            else if (hasPre) MAX_SEG = 'pre';
+            else MAX_SEG = 'pre';
+        }
+
+        const c = clampSelectedDay(selectedDayUtcMs, selectedSegment);
+        selectedDayUtcMs = c.dayUtcMs;
+        selectedSegment = c.segment;
+    }
+
+    function clampNotPast(dayUtcMs, segment) {
+        const todayUtc = getTodayUtcMsByTZ();
+
+        // если пытаемся уйти в прошлый день — возвращаем на сегодня
+        if (dayUtcMs < todayUtc) {
+            dayUtcMs = todayUtc;
+
+            // на сегодня: если четверг — оставляем post (по умолчанию),
+            // но если был auto — оставим auto
+            if (isThursdayByTZ(dayUtcMs)) {
+                segment = (segment === 'auto') ? 'auto' : 'post';
+            } else {
+                segment = 'auto';
+            }
+        }
+
+        return { dayUtcMs, segment };
+    }
+
+
+    function clampSelectedDay(dayUtcMs, segment) {
+        if (dayUtcMs == null) return { dayUtcMs, segment };
+
+        segment = normalizeSegmentForDay(dayUtcMs, segment);
+
+        const curKey = slotKey(dayUtcMs, segment);
+
+        const minKey = MIN_DAY_UTC_MS != null ? slotKey(MIN_DAY_UTC_MS, MIN_SEG) : null;
+        const maxKey = MAX_DAY_UTC_MS != null ? slotKey(MAX_DAY_UTC_MS, MAX_SEG) : null;
+
+        if (minKey != null && curKey < minKey) return { dayUtcMs: MIN_DAY_UTC_MS, segment: MIN_SEG };
+        if (maxKey != null && curKey > maxKey) return { dayUtcMs: MAX_DAY_UTC_MS, segment: MAX_SEG };
+
+        // ещё раз нормализуем сегмент на текущий день (чтобы на обычном дне не было pre/post)
+        segment = normalizeSegmentForDay(dayUtcMs, segment);
+        return { dayUtcMs, segment };
+    }
+
+    function updateDateNavButtons() {
+        const nav = document.querySelector('.tm-date-nav');
+        if (!nav) return;
+
+        const prev = nav.querySelector('.tm-date-prev');
+        const next = nav.querySelector('.tm-date-next');
+
+        const curKey = slotKey(selectedDayUtcMs, selectedSegment);
+        const minKey = MIN_DAY_UTC_MS != null ? slotKey(MIN_DAY_UTC_MS, MIN_SEG) : null;
+        const maxKey = MAX_DAY_UTC_MS != null ? slotKey(MAX_DAY_UTC_MS, MAX_SEG) : null;
+
+        if (prev) {
+            const todayUtc = getTodayUtcMsByTZ();
+            const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
+
+            // на сегодня-четверг, когда мы на post — назад разрешаем (в pre)
+            const allowBackWithinTodayThu = isToday && isThursdayByTZ(selectedDayUtcMs) && selectedSegment === 'post';
+
+            // в остальных случаях запрещаем "назад", если это увело бы в прошлое
+            // (и плюс учитываем minKey, если он сильнее)
+            const notPastBlock = isToday && !allowBackWithinTodayThu;
+
+            prev.disabled =
+                (minKey != null && curKey <= minKey) ||
+                notPastBlock;
+        }
+        if (next) next.disabled = (maxKey != null) && (curKey >= maxKey);
+    }
+
+    function getPrevSlot(dayUtcMs, seg) {
+        const isThu = isThursdayByTZ(dayUtcMs);
+
+        if (isThu) {
+            if (seg === 'post') return { dayUtcMs, segment: 'pre' };
+            if (seg === 'pre') {
+                const prevDay = addDaysUtcMs(dayUtcMs, -1);
+                return { dayUtcMs: prevDay, segment: normalizeSegmentForDay(prevDay, null) };
+            }
+            // auto на чт трактуем как post
+            return { dayUtcMs, segment: 'pre' };
+        }
+
+        const prevDay = addDaysUtcMs(dayUtcMs, -1);
+        if (isThursdayByTZ(prevDay)) return { dayUtcMs: prevDay, segment: 'post' };
+        return { dayUtcMs: prevDay, segment: null };
+    }
+
+    function getNextSlot(dayUtcMs, seg) {
+        const isThu = isThursdayByTZ(dayUtcMs);
+
+        if (isThu) {
+            if (seg === 'pre') return { dayUtcMs, segment: 'post' };
+            if (seg === 'post') {
+                const nextDay = addDaysUtcMs(dayUtcMs, +1);
+                return { dayUtcMs: nextDay, segment: normalizeSegmentForDay(nextDay, null) };
+            }
+            // auto на чт трактуем как pre
+            return { dayUtcMs, segment: 'post' };
+        }
+
+        const nextDay = addDaysUtcMs(dayUtcMs, +1);
+        if (isThursdayByTZ(nextDay)) return { dayUtcMs: nextDay, segment: 'pre' };
+        return { dayUtcMs: nextDay, segment: null };
+    }
+
+    async function renderTasksForSelectedDay() {
+        const listEl = ensureTasksListEl();
+        if (!listEl) return;
+
+        const json = await getApiInfoCached();
+        const all = getQuestsArrayFromInfo(json);
+
+        const todayUtc = getTodayUtcMsByTZ();
+        const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
+        const isThu = isThursdayByTZ(selectedDayUtcMs);
+
+        // выбираем “контрольную точку” для списка активных квестов
+        let unixPoint;
+
+        if (isToday && selectedSegment === 'auto') {
+            unixPoint = getNowUnix(); // сегодня = сейчас
+        } else if (isThu && selectedSegment === 'pre') {
+            unixPoint = getUnixForDayAtHour(selectedDayUtcMs, THU_PRE_HOUR); // четверг до 09
+        } else if (isThu && selectedSegment === 'post') {
+            unixPoint = getUnixForDayAtHour(selectedDayUtcMs, DEFAULT_HOUR); // четверг после
+        } else {
+            unixPoint = getUnixForDayAtHour(selectedDayUtcMs, DEFAULT_HOUR); // обычный день
+        }
+
+        const active = all.filter(q => isQuestActiveAtUnix(q, unixPoint));
+
+        active.sort((a, b) => {
+            const da = getRewardAmount(a);
+            const db = getRewardAmount(b);
+            if (da !== db) return da - db;
+            return Number(a?.id || 0) - Number(b?.id || 0);
+        });
+
+        listEl.innerHTML = '';
+
+        for (const q of active) {
+            const officialId = Number(q.id);
+            const meta = QUEST_META_BY_OFFICIAL_ID?.[officialId] || QUEST_META_BY_OFFICIAL_ID?.[String(officialId)];
+            if (!meta?.codexId) continue;
+
+            const codexId = Number(meta.codexId);
+            const short = (meta.short || '').trim();
+            const amount = getRewardAmount(q);
+
+            const doneInSlot = isDoneInSelectedSlot(q, selectedDayUtcMs, selectedSegment);
+
+            const card = makeTaskCard({
+                q,
+                amount,
+                codexId,
+                officialId,
+                short,
+                isDone: doneInSlot,
+                showLastDone: doneInSlot, // показываем “последнее выполнение” только если попало в выбранный день/сегмент
+            });
+
+            listEl.appendChild(card);
+        }
+    }
 
     function injectStyles() {
         const style = document.createElement('style');
@@ -685,210 +1121,154 @@
         opacity: 0.6;
       }
 
-      .${DONE_CLASS}::after {
-        content: "✔";
-        position: absolute;
-        top: 8px;
-        right: 12px;
-          font-size: 18px;
-        font-weight: 700;
-        color: #3cb45a;
-        pointer-events: none;
+/* done-блок: прибит к верх-право, внутри тоже верх-право */
+
+.tasks__item-done {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+
+  /* чтобы не мешал кликам по карточке */
+  pointer-events: none;
+}
+
+/* время */
+.tm-done-time {
+  font-size: 12px;
+  line-height: 1.2;
+  opacity: 0.9;
+}
+
+/* галочка-псевдоэлемент */
+.tasks__item-done::after {
+  content: "✔";
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  color: #3cb45a;
+}
+
+      .tm-links-row {
+        margin-top: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        opacity: 0.95;
       }
 
-  .tm-links-row {
-    margin-top: 6px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    opacity: 0.9;
-  }
+      .tm-short {
+        font-size: 12px;
+        line-height: 1.25;
+        opacity: 0.85;
+      }
 
-  .tm-icon-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.06);
-    transition: transform 120ms ease, opacity 120ms ease;
-  }
+      .tm-icons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
 
-  .tm-icon-link:hover {
-    transform: translateY(-1px);
-    opacity: 1;
-  }
+      .tm-icon-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.06);
+        transition: transform 120ms ease, opacity 120ms ease;
+      }
 
-  .tm-icon-link img {
-    width: 30px;
-    display: block;
-  }
+      .tm-icon-link:hover {
+        transform: translateY(-1px);
+        opacity: 1;
+      }
 
-.tm-links-row {
-  margin-top: 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  opacity: 0.95;
-}
+      .tm-icon-link img {
+        width: 30px;
+        display: block;
+      }
 
-.tm-short {
-  font-size: 12px;
-  line-height: 1.25;
-  opacity: 0.85;
-}
+      .tm-date-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-.tm-icons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+      @media (max-width: 1300px) {
+        .tm-date-nav {
+          padding: 0 20px;
+        }
+      }
+
+      .tm-date-btn {
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: rgba(255,255,255,0.06);
+        color: inherit;
+        font: inherit;
+      }
+
+      .tm-date-btn:hover {
+        background: rgba(255,255,255,0.10);
+      }
+
+      .tm-date-label {
+        min-width: 250px;
+        text-align: center;
+        opacity: 0.95;
+      }
+
+      .tasks__header {
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .tm-date-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
     `;
         document.head.appendChild(style);
     }
 
-    /* ================= history ================= */
-
-    function collectTodayFromPage(today, out) {
-        document
-            .querySelectorAll('.section.history-events tbody tr')
-            .forEach(tr => {
-                const date = tr.children[0]?.textContent.trim();
-                const text = tr.children[1]?.textContent;
-
-                if (date !== today || !text) return;
-
-                const title = extractTitle(text);
-                if (title) out.add(title);
-            });
-    }
-
-    async function collectTodayFromAllPages() {
-        const today = getTodayMSK();
-        const completed = new Set();
-
-        const pagination = document.querySelector('.section.history-events .pagination');
-
-        if (!pagination) {
-            collectTodayFromPage(today, completed);
-            return completed;
-        }
-
-        const pages = [...pagination.querySelectorAll('.pagination__item')]
-            .filter(li =>
-                !li.classList.contains('pagination__item--prev') &&
-                !li.classList.contains('pagination__item--next')
-            );
-
-        // На всякий случай: гарантируем старт с 1 страницы
-        // (если вдруг пользователь был на 3-й)
-        if (pages[0] && !pages[0].classList.contains('active')) {
-            pages[0].click();
-            await sleep(450);
-        }
-
-        for (const page of pages) {
-            // не кликаем повторно по активной — меньше лишних перерисовок
-            if (!page.classList.contains('active')) {
-                page.click();
-                await sleep(450);
-            }
-            collectTodayFromPage(today, completed);
-        }
-
-        // ===== ДОБАВЛЕНО: вернуть историю на 1 страницу =====
-        if (pages[0] && !pages[0].classList.contains('active')) {
-            pages[0].click();
-            await sleep(450);
-        }
-        // ===================================================
-
-        return completed;
-    }
-
-    /* ================= tasks ================= */
-
-    function insertDoneBlock(task) {
-        if (task.querySelector('.tasks__item-done')) return;
-
-        const reward = task.querySelector('.tasks__item-reward');
-        if (!reward) return;
-
-        const done = document.createElement('div');
-        done.className = 'tasks__item-done';
-
-        reward.before(done);
-    }
-
-    function replaceRewardIcons(task) {
-        task.querySelectorAll('.icon-point--not-received')
-            .forEach(icon => {
-                icon.classList.remove('icon-point--not-received');
-                icon.classList.add('icon-point--received');
-            });
-    }
-
-    function markTaskAsDone(task) {
-        task.classList.add(DONE_CLASS);
-        insertDoneBlock(task);
-        replaceRewardIcons(task);
-    }
-
-    function highlightTasks(completedTitles) {
-        document
-            .querySelectorAll('.section.tasks .tasks__item')
-            .forEach(task => {
-                const textEl = task.querySelector('.tasks__item-text');
-                if (!textEl) return;
-
-                const title = extractTitle(textEl.textContent);
-                if (title && completedTitles.has(title)) {
-                    markTaskAsDone(task);
-                }
-            });
-    }
-
-    /* ================= init ================= */
-
     async function init() {
         injectStyles();
-
-        // 0) вычисляем ссылку на векселя по главному серверу
         await resolveVekselUrl();
 
-        // 1) строим мапу для ссылок на codex
+        // 1) сначала получаем api/info, чтобы зафиксировать NOW_MS (серверное время)
         try {
-            const built = await buildTitleToCodexMapFromApiInfo();
-            TITLE_TO_CODEX = built.titleToCodex;
-            TITLE_TO_OFFICIAL_ID = built.titleToOfficial;
-            TITLE_TO_SHORT = built.titleToShort;
-
-            console.log('[AA Marathon] TITLE_TO_CODEX size:', Object.keys(TITLE_TO_CODEX).length);
+            await getApiInfoCached();
         } catch (e) {
-            console.warn('[AA Marathon] Failed to build TITLE_TO_CODEX:', e);
-            TITLE_TO_CODEX = {};
-            TITLE_TO_OFFICIAL_ID = {};
-            TITLE_TO_SHORT = {};
+            console.warn(e);
+            return; // без времени не продолжаем
         }
 
-        await resolveVekselUrl();
+        // 2) теперь можно безопасно вычислять "сегодня"
+        if (!selectedDayUtcMs) selectedDayUtcMs = getTodayUtcMsByTZ();
 
-        // 2) линковка ВСЕХ заданий (вне зависимости от выполненности)
-        linkifyAllTasksInList();
+        ensureDateNavInHeader();
+        updateDateNavLabel();
+        updateDateNavButtons();
 
-        // 3) подсветка “выполнено сегодня” как и было
-        const completedToday = await collectTodayFromAllPages();
-        highlightTasks(completedToday);
+        try {
+            await computeDateBoundsFromApiInfo();
+        } catch (e) {
+            console.warn('[AA Marathon] computeDateBoundsFromApiInfo failed:', e);
+        }
 
-        console.log('[AA Marathon]', 'completed today (MSK):', [...completedToday]);
+        try {
+            await renderTasksForSelectedDay();
+        } catch (e) {
+            console.warn('[AA Marathon] renderTasksForSelectedDay failed:', e);
+        }
     }
 
-
     const observer = new MutationObserver(() => {
-        if (
-            document.querySelector('.section.tasks') &&
-            document.querySelector('.section.history-events')
-        ) {
+        if (document.querySelector('.section.tasks')) {
             observer.disconnect();
             init();
         }
