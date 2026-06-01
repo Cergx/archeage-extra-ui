@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.2.2
+// @version      4.2.3
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon
@@ -1257,7 +1257,8 @@
     /** @type {Record<string, ItemType>} */
     const ITEM_TYPES = {
         'unconfirmed': { icon: 'https://wiki.archerage.to/static/images/icons/top_unconfirmed.dds.png', title: 'Неопознанный предмет' },
-        'quest':       { icon: 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png', title: 'Задание' },
+        'seal':        { icon: 'https://wiki.archerage.to/static/images/icons/top_seal_08.dds.png', title: 'Неопознанный предмет' },
+        'top_quest':   { icon: 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png', title: 'Задание' },
         'magical':     { title: 'Магический предмет' },
         'box':         { title: 'Ящик' },
         'equipment':   { title: 'Снаряжение' },
@@ -1276,11 +1277,11 @@
 
     /**
      * @typedef {Object} ItemBase
+     * @property {string} id - ID предмета (ключ в ITEMS, используется для генерации URL на ArcheageCodex).
      * @property {string} icon - Полный URL иконки.
      * @property {number} grade - Грейд (индекс в массиве GRADES, 0–12).
-     * @property {string} url - Ссылка на предмет в ArcheageCodex.
      * @property {string} name - Название предмета.
-     * @property {string} [type] - Ключ в ITEM_TYPES (например, 'quest', 'unconfirmed').
+     * @property {string} [type] - Ключ в ITEM_TYPES (например, 'top_quest', 'unconfirmed').
      * @property {string} [subType] - Ключ в ITEM_SUB_TYPES (например, 'ingot', 'costume').
      * @property {string} [vekselName] - Название предмета для таблицы векселей (если отличается от name).
      * @property {string} [vekselType] - Тип для таблицы векселей ('sack' | 'archive' | 'license').
@@ -1291,6 +1292,9 @@
      * Парсит игровую разметку цвета (WoW/XLGames-формат) в HTML.
      * |cAARRGGBB...text...|r → <span style="color:#RRGGBB">text</span>
      * |nc;...text...|r       → <span class="orange_text">text</span>
+     * |nd;...text...|r       → <span class="light_blue_text">text</span>
+     * |ni;...text...|r       → <span class="blue_text">text</span>
+     * |nr;...text...|r       → <span class="red_text">text</span>
      * \n                     → <br>
      * @param {string} text
      * @returns {string} HTML-строка
@@ -1303,92 +1307,101 @@
                 (_, color, inner) => `<span style="color:#${color}">${inner}</span>`)
             .replace(/\|nc;(.*?)\|r/g,
                 (_, inner) => `<span class="orange_text">${inner}</span>`)
+            .replace(/\|nd;(.*?)\|r/g,
+                (_, inner) => `<span class="light_blue_text">${inner}</span>`)
+            .replace(/\|ni;(.*?)\|r/g,
+                (_, inner) => `<span class="blue_text">${inner}</span>`)
+            .replace(/\|nr;(.*?)\|r/g,
+                (_, inner) => `<span class="red_text">${inner}</span>`)
             .replace(/\n/g, '<br>');
     };
 
+    const CODEX_ITEM_URL = 'https://archeagecodex.com/ru/item/';
     const CODEX_ITEM_ICONS = 'https://archeagecodex.com/items/';
     const GMRU_CDN_ICONS = 'https://aa.cdn.gmru.net/ms/data/game-icons/';
 
     /** @type {Record<string, ItemBase>} */
     const ITEMS = {
-        "8256":    { type: 'material', subType: 'cloth', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань" }, // icon_item_0356.png
-        "8318":    { type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа" }, // icon_item_quest053.png
-        "8337":    { type: 'material', subType: 'lumber', icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Упаковка строительной древесины", vekselName: "Строительная древесина" }, // icon_item_0041.png
-        "16327":   { type: 'material', subType: 'leather', icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа" }, // icon_item_0352.png
-        "35461":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром" }, // icon_item_1839.png
-        "40928":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}d9df620283926e6f4a9ab47ebacf499c.png`, grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк" }, // icon_item_3101.png
-        "42076":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}66ed119fca00abf78ddf2602ed55e659.png`, grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной" }, // icon_item_3619.png
-        "42077":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}1ddc9b8c6e0d41d83f2d3f9536eb29a4.png`, grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной" }, // icon_item_3620.png
-        "43176":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}b41e79b64ae0b578499ac6301325f631.png`, grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника" }, // icon_item_3906.png
-        "43177":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}f2d17e3b4d030e91c38e68cd60c0ee69.png`, grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной" }, // icon_item_3907.png
-        "8000749": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный", description: 'Позволяет получить задание.' }, // icon_item_2762.png
-        "8000751": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы", description: 'Позволяет получить задание.' },
-        "8000752": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" },
-        "8000753": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" },
+        "8256":    { type: 'material', subType: 'cloth', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Ткань" }, // icon_item_0356.png
+        "8318":    { type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Слиток железа" }, // icon_item_quest053.png
+        "8337":    { type: 'material', subType: 'lumber', icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, name: "Упаковка строительной древесины", vekselName: "Строительная древесина" }, // icon_item_0041.png
+        "16327":   { type: 'material', subType: 'leather', icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, name: "Сыромятная кожа" }, // icon_item_0352.png
+        "35461":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, name: "Полновесный мешочек с серебром" }, // icon_item_1839.png
+        "40928":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}d9df620283926e6f4a9ab47ebacf499c.png`, grade: 1, name: "Расшитый жемчугом кошелёк" }, // icon_item_3101.png
+        "42076":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}66ed119fca00abf78ddf2602ed55e659.png`, grade: 1, name: "Резной сундучок со всякой всячиной" }, // icon_item_3619.png
+        "42077":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}1ddc9b8c6e0d41d83f2d3f9536eb29a4.png`, grade: 1, name: "Фермерский сундучок со всякой всячиной" }, // icon_item_3620.png
+        "43176":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}b41e79b64ae0b578499ac6301325f631.png`, grade: 1, name: "Котомка эфенского странника" }, // icon_item_3906.png
+        "43177":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}f2d17e3b4d030e91c38e68cd60c0ee69.png`, grade: 1, name: "Эфенский сундучок со всякой всячиной" }, // icon_item_3907.png
+        "8000749": { type: 'top_quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 3, name: "Лицензия на убийство: Баррага Безумный", description: 'Позволяет получить задание.' }, // icon_item_2762.png
+        "8000751": { type: 'top_quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 5, name: "Лицензия на убийство: иферийцы", description: 'Позволяет получить задание.' },
+        "8000752": { type: 'top_quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, name: "Лицензия на убийство: Иштар" },
+        "8000753": { type: 'top_quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, name: "Лицензия на убийство: повелитель подземелья" },
 
-        "48894":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, url: 'https://archeagecodex.com/ru/item/48894/', name: 'Драгоценная эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет. Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в <span class="orange_text">2</span> раза.<br><br>Можно использовать только при уровне усиления <span class="orange_text">18 и выше</span>.' },
-        "54915":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, url: 'https://archeagecodex.com/ru/item/54915/', name: 'Свиток чар ифнирского героя' },
-        "45508":   { icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, url: 'https://archeagecodex.com/ru/item/45508/', name: 'Сфера анимага' },
-        "8001565": { icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001565/', name: 'Новенькая кирка' },
-        "8002452": { icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002452/', name: 'Универсальный алхимический кристалл' },
-        "8002449": { icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002449/', name: 'Дополнительная сумка' },
-        "47943":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47943/', name: 'Настойка усердного ремесленника' },
-        "39424":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, url: 'https://archeagecodex.com/ru/item/39424/', name: 'Ирамийская гадальная руна' },
-        "46180":   { icon: 'https://archeagecodex.com/items/icon_item_1395.png', grade: 3, url: 'https://archeagecodex.com/ru/item/46180/', name: 'Солнечный настой' },
-        "47130":   { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, url: 'https://archeagecodex.com/ru/item/47130/', name: 'Хрустальная руна', description: '<span class="light_blue_text">Можно получить одну из хрустальных рун на выбор:</span><br>- хрустальная руна багровой луны,<br>- хрустальная руна осенней луны,<br>- хрустальная руна молодой луны,<br>- хрустальная руна безмолвной луны,<br>- хрустальная руна колдовской луны.' },
-        "47104":   { icon: 'https://archeagecodex.com/items/icon_item_4570.png', grade: 2, url: 'https://archeagecodex.com/ru/item/47104/', name: 'Парниковый купол' },
-        "48903":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3282.png', grade: 1, url: 'https://archeagecodex.com/ru/item/48903/', name: 'Набор сверкающих эфенских сфер' },
-        "48474":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3275.png', grade: 11, url: 'https://archeagecodex.com/ru/item/48474/', name: 'Большой набор мифических эссенций' },
-        "8002297": { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, url: 'https://archeagecodex.com/ru/item/8002297/', name: 'Королевский лунный изумруд' },
-        "35727":   { icon: 'https://archeagecodex.com/items/icon_item_1982.png', grade: 2, url: 'https://archeagecodex.com/ru/item/35727/', name: 'Буровая установка' },
-        "47082":   { icon: 'https://archeagecodex.com/items/icon_item_3369.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47082/', name: 'Патент на транспортное средство' },
-        "55783":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, url: 'https://archeagecodex.com/ru/item/55783/', name: 'Сундучок с зачарованной гравировкой для украшений' },
-        "31892":   { icon: 'https://archeagecodex.com/items/icon_item_1733.png', grade: 1, url: 'https://archeagecodex.com/ru/item/31892/', name: 'Земельный вексель' },
-        "55722":   { icon: 'https://archeagecodex.com/items/icon_item_5864.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55722/', name: 'Искусная цитриновая гравировка' },
-        "48886":   { icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, url: 'https://archeagecodex.com/ru/item/48886/', name: 'Сверкающая эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет.<br><br>Можно использовать только при уровне усиления <span class="orange_text">18 и выше</span>.' },
-        "55723":   { icon: 'https://archeagecodex.com/items/icon_item_5865.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55723/', name: 'Искусная аквамариновая гравировка' },
-        "45747":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4385.png', grade: 5, url: 'https://archeagecodex.com/ru/item/45747/', name: 'Драгоценный флакон с зельем охотника' },
-        "49270":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, url: 'https://archeagecodex.com/ru/item/49270/', name: 'Набор больших эфенских кубов' },
-        "45160":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, url: 'https://archeagecodex.com/ru/item/45160/', name: 'Настойка спорыньи' },
-        "46623":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, url: 'https://archeagecodex.com/ru/item/46623/', name: 'Настойка остролиста' },
-        "8001268": { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001268/', name: 'Свиток дельфийской библиотеки' },
-        "46181":   { icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, url: 'https://archeagecodex.com/ru/item/46181/', name: 'Лунный настой' },
-        "48546":   { icon: 'https://archeagecodex.com/items/icon_item_3595.png', grade: 1, url: 'https://archeagecodex.com/ru/item/48546/', name: 'Письмена войны' },
-        "8002486": { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8002486/', name: 'Дизайн костюма хоури эпохи Фарвати' },
-        "47655":   { icon: 'https://archeagecodex.com/items/icon_item_4709.png', grade: 4, url: 'https://archeagecodex.com/ru/item/47655/', name: 'Фиона Розовый Лепесток' },
-        "47581":   { icon: 'https://archeagecodex.com/items/icon_item_4211.png', grade: 3, url: 'https://archeagecodex.com/ru/item/47581/', name: 'Лиловое эмалевое стекло' },
-        "47479":   { icon: 'https://archeagecodex.com/items/icon_item_3519.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47479/', name: 'Инкрустированный флакон с целебным эликсиром' },
-        "47480":   { icon: 'https://archeagecodex.com/items/icon_item_3520.png', grade: 1, url: 'https://archeagecodex.com/ru/item/47480/', name: 'Инкрустированный флакон с эликсиром маны' },
-        "8003072": { icon: 'https://archeagecodex.com/items/icon_item_6002.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8003072/', name: 'Осколок предела' },
-        "8001288": { icon: 'https://archeagecodex.com/items/icon_item_0966.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001288/', name: 'Цитрусовая карамелька' },
-        "8002649": { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3259.png', grade: 4, url: 'https://archeagecodex.com/ru/item/8002649/', name: 'Набор неверинских фейерверков' },
-        "8000540": { icon: 'https://archeagecodex.com/items/icon_item_3207.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8000540/', name: 'Пушистая неверинская елочка' },
-        "49769":   { icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, url: 'https://archeagecodex.com/ru/item/49769/', name: 'Зачарованный свиток пробуждения хранителя знаний' },
-        "54653":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, url: 'https://archeagecodex.com/ru/item/54653/', name: 'Сундук с обновленным рамианским снаряжением' },
-        "51236":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, url: 'https://archeagecodex.com/ru/item/51236/', name: 'Сундучок с драгоценным украшением эпохи мифов' },
-        "53515":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, url: 'https://archeagecodex.com/ru/item/53515/', name: 'Заговоренная рамианская руна' },
-        "52207":   { icon: 'https://archeagecodex.com/items/icon_item_3022.png', grade: 1, url: 'https://archeagecodex.com/ru/item/52207/', name: 'Мешочек с микстурами', description: 'Содержимое:<br/>- инкрустированный флакон с эликсиром маны (300 шт.),<br/>- инкрустированный флакон с целебным эликсиром (300 шт.),<br/>- солнечный настой (30 шт.),<br/>- лунный настой (30 шт.)' },
-        "54655":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, url: 'https://archeagecodex.com/ru/item/54655/', name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
-        "54654":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, url: 'https://archeagecodex.com/ru/item/54654/', name: 'Сундук с обновленным рамианским оружием эпохи Двенадцати' },
-        "51239":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, url: 'https://archeagecodex.com/ru/item/51239/', name: 'Сундук с изначальным рамианским оружием эпохи мифов' },
-        "50924":   { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, url: 'https://archeagecodex.com/ru/item/50924/', name: 'Дизайн широкополой шляпы стрелка' },
-        "51940":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, url: 'https://archeagecodex.com/ru/item/51940/', name: 'Сундучок с ценным украшением эпохи чудес' },
-        "129":     { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_accessory_0001.png', grade: 1, url: 'https://archeagecodex.com/ru/item/129/', name: 'Дельфийская руна' },
-        "50925":   { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, url: 'https://archeagecodex.com/ru/item/50925/', name: 'Дизайн соломенной шляпы' },
-        "55280":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, url: 'https://archeagecodex.com/ru/item/55280/', name: 'Легендарная руна ифнирского героя' },
-        "55683":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, url: 'https://archeagecodex.com/ru/item/55683/', name: 'Мешочек с магистериями для украшений' },
-        "50536":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, url: 'https://archeagecodex.com/ru/item/50536/', name: 'Мешочек с магистериями', description: 'Открыв мешочек, вы сможете выбрать один из следующих предметов:<br>- мешочек с рубиновыми магистериями,<br>- мешочек с кварцевыми магистериями,<br>- мешочек с сапфировыми магистериями,<br>- мешочек с изумрудными магистериями,<br>- мешочек с янтарными магистериями.' },
-        "8001148": { icon: 'https://archeagecodex.com/items/icon_item_3807.png', grade: 2, url: 'https://archeagecodex.com/ru/item/8001148/', name: 'Статуя «Орхидна на троне»' },
-        "8001203": { icon: 'https://archeagecodex.com/items/icon_item_3277.png', grade: 1, url: 'https://archeagecodex.com/ru/item/8001203/', name: 'Сундучок с фамильными ценностями' },
-        "54933":   { icon: 'https://archeagecodex.com/items/icon_item_5809.png', grade: 2, url: 'https://archeagecodex.com/ru/item/54933/', name: 'Замерзший пруд' },
-        "48860":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48860/', name: 'Большая эфенская сфера оружейника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в <span class="orange_text">2</span> раза.' },
-        "48861":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, url: 'https://archeagecodex.com/ru/item/48861/', name: 'Большая эфенская сфера бронника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в <span class="orange_text">2</span> раза.' },
-        "44359":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, url: 'https://archeagecodex.com/ru/item/44359/', name: 'Походный фиал славы' },
-        "47941":   { type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, url: 'https://archeagecodex.com/ru/item/47941/', name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
-        "55800":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, url: 'https://archeagecodex.com/ru/item/55800/', name: 'Сундучок с фрагментами судьбы', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:<br>- пыль судьбы (25 шт.),<br>- слиток судьбы<br> (5 шт.),<br>- призма судьбы.' },
-        "8002772": { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, url: 'https://archeagecodex.com/ru/item/8002772/', name: 'Окованный сталью ящик с боевым питомцем', description: 'Сняв печать, вы получите Квадрума, Мистериона или Мистериона, Ужаса Ночи (на выбор).' },
-        "":   { type: '', icon: '', grade: 1, url: '', name: '' },
+        "48894":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, name: 'Драгоценная эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет. Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r.' },
+        "54915":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, name: 'Свиток чар ифнирского героя' },
+        "45508":   { icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, name: 'Сфера анимага' },
+        "8001565": { icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, name: 'Новенькая кирка' },
+        "8002452": { icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, name: 'Универсальный алхимический кристалл' },
+        "8002449": { icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, name: 'Дополнительная сумка' },
+        "47943":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, name: 'Настойка усердного ремесленника' },
+        "39424":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, name: 'Ирамийская гадальная руна' },
+        "46180":   { icon: 'https://archeagecodex.com/items/icon_item_1395.png', grade: 3, name: 'Солнечный настой' },
+        "47130":   { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, name: 'Хрустальная руна', description: '|nd;Можно получить одну из хрустальных рун на выбор:|r\n- хрустальная руна багровой луны,\n- хрустальная руна осенней луны,\n- хрустальная руна молодой луны,\n- хрустальная руна безмолвной луны,\n- хрустальная руна колдовской луны.' },
+        "47104":   { icon: 'https://archeagecodex.com/items/icon_item_4570.png', grade: 2, name: 'Парниковый купол' },
+        "48903":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3282.png', grade: 1, name: 'Набор сверкающих эфенских сфер' },
+        "48474":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3275.png', grade: 11, name: 'Большой набор мифических эссенций' },
+        "8002297": { type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, name: 'Королевский лунный изумруд' },
+        "35727":   { icon: 'https://archeagecodex.com/items/icon_item_1982.png', grade: 2, name: 'Буровая установка' },
+        "47082":   { icon: 'https://archeagecodex.com/items/icon_item_3369.png', grade: 1, name: 'Патент на транспортное средство' },
+        "55783":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, name: 'Сундучок с зачарованной гравировкой для украшений' },
+        "31892":   { icon: 'https://archeagecodex.com/items/icon_item_1733.png', grade: 1, name: 'Земельный вексель' },
+        "55722":   { icon: 'https://archeagecodex.com/items/icon_item_5864.png', grade: 4, name: 'Искусная цитриновая гравировка' },
+        "48886":   { icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, name: 'Сверкающая эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r.' },
+        "55723":   { icon: 'https://archeagecodex.com/items/icon_item_5865.png', grade: 4, name: 'Искусная аквамариновая гравировка' },
+        "45747":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4385.png', grade: 5, name: 'Драгоценный флакон с зельем охотника' },
+        "49270":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, name: 'Набор больших эфенских кубов' },
+        "45160":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, name: 'Настойка спорыньи' },
+        "46623":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, name: 'Настойка остролиста' },
+        "8001268": { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток дельфийской библиотеки' },
+        "46181":   { icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, name: 'Лунный настой' },
+        "48546":   { icon: 'https://archeagecodex.com/items/icon_item_3595.png', grade: 1, name: 'Письмена войны' },
+        "8002486": { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, name: 'Дизайн костюма хоури эпохи Фарвати' },
+        "47655":   { icon: 'https://archeagecodex.com/items/icon_item_4709.png', grade: 4, name: 'Фиона Розовый Лепесток' },
+        "47581":   { icon: 'https://archeagecodex.com/items/icon_item_4211.png', grade: 3, name: 'Лиловое эмалевое стекло' },
+        "47479":   { icon: 'https://archeagecodex.com/items/icon_item_3519.png', grade: 1, name: 'Инкрустированный флакон с целебным эликсиром' },
+        "47480":   { icon: 'https://archeagecodex.com/items/icon_item_3520.png', grade: 1, name: 'Инкрустированный флакон с эликсиром маны' },
+        "8003072": { icon: 'https://archeagecodex.com/items/icon_item_6002.png', grade: 1, name: 'Осколок предела' },
+        "8001288": { icon: 'https://archeagecodex.com/items/icon_item_0966.png', grade: 1, name: 'Цитрусовая карамелька' },
+        "8002649": { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3259.png', grade: 4, name: 'Набор неверинских фейерверков' },
+        "8000540": { icon: 'https://archeagecodex.com/items/icon_item_3207.png', grade: 1, name: 'Пушистая неверинская елочка' },
+        "49769":   { icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, name: 'Зачарованный свиток пробуждения хранителя знаний' },
+        "54653":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, name: 'Сундук с обновленным рамианским снаряжением' },
+        "51236":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундучок с драгоценным украшением эпохи мифов' },
+        "53515":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, name: 'Заговоренная рамианская руна' },
+        "52207":   { icon: 'https://archeagecodex.com/items/icon_item_3022.png', grade: 1, name: 'Мешочек с микстурами', description: 'Содержимое:\n- инкрустированный флакон с эликсиром маны (300 шт.),\n- инкрустированный флакон с целебным эликсиром (300 шт.),\n- солнечный настой (30 шт.),\n- лунный настой (30 шт.)' },
+        "54655":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
+        "54654":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с обновленным рамианским оружием эпохи Двенадцати' },
+        "51239":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с изначальным рамианским оружием эпохи мифов' },
+        "50924":   { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, name: 'Дизайн широкополой шляпы стрелка' },
+        "51940":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Сундучок с ценным украшением эпохи чудес' },
+        "129":     { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_accessory_0001.png', grade: 1, name: 'Дельфийская руна' },
+        "50925":   { type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, name: 'Дизайн соломенной шляпы' },
+        "55280":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, name: 'Легендарная руна ифнирского героя' },
+        "55683":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями для украшений' },
+        "50536":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями', description: 'Открыв мешочек, вы сможете выбрать один из следующих предметов:\n- мешочек с рубиновыми магистериями,\n- мешочек с кварцевыми магистериями,\n- мешочек с сапфировыми магистериями,\n- мешочек с изумрудными магистериями,\n- мешочек с янтарными магистериями.' },
+        "8001148": { icon: 'https://archeagecodex.com/items/icon_item_3807.png', grade: 2, name: 'Статуя «Орхидна на троне»' },
+        "8001203": { icon: 'https://archeagecodex.com/items/icon_item_3277.png', grade: 1, name: 'Сундучок с фамильными ценностями' },
+        "54933":   { icon: 'https://archeagecodex.com/items/icon_item_5809.png', grade: 2, name: 'Замерзший пруд' },
+        "48860":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, name: 'Большая эфенская сфера оружейника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.' },
+        "48861":   { type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, name: 'Большая эфенская сфера бронника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.' },
+        "44359":   { type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, name: 'Походный фиал славы' },
+        "47941":   { type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
+        "55800":   { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, name: 'Сундучок с фрагментами судьбы', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:\n- пыль судьбы (25 шт.),\n- слиток судьбы (5 шт.),\n- призма судьбы.' },
+        "8002772": { type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем', description: 'Сняв печать, вы получите Квадрума, Мистериона или Мистериона, Ужаса Ночи (на выбор).' },
+        "":   { type: '', icon: '', grade: 1, name: '' },
     };
+
+    for (const [id, item] of Object.entries(ITEMS)) item.id = id;
 
     /**
      * @typedef {Object} Slot
@@ -1856,7 +1869,7 @@
 
             const descriptionSection = document.createElement('div');
             descriptionSection.className = 'tm-item-tooltip-desc';
-            descriptionSection.innerHTML = item.description;
+            descriptionSection.innerHTML = parseGameMarkup(item.description);
             tooltip.appendChild(descriptionSection);
         }
     };
@@ -1915,7 +1928,7 @@
      * @param {Object} params
      * @param {ItemBase} params.item - Предмет.
      * @param {string} [params.overlay] - URL overlay-изображения типа предмета (из ITEM_TYPES).
-     * @param {boolean} [params.linked=false] - Создать как `<a>` со ссылкой item.url.
+     * @param {boolean} [params.linked=false] - Создать как `<a>` со ссылкой на ArcheageCodex.
      * @param {'small'|'medium'} [params.size='medium'] - Размер иконки: `'small'` (30px) или `'medium'` (42px).
      * @param {number} [params.count] - Количество предмета (бейдж снизу-справа, показывается при > 1).
      * @param {boolean} [params.noTooltip=false] - Не добавлять всплывашку (для иконки внутри тултипа).
@@ -1926,7 +1939,7 @@
         icon.className = `tm-item-icon tm-item-icon--${size}`;
 
         if (linked) {
-            icon.href = item.url;
+            icon.href = `${CODEX_ITEM_URL}${item.id}/`;
             icon.target = '_blank';
             icon.rel = 'noopener noreferrer';
             icon.addEventListener('click', (e) => e.stopPropagation());
@@ -2022,7 +2035,7 @@
 
         // Предмет с количеством и иконкой (если есть данные)
         const item = slot?.item;
-        if (item?.url) {
+        if (item?.id) {
             const hasIcon = item.icon && item.grade;
 
             if (hasIcon) {
@@ -2037,7 +2050,7 @@
                 // Без иконки - показываем название ссылкой
                 const nameLink = document.createElement('a');
                 nameLink.className = 'tm-item-name-link';
-                nameLink.href = item.url;
+                nameLink.href = `${CODEX_ITEM_URL}${item.id}/`;
                 nameLink.target = '_blank';
                 nameLink.rel = 'noopener noreferrer';
                 nameLink.textContent = item.name;
@@ -2825,6 +2838,14 @@
 
             .light_blue_text {
                 color: #74b0ca;
+            }
+
+            .blue_text {
+                color: #27b1c6;
+            }
+
+            .red_text {
+                color: #de482f;
             }
         `;
     };
@@ -4607,11 +4628,11 @@
          * @returns {ItemBase}
          */
         const toItemBase = (item) => ({
+            id: String(item.type || ''),
             icon: item.iconurl || '',
             grade: mapGrade(item.grade),
-            url: `https://archeagecodex.com/ru/item/${item.type}/`,
             name: item.gi_name || '',
-            description: parseGameMarkup(item.gi_description),
+            description: item.gi_description || '',
         });
 
         const addZero = (n) => n < 10 ? '0' + n : '' + n;
@@ -4965,6 +4986,7 @@
                     itemBase: toItemBase(item),
                 }),
             });
+            restoreBtn.classList.toggle('active', selectedItems.length > 0);
         };
 
         // --- Selection ---
