@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      3.7
+// @version      3.8
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -180,6 +180,7 @@
     // ==================== Константы ====================
 
     const DONE_CLASS = 'tm-task-completed';
+    const JUST_DONE_CLASS = 'tm-task-just-completed';
     const TZ = 'Europe/Moscow';
     const MSK_OFFSET_HOURS = 3;
     const THU_PRE_HOUR = 3;   // 03:00 МСК — до профработ
@@ -286,6 +287,9 @@
     const AUTO_REFRESH_INTERVAL_HIDDEN_MS = 1800000; // 30 минут без фокуса
     let autoRefreshIntervalId = null;
     let isRefreshing = false;
+
+    /** @type {Set<number>} ID квестов, которые были выполнены на прошлой отрисовке */
+    let previouslyDoneQuestIds = new Set();
 
     let MIN_DAY_UTC_MS = null;
     let MAX_DAY_UTC_MS = null;
@@ -421,7 +425,10 @@
 
     const getNowUnix = () => Math.floor(nowMs() / 1000);
 
-    /** @param {number} utcMs @returns {{ y: number, m: number, d: number }} */
+    /**
+     * @param {number} utcMs
+     * @returns {{ y: number, m: number, d: number }}
+     * */
     const getMSKDatePartsFromUtcMs = (utcMs) => {
         const d = new Date(utcMs);
         const fmt = new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -459,7 +466,10 @@
 
     const addDaysUtcMs = (dayUtcMs, deltaDays) => dayUtcMs + deltaDays * 86400000;
 
-    /** @param {number} dayUtcMs @returns {{ start: number, end: number }} Unix-границы дня в МСК. */
+    /**
+     * @param {number} dayUtcMs
+     * @returns {{ start: number, end: number }} Unix-границы дня в МСК.
+     * */
     const getDayBoundsUnix = (dayUtcMs) => {
         const { y, m, d } = getMSKDatePartsFromUtcMs(dayUtcMs);
         const startMs = Date.UTC(y, m - 1, d, 0, 0, 0) - MSK_OFFSET_HOURS * 3600 * 1000;
@@ -1128,11 +1138,10 @@
     // ==================== Внешние ссылки (Codex, Veksel) ====================
 
     const CODEX_BASE = 'https://archeagecodex.com/ru/quest/';
-    const CODEX_ITEMS_BASE = 'https://archeagecodex.com/items/';
     const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
     const ICON_QUEST = 'https://archeagecodex.com/images/icon_quest_common.png';
-    const ICON_VEKSEL = 'icon_item_3493.png';
-    const ICON_VEKSEL_NORTH = 'icon_item_5054.png';
+    const ICON_VEKSEL = 'https://archeagecodex.com/items/icon_item_3493.png';
+    const ICON_VEKSEL_NORTH = 'https://archeagecodex.com/items/icon_item_5054.png';
     const ICON_GISAA_OVERLAY = 'https://gisaa.ru/img/gisaa.svg?v=1';
     const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
 
@@ -1217,7 +1226,7 @@
 
     /**
      * @typedef {Object} ItemBase
-     * @property {string} icon - Имя файла иконки (относительно CODEX_ITEMS_BASE) или полный URL.
+     * @property {string} icon - Полный URL иконки.
      * @property {number} grade - Грейд (индекс в массиве GRADES, 0–12).
      * @property {string} url - Ссылка на предмет в ArcheageCodex.
      * @property {string} name - Название предмета.
@@ -1226,22 +1235,25 @@
      * @property {string} [description] - Описание предмета (отображается во второй секции всплывашки).
      */
 
+    const CODEX_ITEMS = 'https://archeagecodex.com/items/';
+    const GMRU_CDN_ICONS = 'https://aa.cdn.gmru.net/ms/data/game-icons/';
+
     /** @type {Record<string, ItemBase>} */
     const ITEMS = {
-        "8256":    { icon: "icon_item_0356.png", grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань" },
-        "8318":    { icon: "quest/icon_item_quest053.png", grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа" },
-        "8337":    { icon: "icon_item_0041.png", grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Строительная древесина" },
-        "16327":   { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа" },
-        "35461":   { type: 'unconfirmed', vekselType: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром" },
-        "40928":   { type: 'unconfirmed', vekselType: 'sack', icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк" },
-        "42076":   { type: 'unconfirmed', vekselType: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной" },
-        "42077":   { type: 'unconfirmed', vekselType: 'archive', icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной" },
-        "43176":   { type: 'unconfirmed', vekselType: 'sack', icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника" },
-        "43177":   { type: 'unconfirmed', vekselType: 'archive', icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной" },
-        "8000749": { type: 'quest', icon: "icon_item_2762.png", grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный", description: 'Позволяет получить задание.' },
-        "8000751": { type: 'quest', icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы", description: 'Позволяет получить задание.' },
-        "8000752": { type: 'quest', icon: "icon_item_2762.png", grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" },
-        "8000753": { type: 'quest', icon: "icon_item_2762.png", grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" },
+        "8256":    { icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань" }, // icon_item_0356.png
+        "8318":    { icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа" }, // icon_item_quest053.png
+        "8337":    { icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Строительная древесина" }, // icon_item_0041.png
+        "16327":   { icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа" }, // icon_item_0352.png
+        "35461":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром" }, // icon_item_1839.png
+        "40928":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}d9df620283926e6f4a9ab47ebacf499c.png`, grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк" }, // icon_item_3101.png
+        "42076":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}66ed119fca00abf78ddf2602ed55e659.png`, grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной" }, // icon_item_3619.png
+        "42077":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}1ddc9b8c6e0d41d83f2d3f9536eb29a4.png`, grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной" }, // icon_item_3620.png
+        "43176":   { type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}b41e79b64ae0b578499ac6301325f631.png`, grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника" }, // icon_item_3906.png
+        "43177":   { type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}f2d17e3b4d030e91c38e68cd60c0ee69.png`, grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной" }, // icon_item_3907.png
+        "8000749": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный", description: 'Позволяет получить задание.' }, // icon_item_2762.png
+        "8000751": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы", description: 'Позволяет получить задание.' },
+        "8000752": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" },
+        "8000753": { type: 'quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" },
     };
 
     /**
@@ -1343,7 +1355,7 @@
         "8502": { codexId: 7327, short: "50 мобов (100 очков) на Сверкающем побережье" },
         "8504": { codexId: 9296, short: "" },
         "8506": { codexId: 5969, short: "", events: [{ time: "03:20" }, { time: "07:20" }, { time: "11:20" }, { time: "15:20" }, { time: "19:20" }, { time: "23:20" }] },
-        "8508": { codexId: 8641, short: "Эфен - жаба" },
+        "8508": { codexId: 8641, short: "Эфен - жаба (через 5 минут после начала войны)" },
         "8510": { codexId: 5077, short: "" },
         "8512": { codexId: 8605, short: "" },
         "8514": { codexId: 11096, short: "Луг - Битва хранителей", events: [{ time: "18:00", weekdays: [6, 0] }] },
@@ -1356,7 +1368,7 @@
 
     // ==================== API-запросы ====================
 
-    /** @param {string} url @returns {Promise<any>} */
+    /** @param {string} url */
     const fetchJson = async (url) => {
         const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
@@ -1472,7 +1484,7 @@
             if (dayChanged) {
                 await onSelectedDateChanged();
             } else {
-                await renderTasksForSelectedDay();
+                await renderTasksForSelectedDay({ animateNewlyDone: true });
             }
 
             // Обновляем историю выполнений
@@ -1521,7 +1533,6 @@
         }
     };
 
-    /** @returns {Promise<string>} */
     const getUidFromCheckUser = async () => {
         const json = await fetchJson('/dynamic/auth/?a=checkuser');
         const uid = json?.user?.uid;
@@ -1529,7 +1540,10 @@
         return String(uid);
     };
 
-    /** @param {string} html @returns {string[]} */
+    /**
+     * @param {string} html
+     * @returns {string[]}
+     * */
     const parseServersFromCharListHtml = (html) => {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         return [...doc.querySelectorAll('li')]
@@ -1541,7 +1555,10 @@
             .filter(Boolean);
     };
 
-    /** @param {string[]} servers @returns {string|null} */
+    /**
+     * @param {string[]} servers
+     * @returns {string|null}
+     * */
     const pickMainServer = (servers) => {
         if (!servers.length) return null;
 
@@ -1627,7 +1644,7 @@
 
         const badgeImg = document.createElement('img');
         badgeImg.className = 'tm-veksel-icon-badge';
-        badgeImg.src = `${CODEX_ITEMS_BASE}${vekselIcon}`;
+        badgeImg.src = vekselIcon;
         badgeImg.alt = 'veksel';
 
         a.appendChild(mainImg);
@@ -1654,7 +1671,7 @@
 
         const itemImg = document.createElement('img');
         itemImg.className = 'tm-item-icon-img';
-        itemImg.src = item.icon.startsWith('http') ? item.icon : `${CODEX_ITEMS_BASE}${item.icon}`;
+        itemImg.src = item.icon;
 
         icon.appendChild(itemImg);
 
@@ -1920,13 +1937,17 @@
      * @param {'blue_salt'|'north'} [params.veksel]
      * @param {string[]} [params.locations]
      * @param {QuestEvent[]} [params.events]
+     * @param {boolean} [params.animateCompletion=false] - Добавить анимацию "только что выполнено"
      */
-    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, slot, veksel, locations, events }) => {
+    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, slot, veksel, locations, events, animateCompletion = false }) => {
         const card = document.createElement('div');
         card.className = `tasks__item tasks__item--${amount || 1}`;
 
         if (isDone) {
             card.classList.add(DONE_CLASS);
+            if (animateCompletion) {
+                card.classList.add(JUST_DONE_CLASS);
+            }
 
             const done = document.createElement('div');
             done.className = 'tasks__item-done';
@@ -2359,7 +2380,11 @@
         }
     };
 
-    const renderTasksForSelectedDay = async () => {
+    /**
+     * @param {Object} [options]
+     * @param {boolean} [options.animateNewlyDone=false] - Анимировать задания, которые стали выполненными с прошлого рендера
+     */
+    const renderTasksForSelectedDay = async ({ animateNewlyDone = false } = {}) => {
         const listEl = ensureTasksListEl();
         if (!listEl) return;
 
@@ -2393,6 +2418,9 @@
 
         listEl.innerHTML = '';
 
+        /** @type {Set<number>} */
+        const currentDoneIds = new Set();
+
         for (const q of active) {
             const questId = Number(q.id);
             const meta = QUEST_META?.[questId] || QUEST_META?.[String(questId)];
@@ -2403,6 +2431,11 @@
             const amount = getRewardAmount(q);
             const doneInSlot = isDoneInSelectedSlot(q, selectedDayUtcMs, selectedSegment);
 
+            if (doneInSlot) currentDoneIds.add(questId);
+
+            // Анимируем только если: включён флаг + задание выполнено + его не было в прошлом списке
+            const isNewlyDone = animateNewlyDone && doneInSlot && !previouslyDoneQuestIds.has(questId);
+
             const card = makeTaskCard({
                 q, amount, codexId, short,
                 isDone: doneInSlot,
@@ -2411,10 +2444,13 @@
                 veksel: meta.veksel,
                 locations: meta.locations,
                 events: meta.events,
+                animateCompletion: isNewlyDone,
             });
 
             listEl.appendChild(card);
         }
+
+        previouslyDoneQuestIds = currentDoneIds;
     };
 
     // ==================== Стили ====================
@@ -2424,6 +2460,59 @@
         style.textContent = `
             .${DONE_CLASS} {
                 background-color: #fff0e2bf;
+            }
+
+            /* Анимация "только что выполнено" */
+            @keyframes tm-just-completed-glow {
+                0% {
+                    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7), inset 0 0 20px rgba(76, 175, 80, 0.3);
+                    transform: scale(1);
+                }
+                15% {
+                    box-shadow: 0 0 25px 8px rgba(76, 175, 80, 0.6), inset 0 0 30px rgba(76, 175, 80, 0.4);
+                    transform: scale(1.02);
+                }
+                30% {
+                    box-shadow: 0 0 35px 12px rgba(255, 215, 0, 0.5), inset 0 0 40px rgba(255, 215, 0, 0.3);
+                    transform: scale(1.03);
+                }
+                50% {
+                    box-shadow: 0 0 20px 6px rgba(76, 175, 80, 0.4), inset 0 0 25px rgba(76, 175, 80, 0.2);
+                    transform: scale(1.01);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 transparent, inset 0 0 0 transparent;
+                    transform: scale(1);
+                }
+            }
+
+            @keyframes tm-just-completed-bg {
+                0% { background-color: #fff0e2bf; }
+                20% { background-color: rgba(76, 175, 80, 0.35); }
+                40% { background-color: rgba(255, 215, 0, 0.3); }
+                60% { background-color: rgba(76, 175, 80, 0.25); }
+                100% { background-color: #fff0e2bf; }
+            }
+
+            @keyframes tm-checkmark-pop {
+                0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+                50% { transform: scale(1.4) rotate(10deg); opacity: 1; }
+                70% { transform: scale(0.9) rotate(-5deg); }
+                100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            }
+
+            .${JUST_DONE_CLASS} {
+                animation:
+                    tm-just-completed-glow 2s ease-out forwards,
+                    tm-just-completed-bg 2s ease-out forwards;
+                position: relative;
+                z-index: 10;
+            }
+
+            .${JUST_DONE_CLASS} .tm-done-check {
+                animation: tm-checkmark-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                animation-delay: 0.2s;
+                transform: scale(0);
             }
 
             .tasks__item {
@@ -2950,11 +3039,6 @@
 
     // ==================== Подарки за уровни ====================
 
-    /** Получить статус пользователя (trial/premium) из кэша API. @returns {'trial'|'premium'} */
-    const getUserStatus = () => {
-        return API_INFO_CACHE?.data?.user_info?.status || 'trial';
-    };
-
     // Загрузить состояние автозабора из localStorage
     const loadAutoClaimState = () => {
         try {
@@ -2971,17 +3055,6 @@
         } catch {
             // ignore
         }
-    };
-
-    // Получить список подарков в зависимости от статуса пользователя
-    const getPrizesList = () => {
-        const status = getUserStatus();
-        const prizesWrap = document.querySelector('.prizes__wrap');
-        if (!prizesWrap) return null;
-
-        // trial - только бесплатные, premium - премиальные (full)
-        const selector = status === 'premium' ? '.prizes__list.full' : '.prizes__list.free';
-        return prizesWrap.querySelector(selector);
     };
 
     // Определить целевой уровень из данных API
