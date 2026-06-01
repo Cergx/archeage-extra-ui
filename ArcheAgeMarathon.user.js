@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      2.4
-// @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
+// @version      2.6
+// @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
 // @match        *://gisaa.ru/veksel/*
@@ -188,6 +188,12 @@
     let API_INFO_PROMISE = null;
     let NOW_MS = null;
 
+    // Автообновление API
+    const AUTO_REFRESH_INTERVAL_FOCUSED_MS = 30000; // 30 секунд в фокусе
+    const AUTO_REFRESH_INTERVAL_HIDDEN_MS = 1800000; // 30 минут без фокуса
+    let autoRefreshIntervalId = null;
+    let isRefreshing = false;
+
     let MIN_DAY_UTC_MS = null;
     let MAX_DAY_UTC_MS = null;
     let MIN_SEG = null;
@@ -205,6 +211,7 @@
         nextBtn: null,
         todayBtn: null,
         hideDoneCheckbox: null,
+        refreshLoader: null,
         tasksHeader: null,
         tasksList: null,
     };
@@ -372,13 +379,6 @@
 
     // ==================== Обратный отсчёт до событий ====================
 
-    // Маппинг русских названий дней недели на номер (0 = воскресенье, 1 = понедельник, ...)
-    const WEEKDAY_MAP = {
-        'воскресенье': 0, 'понедельник': 1, 'вторник': 2, 'среда': 3,
-        'среду': 3, 'четверг': 4, 'пятница': 5, 'пятницу': 5,
-        'суббота': 6, 'субботу': 6,
-    };
-
     // Получить текущее серверное время (с учётом смещения)
     const getServerNowMs = () => {
         if (SERVER_TIME_OFFSET == null) return Date.now();
@@ -414,52 +414,19 @@
         return h * 3600 + m * 60 + s;
     };
 
-    // Парсит события из строки short
-    // Возвращает массив { weekdays: number[] | null, hours, minutes }
-    const parseEventsFromShort = (short) => {
-        if (!short) return [];
+    // Названия дней недели для отображения
+    const WEEKDAY_NAMES = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
-        const events = [];
-        const weekdayPattern = /(?:^|\/)\s*((?:(?:понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?:\s*(?:и|,)\s*)?)+)\s*в\s*(\d{1,2}:\d{2})/gi;
-
-        let hasWeekdayEvents = false;
-        let match;
-
-        // Ищем форматы с днями недели: "Пятница в 22:00", "Суббота и Воскресенье в 18:00"
-        while ((match = weekdayPattern.exec(short)) !== null) {
-            hasWeekdayEvents = true;
-            const daysStr = match[1].toLowerCase();
-            const timeStr = match[2];
-            const [h, m] = timeStr.split(':').map(Number);
-
-            // Извлекаем все дни недели из строки
-            const weekdays = [];
-            for (const [name, num] of Object.entries(WEEKDAY_MAP)) {
-                if (daysStr.includes(name)) {
-                    if (!weekdays.includes(num)) weekdays.push(num);
-                }
-            }
-
-            if (weekdays.length > 0) {
-                events.push({ weekdays, hours: h, minutes: m });
-            }
-        }
-
-        // Если нет событий с днями недели, ищем простые времена (ежедневные)
-        if (!hasWeekdayEvents) {
-            const timePattern = /\b(\d{1,2}:\d{2})\b/g;
-            while ((match = timePattern.exec(short)) !== null) {
-                const [h, m] = match[1].split(':').map(Number);
-                events.push({ weekdays: null, hours: h, minutes: m }); // null = каждый день
-            }
-        }
-
-        return events;
+    // Парсит время из строки "HH:MM" в { hours, minutes }
+    const parseTime = (timeStr) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return { hours: h, minutes: m };
     };
 
     // Вычисляет секунды до ближайшего события
+    // events: Array<{ time: "HH:MM", weekdays?: number[] }>
     const getSecondsUntilNextEvent = (events) => {
-        if (!events.length) return null;
+        if (!events || !events.length) return null;
 
         const serverNow = getServerNowMs();
         const nowWeekday = getMSKWeekday(serverNow);
@@ -468,9 +435,10 @@
         let minDiff = Infinity;
 
         for (const event of events) {
-            const targetTimeSeconds = event.hours * 3600 + event.minutes * 60;
+            const { hours, minutes } = parseTime(event.time);
+            const targetTimeSeconds = hours * 3600 + minutes * 60;
 
-            if (event.weekdays === null) {
+            if (!event.weekdays || event.weekdays.length === 0) {
                 // Ежедневное событие
                 let diff = targetTimeSeconds - nowSeconds;
                 if (diff <= 0) diff += 24 * 3600;
@@ -490,6 +458,38 @@
         }
 
         return minDiff === Infinity ? null : minDiff;
+    };
+
+    // Форматирует events в строку для отображения
+    const formatEventsToString = (events) => {
+        if (!events || !events.length) return '';
+
+        // Группируем события: с днями недели отдельно, ежедневные отдельно
+        const daily = [];
+        const withWeekdays = [];
+
+        for (const event of events) {
+            if (!event.weekdays || event.weekdays.length === 0) {
+                daily.push(event.time);
+            } else {
+                withWeekdays.push(event);
+            }
+        }
+
+        const parts = [];
+
+        // Ежедневные времена
+        if (daily.length > 0) {
+            parts.push(daily.join(' / '));
+        }
+
+        // События с днями недели
+        for (const event of withWeekdays) {
+            const days = event.weekdays.map(d => WEEKDAY_NAMES[d]).join(', ');
+            parts.push(`${days} ${event.time}`);
+        }
+
+        return parts.join(' / ');
     };
 
     // Форматирует секунды: 2 самых крупных показателя
@@ -717,89 +717,28 @@
 
     let VEkselUrlResolved = VEKSEL_BASE;
 
-    // Парсит short и возвращает URL-параметры для gisaa
-    const parseShortToVekselParams = (short, isBlueSaltVeksel) => {
-        if (!short) return null;
-
-        if (isBlueSaltVeksel) {
-            // Формат: "60 <a href='...'>Слиток железа</a>"
-            const match = short.match(/^(\d+)\s*<a[^>]*>([^<]+)<\/a>/i);
-            if (!match) return null;
-            const amount = match[1];
-            const resourceName = match[2].trim();
-            return `res=${encodeURIComponent(resourceName)}&amount=${amount}`;
-        } else {
-            // Северные локации
-            // Формат: "Бездна / Солнечные поля - 25 <a>кошельков</a>" или "20 <a>котомок</a>"
-            const itemMatch = short.match(/<a[^>]*>([^<]+)<\/a>/i);
-            if (!itemMatch) return null;
-            const itemName = itemMatch[1].trim().toLowerCase();
-            const iconType = itemName.includes('сундуч') ? 'archive' : 'sack';
-
-            // С локацией
-            const locMatch = short.match(/^([^<]+?)\s*-\s*(\d+)\s*<a/i);
-            if (locMatch) {
-                const locationsStr = locMatch[1].trim();
-                const amount = locMatch[2];
-                // Разбиваем по " / " или " или "
-                const locations = locationsStr.split(/\s*(?:\/|или)\s*/i).map(s => s.trim()).filter(Boolean);
-                return `loc=${encodeURIComponent(locations.join(','))}&amount=${amount}&icon=${iconType}`;
-            }
-
-            // Без локации
-            const simpleMatch = short.match(/^(\d+)\s*<a/i);
-            if (simpleMatch) {
-                const amount = simpleMatch[1];
-                return `amount=${amount}&icon=${iconType}`;
-            }
-
-            return null;
-        }
-    };
-
     // Формирует URL для gisaa с параметрами
     // veksel: 'blue_salt' | 'north' | undefined
-    const buildVekselUrl = (baseUrl, veksel, short, item) => {
+    // locations: string[] | undefined — массив локаций для северных квестов
+    const buildVekselUrl = (baseUrl, veksel, item, locations) => {
         const isBlueSalt = veksel === 'blue_salt';
         const isNorth = veksel === 'north';
         if (!isBlueSalt && !isNorth) return baseUrl;
 
         let params = null;
 
-        // Пробуем получить параметры из item
         if (item?.count && item?.name) {
             if (isBlueSalt) {
                 params = `res=${encodeURIComponent(item.name)}&amount=${item.count}`;
-            } else {
-                // Для северных - тип иконки берём из item.type
+            } else if (isNorth) {
+                // Для северных - тип иконки берём из item.type, локации из locations
                 const iconType = item.type || 'sack';
-                // Локация в short (может быть "Loc1 / Loc2" или "Loc - item" (старый формат))
-                if (short) {
-                    // Проверяем старый формат с дефисом
-                    const dashMatch = short.match(/^([^-<]+?)\s*-/i);
-                    let locationsStr;
-                    if (dashMatch) {
-                        locationsStr = dashMatch[1].trim();
-                    } else {
-                        // Новый формат: short содержит только локации
-                        locationsStr = short.replace(/<[^>]*>/g, '').trim();
-                    }
-                    if (locationsStr) {
-                        const locations = locationsStr.split(/\s*(?:\/|или)\s*/i).map(s => s.trim()).filter(Boolean);
-                        if (locations.length > 0) {
-                            params = `loc=${encodeURIComponent(locations.join(','))}&amount=${item.count}&icon=${iconType}`;
-                        }
-                    }
-                }
-                if (!params) {
+                if (locations && locations.length > 0) {
+                    params = `loc=${encodeURIComponent(locations.join(','))}&amount=${item.count}&icon=${iconType}`;
+                } else {
                     params = `amount=${item.count}&icon=${iconType}`;
                 }
             }
-        }
-
-        // Fallback на парсинг short
-        if (!params) {
-            params = parseShortToVekselParams(short, isBlueSalt);
         }
 
         if (!params) return baseUrl;
@@ -812,8 +751,8 @@
         "8246": { codexId: 10559, short: "" },
         "8248": { codexId: 9142, short: "", veksel: 'blue_salt' },
         "8250": { codexId: 9318, short: 'Квест на Взрослого ольхона (портал "Укромный утес")' },
-        "8252": { codexId: 10512, short: "Бухта Китобоев / Эфен'Хал", veksel: 'north', item: { type: 'sack', icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника", count: 20 } },
-        "8254": { codexId: 10513, short: "Бухта Китобоев / Эфен'Хал", veksel: 'north', item: { type: 'sack', icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника", count: 60 } },
+        "8252": { codexId: 10512, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], item: { type: 'sack', icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника", count: 20 } },
+        "8254": { codexId: 10513, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], item: { type: 'sack', icon: "icon_item_3906.png", grade: 1, url: "https://archeagecodex.com/ru/item/43176/", name: "Котомка эфенского странника", count: 60 } },
         "8256": { codexId: 9100, short: "" },
         "8258": { codexId: 7658, short: "" },
         "8260": { codexId: 6797, short: "" },
@@ -823,43 +762,43 @@
         "8282": { codexId: 7154, short: "" },
         "8284": { codexId: 9137, short: "", veksel: 'blue_salt', item: { icon: "quest/icon_item_quest053.png", grade: 1, url: "https://archeagecodex.com/ru/item/8318/", name: "Слиток железа", count: 60 } },
         "8286": { codexId: 8000131, short: "Квест Нуи на 500 очков работы" },
-        "8288": { codexId: 10508, short: "Бездна / Солнечные поля", veksel: 'north', item: { type: 'sack', icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк", count: 25 } },
-        "8290": { codexId: 10509, short: "Бездна / Солнечные поля", veksel: 'north', item: { type: 'sack', icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк", count: 75 } },
+        "8288": { codexId: 10508, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], item: { type: 'sack', icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк", count: 25 } },
+        "8290": { codexId: 10509, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], item: { type: 'sack', icon: "icon_item_3101.png", grade: 1, url: "https://archeagecodex.com/ru/item/40928/", name: "Расшитый жемчугом кошелёк", count: 75 } },
         "8292": { codexId: 5092, short: "" },
         "8294": { codexId: 7659, short: "" },
         "8296": { codexId: 7817, short: "" },
-        "8298": { codexId: 8000058, short: "Лицензия в Нагашар (только обычка)", item: { type: 'license', icon: "icon_item_2762.png", grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный" } },
-        "8300": { codexId: 5971, short: "03:20 / 07:20 / 11:20 / 15:20 / 19:20 / 23:20" },
-        "8314": { codexId: 10564, short: "Ифнир - змея<br/>Пятница в 22:00 / Суббота в 16:00" },
-        "8316": { codexId: 8000061, short: "Лицензия в Сады наслаждений (только хард)", item: { type: 'license', icon: "icon_item_2762.png", grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" } },
+        "8298": { codexId: 8000058, short: "Нагашар (только обычка)", item: { type: 'license', icon: "icon_item_2762.png", grade: 3, url: "https://archeagecodex.com/ru/item/8000749/", name: "Лицензия на убийство: Баррага Безумный" } },
+        "8300": { codexId: 5971, short: "", events: [{ time: "03:20" }, { time: "07:20" }, { time: "11:20" }, { time: "15:20" }, { time: "19:20" }, { time: "23:20" }] },
+        "8314": { codexId: 10564, short: "Ифнир - змея", events: [{ time: "22:00", weekdays: [5] }, { time: "16:00", weekdays: [6] }] },
+        "8316": { codexId: 8000061, short: "Сады наслаждений (только хард)", item: { type: 'license', icon: "icon_item_2762.png", grade: 6, url: "https://archeagecodex.com/ru/item/8000752/", name: "Лицензия на убийство: Иштар" } },
         "8318": { codexId: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
         "8320": { codexId: 9152, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа", count: 60 } },
         "8322": { codexId: 8435, short: 'Портал "Лягушачьи пруды"' },
-        "8324": { codexId: 10510, short: "Бездна / Солнечные поля", veksel: 'north', item: { type: 'archive', icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной", count: 8 } },
-        "8326": { codexId: 10511, short: "Бездна / Солнечные поля", veksel: 'north', item: { type: 'archive', icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной", count: 25 } },
+        "8324": { codexId: 10510, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], item: { type: 'archive', icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной", count: 8 } },
+        "8326": { codexId: 10511, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], item: { type: 'archive', icon: "icon_item_3620.png", grade: 1, url: "https://archeagecodex.com/ru/item/42077/", name: "Фермерский сундучок со всякой всячиной", count: 25 } },
         "8328": { codexId: 7657, short: "" },
         "8330": { codexId: 7813, short: "" },
         "8336": { codexId: 5144, short: "" },
-        "8338": { codexId: 5885, short: "Анталлон на Солнечных полях<br/>01:20 / 05:20 / 09:20 / 13:20 / 17:20 / 21:20" },
-        "8340": { codexId: 8000060, short: "Лицензия в Сады наслаждений (изи или нормал)", item: { type: 'license', icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы" } },
+        "8338": { codexId: 5885, short: "Анталлон на Солнечных полях", events: [{ time: "01:20" }, { time: "05:20" }, { time: "09:20" }, { time: "13:20" }, { time: "17:20" }, { time: "21:20" }] },
+        "8340": { codexId: 8000060, short: "Сады наслаждений (изи или нормал)", item: { type: 'license', icon: "icon_item_2762.png", grade: 5, url: "https://archeagecodex.com/ru/item/8000751/", name: "Лицензия на убийство: иферийцы" } },
         "8346": { codexId: 10056, short: "" },
-        "8348": { codexId: 11154, short: "Лиловый (армия фантомов)<br/>01:50 / 05:50 / 09:50 / 13:50 / 17:50 / 21:50" },
+        "8348": { codexId: 11154, short: "Лиловый (армия фантомов)", events: [{ time: "01:50" }, { time: "05:50" }, { time: "09:50" }, { time: "13:50" }, { time: "17:50" }, { time: "21:50" }] },
         "8350": { codexId: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
         "8352": { codexId: 9147, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0356.png", grade: 1, url: "https://archeagecodex.com/ru/item/8256/", name: "Ткань", count: 60 } },
         "8354": { codexId: 8000136, short: "Квест Нуи на 2500 ремесленки" },
-        "8356": { codexId: 10506, short: "Замок Ош", veksel: 'north', item: { type: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 10 } },
-        "8358": { codexId: 10507, short: "Замок Ош", veksel: 'north', item: { type: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 30 } },
+        "8356": { codexId: 10506, short: "", veksel: 'north', locations: ["Замок Ош"], item: { type: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 10 } },
+        "8358": { codexId: 10507, short: "", veksel: 'north', locations: ["Замок Ош"], item: { type: 'archive', icon: "icon_item_3619.png", grade: 1, url: "https://archeagecodex.com/ru/item/42076/", name: "Резной сундучок со всякой всячиной", count: 30 } },
         "8360": { codexId: 5091, short: "" },
         "8362": { codexId: 9101, short: "Библа, 3-ий босс" },
         "8364": { codexId: 7656, short: "" },
         "8366": { codexId: 9320, short: "" },
         "8372": { codexId: 9297, short: "" },
         "8380": { codexId: 7815, short: "Изи/нормал Сады наслаждений" },
-        "8382": { codexId: 10735, short: "Эншака на Солнечных полях<br/>01:20 / 05:20 / 09:20 / 13:20 / 17:20 / 21:20" },
+        "8382": { codexId: 10735, short: "Эншака на Солнечных полях", events: [{ time: "01:20" }, { time: "05:20" }, { time: "09:20" }, { time: "13:20" }, { time: "17:20" }, { time: "21:20" }] },
         "8388": { codexId: 9153, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0352.png", grade: 1, url: "https://archeagecodex.com/ru/item/16327/", name: "Сыромятная кожа", count: 100 } },
         "8390": { codexId: 5062, short: "" },
-        "8392": { codexId: 10514, short: "Бухта Китобоев / Эфен'Хал", veksel: 'north', item: { type: 'archive', icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной", count: 7 } },
-        "8394": { codexId: 10515, short: "Бухта Китобоев / Эфен'Хал", veksel: 'north', item: { type: 'archive', icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной", count: 20 } },
+        "8392": { codexId: 10514, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], item: { type: 'archive', icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной", count: 7 } },
+        "8394": { codexId: 10515, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], item: { type: 'archive', icon: "icon_item_3907.png", grade: 1, url: "https://archeagecodex.com/ru/item/43177/", name: "Эфенский сундучок со всякой всячиной", count: 20 } },
         "8396": { codexId: 7155, short: "Нагашар обычка" },
         "8398": { codexId: 9398, short: "100 мобов на Пустоши Корвуса" },
         "8400": { codexId: 7152, short: "" },
@@ -869,13 +808,13 @@
         "8422": { codexId: 10304, short: "" },
         "8424": { codexId: 9099, short: "Библа, первый босс" },
         "8426": { codexId: 9143, short: "", veksel: 'blue_salt', item: { icon: "icon_item_0041.png", grade: 1, url: "https://archeagecodex.com/ru/item/8337/", name: "Строительная древесина", count: 100 } },
-        "8434": { codexId: 10504, short: "Замок Ош", veksel: 'north', item: { type: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 30 } },
-        "8436": { codexId: 10505, short: "Замок Ош", veksel: 'north', item: { type: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 90 } },
-        "8438": { codexId: 8000062, short: "Лицензия в Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", item: { type: 'license', icon: "icon_item_2762.png", grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" } },
-        "8448": { codexId: 2943, short: "Кровавый (дневной) разлом - 3-я волна<br/>00:20 / 04:20 / 08:20 / 12:20 / 16:20 / 20:20" },
+        "8434": { codexId: 10504, short: "", veksel: 'north', locations: ["Замок Ош"], item: { type: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 30 } },
+        "8436": { codexId: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], item: { type: 'sack', icon: "icon_item_1839.png", grade: 1, url: "https://archeagecodex.com/ru/item/35461/", name: "Полновесный мешочек с серебром", count: 90 } },
+        "8438": { codexId: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", item: { type: 'license', icon: "icon_item_2762.png", grade: 2, url: "https://archeagecodex.com/ru/item/8000753/", name: "Лицензия на убийство: повелитель подземелья" } },
+        "8448": { codexId: 2943, short: "Кровавый (дневной) разлом - 3-я волна", events: [{ time: "00:20" }, { time: "04:20" }, { time: "08:20" }, { time: "12:20" }, { time: "16:20" }, { time: "20:20" }] },
         "8450": { codexId: 7935, short: "" },
         "8452": { codexId: 7660, short: "" },
-        "8470": { codexId: 10739, short: "Призрачный (ночной) разлом - Эншака<br/>02:20 / 06:20 / 10:20 / 14:20 / 18:20 / 22:20" },
+        "8470": { codexId: 10739, short: "Призрачный (ночной) разлом - Эншака", events: [{ time: "02:20" }, { time: "06:20" }, { time: "10:20" }, { time: "14:20" }, { time: "18:20" }, { time: "22:20" }] },
         "8478": { codexId: 10423, short: "" },
         "8494": { codexId: 8635, short: "" },
         "8496": { codexId: 9295, short: "" },
@@ -883,14 +822,14 @@
         "8500": { codexId: 8637, short: "Бухта - Жакар" },
         "8502": { codexId: 7327, short: "50 мобов (100 очков) на Сверкающем побережье" },
         "8504": { codexId: 9296, short: "" },
-        "8506": { codexId: 5969, short: "03:20 / 07:20 / 11:20 / 15:20 / 19:20 / 23:20" },
+        "8506": { codexId: 5969, short: "", events: [{ time: "03:20" }, { time: "07:20" }, { time: "11:20" }, { time: "15:20" }, { time: "19:20" }, { time: "23:20" }] },
         "8508": { codexId: 8641, short: "Эфен - жаба" },
         "8510": { codexId: 5077, short: "" },
         "8512": { codexId: 8605, short: "" },
-        "8514": { codexId: 11096, short: "Луг - Битва хранителей<br/>Суббота и Воскресенье в 18:00" },
+        "8514": { codexId: 11096, short: "Луг - Битва хранителей", events: [{ time: "18:00", weekdays: [6, 0] }] },
         "8516": { codexId: 8000129, short: "" },
         "8518": { codexId: 1415, short: "" },
-        "8520": { codexId: 5970, short: "03:20 / 07:20 / 11:20 / 15:20 / 19:20 / 23:20" },
+        "8520": { codexId: 5970, short: "", events: [{ time: "03:20" }, { time: "07:20" }, { time: "11:20" }, { time: "15:20" }, { time: "19:20" }, { time: "23:20" }] },
         "8522": { codexId: 10188, short: "" },
         "8524": { codexId: 8618, short: "" },
     };
@@ -940,6 +879,79 @@
         }
         API_INFO_CACHE = await fetchApiInfo();
         return API_INFO_CACHE;
+    };
+
+    // ==================== Автообновление API ====================
+
+    const showRefreshLoader = () => {
+        if (DOM.refreshLoader) {
+            DOM.refreshLoader.classList.add('tm-refresh-loader--active');
+        }
+    };
+
+    const hideRefreshLoader = () => {
+        if (DOM.refreshLoader) {
+            DOM.refreshLoader.classList.remove('tm-refresh-loader--active');
+        }
+    };
+
+    const refreshApiInfo = async () => {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        showRefreshLoader();
+
+        try {
+            // Сбрасываем кэш, промис и время для получения свежих данных
+            API_INFO_CACHE = null;
+            API_INFO_PROMISE = null;
+            NOW_MS = null;
+
+            // Загружаем свежие данные (fetchApiInfo обновит NOW_MS из Date header)
+            API_INFO_CACHE = await fetchApiInfo();
+
+            // Обновляем смещение серверного времени
+            if (NOW_MS != null) {
+                SERVER_TIME_OFFSET = NOW_MS - Date.now();
+            }
+
+            // Перерисовываем список задач
+            await renderTasksForSelectedDay();
+        } catch (e) {
+            console.warn('[AA Marathon] refreshApiInfo failed:', e);
+        } finally {
+            isRefreshing = false;
+            hideRefreshLoader();
+        }
+    };
+
+    const stopAutoRefresh = () => {
+        if (autoRefreshIntervalId != null) {
+            clearInterval(autoRefreshIntervalId);
+            autoRefreshIntervalId = null;
+        }
+    };
+
+    const startAutoRefresh = (intervalMs) => {
+        stopAutoRefresh();
+        autoRefreshIntervalId = setInterval(refreshApiInfo, intervalMs);
+    };
+
+    const restartAutoRefresh = () => {
+        const interval = document.hidden
+            ? AUTO_REFRESH_INTERVAL_HIDDEN_MS
+            : AUTO_REFRESH_INTERVAL_FOCUSED_MS;
+        startAutoRefresh(interval);
+    };
+
+    const handleVisibilityChange = () => {
+        if (document.hidden) {
+            // Страница потеряла фокус - переключаемся на редкое обновление
+            startAutoRefresh(AUTO_REFRESH_INTERVAL_HIDDEN_MS);
+        } else {
+            // Страница вернулась в фокус - сразу обновляем и запускаем частый интервал
+            refreshApiInfo();
+            startAutoRefresh(AUTO_REFRESH_INTERVAL_FOCUSED_MS);
+        }
     };
 
     const getUidFromCheckUser = async () => {
@@ -997,10 +1009,11 @@
             // Обновляем href всех уже отрендеренных ссылок на вексель
             document.querySelectorAll('.tm-veksel-link').forEach(link => {
                 const veksel = link.dataset.veksel;
-                const short = link.dataset.short || '';
                 let item = null;
+                let locations = null;
                 try { item = link.dataset.item ? JSON.parse(link.dataset.item) : null; } catch {}
-                link.href = buildVekselUrl(VEkselUrlResolved, veksel, short, item);
+                try { locations = link.dataset.locations ? JSON.parse(link.dataset.locations) : null; } catch {}
+                link.href = buildVekselUrl(VEkselUrlResolved, veksel, item, locations);
             });
         } catch {
             VEkselUrlResolved = VEKSEL_BASE;
@@ -1110,11 +1123,11 @@
         return t;
     };
 
-    const makeLinksRow = ({ codexId, short, questTitle, item, veksel }) => {
+    const makeLinksRow = ({ codexId, short, questTitle, item, veksel, locations, events }) => {
         const row = document.createElement('div');
         row.className = 'tm-links-row';
 
-        // Левая часть: иконка предмета + short-описание
+        // Левая часть: иконка предмета + локации + short-описание
         const leftPart = document.createElement('div');
         leftPart.className = 'tm-links-left';
 
@@ -1152,23 +1165,55 @@
             }
         }
 
-        if (short) {
-            const d = document.createElement('div');
-            d.className = 'tm-short';
-            d.innerHTML = short;
+        // Контейнер для локаций/short и events
+        const hasLocations = locations && locations.length > 0;
+        const hasShort = !!short;
+        const hasEvents = events && events.length > 0;
 
-            // Если в short есть время, добавляем countdown
-            const events = parseEventsFromShort(short);
-            if (events.length > 0) {
+        if (hasLocations || hasShort || hasEvents) {
+            const infoWrapper = document.createElement('div');
+            infoWrapper.className = 'tm-info-wrapper';
+
+            // Первая строка: локации + short
+            if (hasLocations || hasShort) {
+                const infoLine = document.createElement('div');
+                infoLine.className = 'tm-info-line';
+
+                if (hasLocations) {
+                    const locEl = document.createElement('span');
+                    locEl.className = 'tm-locations';
+                    locEl.textContent = locations.join(' / ');
+                    infoLine.appendChild(locEl);
+                }
+
+                if (hasShort) {
+                    const d = document.createElement('span');
+                    d.className = 'tm-short';
+                    d.innerHTML = short;
+                    infoLine.appendChild(d);
+                }
+
+                infoWrapper.appendChild(infoLine);
+            }
+
+            // Вторая строка: события (времена)
+            if (hasEvents) {
+                const eventsEl = document.createElement('div');
+                eventsEl.className = 'tm-events';
+                eventsEl.textContent = formatEventsToString(events);
+
+                // Countdown
                 const countdown = document.createElement('span');
                 countdown.className = 'tm-countdown';
                 countdown.dataset.events = JSON.stringify(events);
                 const seconds = getSecondsUntilNextEvent(events);
                 countdown.textContent = seconds != null ? ` (через ${formatCountdown(seconds)})` : '';
-                d.appendChild(countdown);
+                eventsEl.appendChild(countdown);
+
+                infoWrapper.appendChild(eventsEl);
             }
 
-            leftPart.appendChild(d);
+            leftPart.appendChild(infoWrapper);
         }
 
         row.appendChild(leftPart);
@@ -1191,21 +1236,21 @@
 
         if (veksel === 'blue_salt' || veksel === 'north') {
             const link = makeVekselIconLink({
-                href: buildVekselUrl(VEkselUrlResolved, veksel, short, item),
+                href: buildVekselUrl(VEkselUrlResolved, veksel, item, locations),
                 title: 'Открыть таблицу векселей',
                 vekselIcon: veksel === 'blue_salt' ? ICON_VEKSEL : ICON_VEKSEL_NORTH,
             });
             link.classList.add('tm-veksel-link');
             link.dataset.veksel = veksel;
-            link.dataset.short = short || '';
             if (item) link.dataset.item = JSON.stringify(item);
+            if (locations) link.dataset.locations = JSON.stringify(locations);
             icons.appendChild(link);
         }
 
         return row;
     };
 
-    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, item, veksel }) => {
+    const makeTaskCard = ({ q, amount, codexId, short, isDone, showLastDone, item, veksel, locations, events }) => {
         const card = document.createElement('div');
         card.className = `tasks__item tasks__item--${amount || 1}`;
 
@@ -1252,7 +1297,7 @@
 
         card.appendChild(makeRewardBlock(amount, isDone));
         card.appendChild(makeTaskText(q.description));
-        card.appendChild(makeLinksRow({ codexId, short, questTitle: q.title, item, veksel }));
+        card.appendChild(makeLinksRow({ codexId, short, questTitle: q.title, item, veksel, locations, events }));
 
         return card;
     };
@@ -1324,9 +1369,22 @@
         hideDoneLabel.appendChild(hideDoneCheckbox);
         hideDoneLabel.appendChild(hideDoneText);
 
+        const refreshBtn = document.createElement('button');
+        refreshBtn.type = 'button';
+        refreshBtn.className = 'tm-refresh-btn';
+        refreshBtn.title = 'Обновить данные';
+        refreshBtn.innerHTML = '&#x21bb;'; // ↻ символ обновления
+        DOM.refreshLoader = refreshBtn;
+
+        refreshBtn.addEventListener('click', () => {
+            refreshApiInfo();
+            restartAutoRefresh();
+        });
+
         wrapper.appendChild(todayBtn);
         wrapper.appendChild(nav);
         wrapper.appendChild(hideDoneLabel);
+        wrapper.appendChild(refreshBtn);
 
         DOM.tasksHeader.insertAdjacentElement('afterbegin', wrapper);
         DOM.nav = nav;
@@ -1564,6 +1622,8 @@
                 showLastDone: doneInSlot,
                 item: meta.item,
                 veksel: meta.veksel,
+                locations: meta.locations,
+                events: meta.events,
             });
 
             listEl.appendChild(card);
@@ -1642,6 +1702,24 @@
                 text-decoration: underline;
             }
 
+            .tm-info-wrapper {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+
+            .tm-info-line {
+                display: flex;
+                align-items: baseline;
+                gap: 6px;
+            }
+
+            .tm-locations {
+                font-size: 12px;
+                line-height: 1.25;
+                opacity: 0.85;
+            }
+
             .tm-short {
                 font-size: 12px;
                 line-height: 1.25;
@@ -1650,6 +1728,12 @@
 
             .tm-short a {
                 color: inherit;
+            }
+
+            .tm-events {
+                font-size: 12px;
+                line-height: 1.25;
+                opacity: 0.85;
             }
 
             .tm-inline-icon {
@@ -1862,6 +1946,43 @@
             .tm-hide-done .${DONE_CLASS} {
                 display: none;
             }
+
+            .tm-refresh-btn {
+                width: 26px;
+                height: 26px;
+                padding: 0;
+                border: none;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.06);
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 18px;
+                line-height: 1;
+                cursor: pointer;
+                transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .tm-refresh-btn:hover {
+                background: rgba(255, 255, 255, 0.12);
+                color: rgba(255, 255, 255, 0.95);
+            }
+
+            .tm-refresh-btn:active {
+                transform: scale(0.92);
+            }
+
+            .tm-refresh-loader--active {
+                pointer-events: none;
+                animation: tm-spin 0.7s linear infinite;
+            }
+
+            @keyframes tm-spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
         `;
         document.head.appendChild(style);
     };
@@ -1909,6 +2030,13 @@
         });
 
         resolveVekselUrl();
+
+        // Запускаем автообновление с нужным интервалом
+        const initialInterval = document.hidden
+            ? AUTO_REFRESH_INTERVAL_HIDDEN_MS
+            : AUTO_REFRESH_INTERVAL_FOCUSED_MS;
+        startAutoRefresh(initialInterval);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
     };
 
     const observer = new MutationObserver(() => {
