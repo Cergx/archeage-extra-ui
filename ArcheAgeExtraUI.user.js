@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.1.0
+// @version      4.1.1
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК) + автообновление
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -3328,7 +3328,7 @@
 
         .cart_items_selected .item_list > .js-selected-item {
             padding-top: 2px;
-            padding-bottom: 3px;
+            padding-bottom: 2px;
         }
 
         .tm-cart-timer {
@@ -3344,6 +3344,7 @@
         .js-selected-item .tm-cart-item-name {
             flex: 1;
             min-width: 0;
+            min-height: 30px;
         }
 
         .js-selected-item .tm-cart-item-name span {
@@ -3902,7 +3903,6 @@
     /**
      * Создаёт строку таблицы для предмета корзины.
      * @param {CartItem} cartItem
-     * @returns {HTMLTableRowElement}
      */
     const makeCartRow = (cartItem) => {
         const tr = document.createElement('tr');
@@ -4205,6 +4205,7 @@
                     const icon = makeItemIconLink({
                         item: itemData,
                         overlay: typeInfo?.icon,
+                        linked: true,
                         size: 'small',
                         count: cartItem.count,
                     });
@@ -4212,7 +4213,7 @@
                 }
 
                 const nameText = document.createElement('span');
-                nameText.textContent = cartItem.title;
+                nameText.textContent = !itemData && cartItem.count > 1 ? `${cartItem.title} × ${cartItem.count}` : cartItem.title;
                 nameWrap.appendChild(nameText);
                 el.appendChild(nameWrap);
 
@@ -4316,7 +4317,7 @@
                                 if (messages.length > 0) {
                                     showCartPopup({
                                         title: 'Результат передачи',
-                                        body: `<p>${messages.join('&nbsp;')}</p>`,
+                                        body: `<p>${messages.join('<br/>')}</p>`,
                                         buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
                                     });
                                 }
