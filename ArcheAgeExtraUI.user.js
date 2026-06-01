@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.5.4
+// @version      4.5.6
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -3672,8 +3672,7 @@
         }
 
         .guild_tab.cart_items .gh_4 {
-            white-space: nowrap;
-            width: 0%;
+            width: 1%;
         }
 
         .guild_tab.cart_items .gс_2 {
@@ -3685,18 +3684,15 @@
             white-space: nowrap;
             text-align: right;
             border-right: none;
+            width: 1%;
         }
 
         .cart_items .item {
-            cursor: pointer;
+            user-select: none;
         }
 
         .cart_items .item:hover {
             background: #edf4fa;
-        }
-
-        .cart_items .item.disabled {
-            cursor: default;
         }
 
         .cart_items .item.disabled:hover {
@@ -4932,11 +4928,15 @@
                                 }
                                 renderSelectedList();
                                 updateTransferBtn();
-
+                                ц
                                 if (messages.length > 0) {
+                                    const body = messages
+                                        .flatMap(m => m.split('&nbsp;'))
+                                        .filter(Boolean)
+                                        .join('<br/>');
                                     showCartPopup({
                                         title: 'Результат передачи',
-                                        body: `<p>${messages.join('<br/>')}</p>`,
+                                        body: `<p>${body}</p>`,
                                         buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
                                     });
                                 }
