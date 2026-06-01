@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.5.0
+// @version      4.5.1
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -237,18 +237,18 @@
 
     /**
      * @typedef {Object} ApiQuest
-     * @property {number} id
-     * @property {string} code
+     * @property {number} id - ID задания марафона.
+     * @property {string} code - Код задания марафона.
      * @property {string} type
      * @property {string} group
-     * @property {number} end_time
-     * @property {number} start_time
+     * @property {number} end_time - Время окончания задания.
+     * @property {number} start_time - Время начала задания.
      * @property {'now'|'future'|'past'} time_status
      * @property {number} max_completed_step
      * @property {number} progress
      * @property {number} max_target
-     * @property {string} title
-     * @property {string} description
+     * @property {string} title - Заголовок марафона.
+     * @property {string} description - Описание задания марафона.
      * @property {any[]} payload
      * @property {number|null} reset_time
      * @property {number|null} stop_time
@@ -586,7 +586,7 @@
     /**
      * Вычисляет секунды до ближайшего события.
      * Возвращает 0, если событие идёт прямо сейчас; положительное число — секунды до начала; null — нет событий.
-     * @param {QuestEvent[]} events
+     * @param {EventSchedule[]} events
      */
     const getSecondsUntilNextEvent = (events) => {
         if (!events || !events.length) return null;
@@ -632,11 +632,11 @@
         return minDiff === Infinity ? null : minDiff;
     };
 
-    /** @param {QuestEvent} event */
+    /** @param {EventSchedule} event */
     const formatEventTime = (event) =>
         event.timeEnd ? `${event.timeStart}–${event.timeEnd}` : event.timeStart;
 
-    /** @param {QuestEvent[]} events */
+    /** @param {EventSchedule[]} events */
     const formatEventsToString = (events) => {
         if (!events || !events.length) return '';
 
@@ -739,10 +739,10 @@
 
         let changed = false;
 
-        for (let i = 0; i < EVENTS.length; i++) {
-            if (!state.events[i]) continue; // только явно включённые
-            if (!isEventVisible(i, visOverrides)) continue; // скрытые — без уведомлений
-            const ev = EVENTS[i];
+        for (const ev of EVENTS) {
+            const evNotif = ev.code in state.events ? state.events[ev.code] : !!ev.defaultNotifications;
+            if (!evNotif) continue;
+            if (!isEventVisible(ev, visOverrides)) continue; // скрытые — без уведомлений
 
             for (const entry of ev.schedule) {
                 const isToday = !entry.weekdays?.length || entry.weekdays.includes(nowWd);
@@ -754,7 +754,7 @@
 
                 // 5 минут = 300 секунд, допуск ±30с для интервала проверки
                 if (diff >= 270 && diff <= 330) {
-                    const key = `${todayStr}_${i}_${entry.timeStart}`;
+                    const key = `${todayStr}_${ev.code}_${entry.timeStart}`;
                     if (!state.notified[key]) {
                         showEventNotification(ev, entry);
                         state.notified[key] = true;
@@ -829,11 +829,11 @@
     // Обновляет все countdown элементы на странице
     const updateAllCountdowns = () => {
         document.querySelectorAll('.tm-countdown').forEach(el => {
-            const eventsJson = el.dataset.events;
-            if (!eventsJson) return;
+            const scheduleJson = el.dataset.schedule;
+            if (!scheduleJson) return;
             try {
-                const events = JSON.parse(eventsJson);
-                const seconds = getSecondsUntilNextEvent(events);
+                const schedule = JSON.parse(scheduleJson);
+                const seconds = getSecondsUntilNextEvent(schedule);
                 updateCountdownEl(el, seconds);
             } catch {
                 // ignore
@@ -1381,40 +1381,59 @@
 
     /**
      * @typedef {Object} ItemType
-     * @property {string|undefined} icon - URL overlay-изображения типа.
+     * @property {string} [icon] - URL overlay-изображения типа.
      * @property {string} title - Название типа предмета.
      */
 
     /** @type {Record<string, ItemType>} */
     const ITEM_TYPES = {
-        'unconfirmed': { icon: 'https://wiki.archerage.to/static/images/icons/top_unconfirmed.dds.png', title: 'Неопознанный предмет' },
-        'seal':        { icon: 'https://wiki.archerage.to/static/images/icons/top_seal_08.dds.png', title: 'Неопознанный предмет' },
-        'top_quest':   { icon: 'https://wiki.archerage.to/static/images/icons/top_quest_y.dds.png', title: 'Задание' },
-        'magical':     { title: 'Магический предмет' },
-        'box':         { title: 'Ящик' },
-        'equipment':   { title: 'Снаряжение' },
-        'material':    { title: 'Материал' },
-        'potion':      { title: 'Микстура' }
+        'unidentified': { title: 'Неопознанный предмет' },
+        'quest':        { title: 'Задание' },
+        'magical':      { title: 'Магический предмет' },
+        'box':          { title: 'Ящик' },
+        'equipment':    { title: 'Снаряжение' },
+        'material':     { title: 'Материал' },
+        'potion':       { title: 'Микстура' },
+        'other':        { title: 'Прочее' }
     };
 
-    /** @type {Record<string, ItemType>} */
+    /**
+     * @typedef {Object} ItemSubType
+     * @property {string} title - Название подтипа предмета.
+     */
+
+    /** @type {Record<string, ItemSubType>} */
     const ITEM_SUB_TYPES = {
-        'ingot':   { title: 'Слиток металла' },
-        'leather': { title: 'Кожа' },
-        'cloth':   { title: 'Ткань' },
-        'lumber':  { title: 'Древесина' },
-        'costume': { title: 'Костюм' },
-        'cloak':   { title: 'Плащ' },
-        'windInstrument':   { title: 'Духовой инструмент' },
+        'ingot':          { title: 'Слиток металла' },
+        'leather':        { title: 'Кожа' },
+        'cloth':          { title: 'Ткань' },
+        'lumber':         { title: 'Древесина' },
+        'costume':        { title: 'Костюм' },
+        'cloak':          { title: 'Плащ' },
+        'windInstrument': { title: 'Духовой инструмент' },
+    };
+
+    /**
+     * @typedef {Object} ItemOverlay
+     * @property {string} icon - URL overlay-изображения типа.
+     */
+
+    /** @type {Record<string, ItemOverlay>} */
+    const ICON_OVERLAY = {
+        'unconfirmed': { icon: 'https://archeagecodex.com/items/top_unconfirmed.png' },
+        'seal':        { icon: 'https://archeagecodex.com/items/top_seal_08.png' },
+        'quest_y':   { icon: 'https://archeagecodex.com/items/top_quest_y.png' },
+        'quest_cash':   { icon: 'https://archeagecodex.com/items/top_quest_cash.png' },
     };
 
     /**
      * @typedef {Object} ItemBase
-     * @property {string} id - ID предмета (используется для генерации URL на ArcheageCodex).
+     * @property {number} id - ID предмета (используется для генерации URL на ArcheageCodex).
      * @property {string} icon - Полный URL иконки.
      * @property {number} grade - Грейд (индекс в массиве GRADES, 0–12).
      * @property {string} name - Название предмета.
-     * @property {string} [type] - Ключ в ITEM_TYPES (например, 'top_quest', 'unconfirmed').
+     * @property {string} [type] - Ключ в ITEM_TYPES.
+     * @property {string} [overlay] - Ключ в ICON_OVERLAY.
      * @property {string} [subType] - Ключ в ITEM_SUB_TYPES (например, 'ingot', 'costume').
      * @property {string} [vekselName] - Название предмета для таблицы векселей (если отличается от name).
      * @property {string} [vekselType] - Тип для таблицы векселей ('sack' | 'archive' | 'license').
@@ -1463,93 +1482,104 @@
 
     /** @type {Record<string, ItemBase>} */
     const ITEMS = Object.fromEntries([
-        { id: '8256', type: 'material', subType: 'cloth', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Ткань" }, // icon_item_0356.png
-        { id: '8318', type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Слиток железа" }, // icon_item_quest053.png
-        { id: '8337', type: 'material', subType: 'lumber', icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, name: "Упаковка строительной древесины", vekselName: "Строительная древесина" }, // icon_item_0041.png
-        { id: '16327', type: 'material', subType: 'leather', icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, name: "Сыромятная кожа" }, // icon_item_0352.png
-        { id: '35461', type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, name: "Полновесный мешочек с серебром" }, // icon_item_1839.png
-        { id: '40928', type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}d9df620283926e6f4a9ab47ebacf499c.png`, grade: 1, name: "Расшитый жемчугом кошелёк" }, // icon_item_3101.png
-        { id: '42076', type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}66ed119fca00abf78ddf2602ed55e659.png`, grade: 1, name: "Резной сундучок со всякой всячиной" }, // icon_item_3619.png
-        { id: '42077', type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}1ddc9b8c6e0d41d83f2d3f9536eb29a4.png`, grade: 1, name: "Фермерский сундучок со всякой всячиной" }, // icon_item_3620.png
-        { id: '43176', type: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}b41e79b64ae0b578499ac6301325f631.png`, grade: 1, name: "Котомка эфенского странника" }, // icon_item_3906.png
-        { id: '43177', type: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}f2d17e3b4d030e91c38e68cd60c0ee69.png`, grade: 1, name: "Эфенский сундучок со всякой всячиной" }, // icon_item_3907.png
-        { id: '8000749', type: 'top_quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 3, name: "Лицензия на убийство: Баррага Безумный", description: 'Позволяет получить задание.' }, // icon_item_2762.png
-        { id: '8000751', type: 'top_quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 5, name: "Лицензия на убийство: иферийцы", description: 'Позволяет получить задание.' },
-        { id: '8000752', type: 'top_quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, name: "Лицензия на убийство: Иштар" },
-        { id: '8000753', type: 'top_quest', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, name: "Лицензия на убийство: повелитель подземелья" },
+        { id: 8256, type: 'material', subType: 'cloth', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Ткань" }, // icon_item_0356.png
+        { id: 8318, type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Слиток железа" }, // icon_item_quest053.png
+        { id: 8337, type: 'material', subType: 'lumber', icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, name: "Упаковка строительной древесины", vekselName: "Строительная древесина" }, // icon_item_0041.png
+        { id: 16327, type: 'material', subType: 'leather', icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, name: "Сыромятная кожа" }, // icon_item_0352.png
+        { id: 35461, type: 'unidentified', overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, name: "Полновесный мешочек с серебром" }, // icon_item_1839.png
+        { id: 40928, type: 'unidentified', overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}d9df620283926e6f4a9ab47ebacf499c.png`, grade: 1, name: "Расшитый жемчугом кошелёк" }, // icon_item_3101.png
+        { id: 42076, type: 'unidentified', overlay: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}66ed119fca00abf78ddf2602ed55e659.png`, grade: 1, name: "Резной сундучок со всякой всячиной" }, // icon_item_3619.png
+        { id: 42077, type: 'unidentified', overlay: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}1ddc9b8c6e0d41d83f2d3f9536eb29a4.png`, grade: 1, name: "Фермерский сундучок со всякой всячиной" }, // icon_item_3620.png
+        { id: 43176, type: 'unidentified', overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}b41e79b64ae0b578499ac6301325f631.png`, grade: 1, name: "Котомка эфенского странника" }, // icon_item_3906.png
+        { id: 43177, type: 'unidentified', overlay: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}f2d17e3b4d030e91c38e68cd60c0ee69.png`, grade: 1, name: "Эфенский сундучок со всякой всячиной" }, // icon_item_3907.png
+        { id: 8000749, type: 'quest', overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 3, name: "Лицензия на убийство: Баррага Безумный", description: 'Позволяет получить задание.' }, // icon_item_2762.png
+        { id: 8000751, type: 'quest', overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 5, name: "Лицензия на убийство: иферийцы", description: 'Позволяет получить задание.' },
+        { id: 8000752, type: 'quest', overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, name: "Лицензия на убийство: Иштар" },
+        { id: 8000753, type: 'quest', overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, name: "Лицензия на убийство: повелитель подземелья" },
 
-        { id: '48894', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, name: 'Драгоценная эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет. Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r.' },
-        { id: '54915', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, name: 'Свиток чар ифнирского героя' },
-        { id: '45508', icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, name: 'Сфера анимага' },
-        { id: '8001565', icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, name: 'Новенькая кирка' },
-        { id: '8002452', icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, name: 'Универсальный алхимический кристалл' },
-        { id: '8002449', icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, name: 'Дополнительная сумка' },
-        { id: '47943', type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, name: 'Настойка усердного ремесленника' },
-        { id: '39424', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, name: 'Ирамийская гадальная руна', description: 'Позволяет заменить один из |nc;эффектов синтеза костюма, эфенского снаряжения, рамианского снаряжения или трофейного снаряжения мифических противников|r другим, выбранным случайным образом.', useDescription: 'Распаковать.\nУдерживая Shift, щелкните левой кнопкой мыши, чтобы распаковать все предметы этого типа, находящиеся в рюкзаке.' },
-        { id: '46180', icon: 'https://archeagecodex.com/items/icon_item_1395.png', grade: 3, name: 'Солнечный настой' },
-        { id: '47130', type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, name: 'Хрустальная руна', description: '|nd;Можно получить одну из хрустальных рун на выбор:|r\n- хрустальная руна багровой луны,\n- хрустальная руна осенней луны,\n- хрустальная руна молодой луны,\n- хрустальная руна безмолвной луны,\n- хрустальная руна колдовской луны.' },
-        { id: '47104', icon: 'https://archeagecodex.com/items/icon_item_4570.png', grade: 2, name: 'Парниковый купол' },
-        { id: '48903', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3282.png', grade: 1, name: 'Набор сверкающих эфенских сфер' },
-        { id: '48474', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3275.png', grade: 11, name: 'Большой набор мифических эссенций' },
-        { id: '8002297', type: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, name: 'Королевский лунный изумруд' },
-        { id: '35727', icon: 'https://archeagecodex.com/items/icon_item_1982.png', grade: 2, name: 'Буровая установка' },
-        { id: '47082', icon: 'https://archeagecodex.com/items/icon_item_3369.png', grade: 1, name: 'Патент на транспортное средство' },
-        { id: '55783', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, name: 'Сундучок с зачарованной гравировкой для украшений' },
-        { id: '31892', icon: 'https://archeagecodex.com/items/icon_item_1733.png', grade: 1, name: 'Земельный вексель' },
-        { id: '55722', icon: 'https://archeagecodex.com/items/icon_item_5864.png', grade: 4, name: 'Искусная цитриновая гравировка' },
-        { id: '48886', icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, name: 'Сверкающая эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r.' },
-        { id: '55723', icon: 'https://archeagecodex.com/items/icon_item_5865.png', grade: 4, name: 'Искусная аквамариновая гравировка' },
-        { id: '45747', type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4385.png', grade: 5, name: 'Драгоценный флакон с зельем охотника' },
-        { id: '49270', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, name: 'Набор больших эфенских кубов' },
-        { id: '45160', type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, name: 'Настойка спорыньи' },
-        { id: '46623', type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, name: 'Настойка остролиста' },
-        { id: '8001268', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток дельфийской библиотеки' },
-        { id: '46181', icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, name: 'Лунный настой' },
-        { id: '48546', icon: 'https://archeagecodex.com/items/icon_item_3595.png', grade: 1, name: 'Письмена войны' },
-        { id: '8002486', type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, name: 'Дизайн костюма хоури эпохи Фарвати' },
-        { id: '47655', icon: 'https://archeagecodex.com/items/icon_item_4709.png', grade: 4, name: 'Фиона Розовый Лепесток' },
-        { id: '47581', icon: 'https://archeagecodex.com/items/icon_item_4211.png', grade: 3, name: 'Лиловое эмалевое стекло' },
-        { id: '47479', icon: 'https://archeagecodex.com/items/icon_item_3519.png', grade: 1, name: 'Инкрустированный флакон с целебным эликсиром' },
-        { id: '47480', icon: 'https://archeagecodex.com/items/icon_item_3520.png', grade: 1, name: 'Инкрустированный флакон с эликсиром маны' },
-        { id: '8003072', icon: 'https://archeagecodex.com/items/icon_item_6002.png', grade: 1, name: 'Осколок предела' },
-        { id: '8001288', icon: 'https://archeagecodex.com/items/icon_item_0966.png', grade: 1, name: 'Цитрусовая карамелька' },
-        { id: '8002649', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3259.png', grade: 4, name: 'Набор неверинских фейерверков' },
-        { id: '8000540', icon: 'https://archeagecodex.com/items/icon_item_3207.png', grade: 1, name: 'Пушистая неверинская елочка' },
-        { id: '49769', icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, name: 'Зачарованный свиток пробуждения хранителя знаний' },
-        { id: '54653', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, name: 'Сундук с обновленным рамианским снаряжением' },
-        { id: '51236', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундучок с драгоценным украшением эпохи мифов' },
-        { id: '53515', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, isPersonal: true, price: 0, reqLevel: 1, name: 'Заговоренная рамианская руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для проклятого, изначального, обновленного и совершенного рамианского снаряжения.|r', useDescription: 'Приступить к замене эффекта.\nРасход очков работы: |nc;50|r.' },
-        { id: '52207', icon: 'https://archeagecodex.com/items/icon_item_3022.png', grade: 1, name: 'Мешочек с микстурами', description: 'Содержимое:\n- инкрустированный флакон с эликсиром маны (300 шт.),\n- инкрустированный флакон с целебным эликсиром (300 шт.),\n- солнечный настой (30 шт.),\n- лунный настой (30 шт.)' },
-        { id: '54655', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
-        { id: '54654', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с обновленным рамианским оружием эпохи Двенадцати' },
-        { id: '51239', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с изначальным рамианским оружием эпохи мифов' },
-        { id: '50924', type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, name: 'Дизайн широкополой шляпы стрелка' },
-        { id: '51940', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Сундучок с ценным украшением эпохи чудес' },
-        { id: '129', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_accessory_0001.png', grade: 1, name: 'Дельфийская руна' },
-        { id: '50925', type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, name: 'Дизайн соломенной шляпы' },
-        { id: '55280', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, name: 'Легендарная руна ифнирского героя' },
-        { id: '55683', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями для украшений' },
-        { id: '50536', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями', description: 'Открыв мешочек, вы сможете выбрать один из следующих предметов:\n- мешочек с рубиновыми магистериями,\n- мешочек с кварцевыми магистериями,\n- мешочек с сапфировыми магистериями,\n- мешочек с изумрудными магистериями,\n- мешочек с янтарными магистериями.' },
-        { id: '8001148', icon: 'https://archeagecodex.com/items/icon_item_3807.png', grade: 2, name: 'Статуя «Орхидна на троне»' },
-        { id: '8001203', icon: 'https://archeagecodex.com/items/icon_item_3277.png', grade: 1, name: 'Сундучок с фамильными ценностями' },
-        { id: '54933', icon: 'https://archeagecodex.com/items/icon_item_5809.png', grade: 2, name: 'Замерзший пруд' },
-        { id: '48860', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, name: 'Большая эфенская сфера оружейника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.' },
-        { id: '48861', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, name: 'Большая эфенская сфера бронника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.' },
-        { id: '44359', type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, name: 'Походный фиал славы' },
-        { id: '47941', type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
-        { id: '55800', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, name: 'Сундучок с фрагментами судьбы', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:\n- пыль судьбы (25 шт.),\n- слиток судьбы (5 шт.),\n- призма судьбы.' },
-        { id: '8002772', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем', description: 'Сняв печать, вы получите Квадрума, Мистериона или Мистериона, Ужаса Ночи (на выбор).' },
-        { id: '50635', type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, isPersonal: true, name: 'Заговоренная гадальная руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для эфенского и рамианского снаряжения; трофеев, полученных за победу над мифическими противниками; ожерелий, полученных на Последнем рубеже; перстней говорящего с духами; а также для костюмов, плащей и украшений чемпионов Порт-Аргенто.|r', useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
-        { id: '8002769', icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, isPersonal: true, name: 'Знак «Ключевая фигура»', description: 'Позволяет получить титул «Ключевая фигура».', useDescription: 'Получить титул.' },
-        { id: '30604', icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x100' },
-        { id: '55450', type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
-        { id: '8002410', type: 'equipment', subType: 'cloak', icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', description: 'Неизвестно, в чем причина, но к человеку в таком шарфе окружающие почему-то относятся с особенным уважением (и даже с некоторой опаской).\n\n|nc;Усиливающие эффекты костюма действуют 30 дней. Чтобы активировать их заново, костюм нужно постирать.|r', tempEquipDescription: 'Скорость передвижения +|nc;3|r%\nСкорость плавания +|nc;3|r%\nСкорость занятия ремеслом |nc;+10%|r\nСкорость занятия животноводством |nc;+10%|r\nОпыт при занятии ремеслом |nc;+10|r%' },
-        { id: '34685', type: 'equipment', subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', grade: 1, name: 'Укрепленный аргенитовый кларнет' },
-        { id: '417', icon: 'https://archeagecodex.com/items/icon_item_0418.png', grade: 1, name: 'Редкий камень странствий', isPersonal: true, description: 'Необходим для перемещения с помощью книги порталов.', price: 0, reqLevel: 1 },
-        { id: '52701', icon: 'https://archeagecodex.com/items/icon_item_5282.png', grade: 1, name: 'Кристалл изначального анадия', description: 'Эти лиловые кристаллы – достойное подношение духам-хранителям.\nОдновременно в рюкзаке может быть не более пяти кристаллов. Кристаллы исчезнут через один час.', useDescription: 'Поднести кристалл духам-хранителям у древнего тотема или усилить призванного духа-хранителя.', price: 0 },
-        { id: '40491', icon: 'https://archeagecodex.com/items/icon_item_3090.png', grade: 2, name: 'Знак отваги' },
-        { id: '46695', icon: 'https://archeagecodex.com/items/icon_item_4557.png', grade: 3, name: 'Белоснежный олененок' },
-        { id: '', type: '', icon: '', grade: 1, name: '' },
+        { id: 48894, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, name: 'Драгоценная эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет. Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r.' },
+        { id: 54915, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, name: 'Свиток чар ифнирского героя' },
+        { id: 45508, icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, name: 'Сфера анимага' },
+        { id: 8001565, icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, name: 'Новенькая кирка' },
+        { id: 8002452, overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, name: 'Универсальный алхимический кристалл' },
+        { id: 8002449, icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, name: 'Дополнительная сумка' },
+        { id: 47943, type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, name: 'Настойка усердного ремесленника' },
+        { id: 39424, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_3017.png', grade: 1, name: 'Ирамийская гадальная руна', description: 'Позволяет заменить один из |nc;эффектов синтеза костюма, эфенского снаряжения, рамианского снаряжения или трофейного снаряжения мифических противников|r другим, выбранным случайным образом.', useDescription: 'Распаковать.\nУдерживая Shift, щелкните левой кнопкой мыши, чтобы распаковать все предметы этого типа, находящиеся в рюкзаке.' },
+        { id: 46180, icon: 'https://archeagecodex.com/items/icon_item_1395.png', grade: 3, name: 'Солнечный настой' },
+        { id: 47130, type: 'unidentified', overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_2679.png', grade: 6, name: 'Хрустальная руна', description: '|nd;Можно получить одну из хрустальных рун на выбор:|r\n- хрустальная руна багровой луны,\n- хрустальная руна осенней луны,\n- хрустальная руна молодой луны,\n- хрустальная руна безмолвной луны,\n- хрустальная руна колдовской луны.' },
+        { id: 47104, icon: 'https://archeagecodex.com/items/icon_item_4570.png', grade: 2, name: 'Парниковый купол' },
+        { id: 48903, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3282.png', grade: 1, name: 'Набор сверкающих эфенских сфер' },
+        { id: 48474, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3275.png', grade: 11, name: 'Большой набор мифических эссенций' },
+        { id: 8002297, type: 'unidentified', overlay: 'seal', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, name: 'Королевский лунный изумруд' },
+        { id: 35727, icon: 'https://archeagecodex.com/items/icon_item_1982.png', grade: 2, name: 'Буровая установка' },
+        { id: 47082, icon: 'https://archeagecodex.com/items/icon_item_3369.png', grade: 1, name: 'Патент на транспортное средство' },
+        { id: 55783, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, name: 'Сундучок с зачарованной гравировкой для украшений' },
+        { id: 31892, icon: 'https://archeagecodex.com/items/icon_item_1733.png', grade: 1, name: 'Земельный вексель' },
+        { id: 55722, icon: 'https://archeagecodex.com/items/icon_item_5864.png', grade: 4, name: 'Искусная цитриновая гравировка' },
+        { id: 48886, icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, name: 'Сверкающая эфенская сфера бронника', description: 'Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r.' },
+        { id: 55723, icon: 'https://archeagecodex.com/items/icon_item_5865.png', grade: 4, name: 'Искусная аквамариновая гравировка' },
+        { id: 45747, type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_4385.png', grade: 5, name: 'Драгоценный флакон с зельем охотника' },
+        { id: 49270, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, name: 'Набор больших эфенских кубов' },
+        { id: 45160, type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, name: 'Настойка спорыньи' },
+        { id: 46623, type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, name: 'Настойка остролиста' },
+        { id: 8001268, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток дельфийской библиотеки' },
+        { id: 46181, icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, name: 'Лунный настой' },
+        { id: 48546, icon: 'https://archeagecodex.com/items/icon_item_3595.png', grade: 1, name: 'Письмена войны' },
+        { id: 47655, icon: 'https://archeagecodex.com/items/icon_item_4709.png', grade: 4, name: 'Фиона Розовый Лепесток' },
+        { id: 47581, icon: 'https://archeagecodex.com/items/icon_item_4211.png', grade: 3, name: 'Лиловое эмалевое стекло' },
+        { id: 47479, icon: 'https://archeagecodex.com/items/icon_item_3519.png', grade: 1, name: 'Инкрустированный флакон с целебным эликсиром' },
+        { id: 47480, icon: 'https://archeagecodex.com/items/icon_item_3520.png', grade: 1, name: 'Инкрустированный флакон с эликсиром маны' },
+        { id: 8003072, icon: 'https://archeagecodex.com/items/icon_item_6002.png', grade: 1, name: 'Осколок предела' },
+        { id: 8001288, icon: 'https://archeagecodex.com/items/icon_item_0966.png', grade: 1, name: 'Цитрусовая карамелька' },
+        { id: 8002649, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3259.png', grade: 4, name: 'Набор неверинских фейерверков' },
+        { id: 8000540, icon: 'https://archeagecodex.com/items/icon_item_3207.png', grade: 1, name: 'Пушистая неверинская елочка' },
+        { id: 49769, icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, name: 'Зачарованный свиток пробуждения хранителя знаний' },
+        { id: 54653, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, name: 'Сундук с обновленным рамианским снаряжением' },
+        { id: 53515, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, isPersonal: true, price: 0, reqLevel: 1, name: 'Заговоренная рамианская руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для проклятого, изначального, обновленного и совершенного рамианского снаряжения.|r', useDescription: 'Приступить к замене эффекта.\nРасход очков работы: |nc;50|r.' },
+        { id: 52207, icon: 'https://archeagecodex.com/items/icon_item_3022.png', grade: 1, name: 'Мешочек с микстурами', description: 'Содержимое:\n- инкрустированный флакон с эликсиром маны (300 шт.),\n- инкрустированный флакон с целебным эликсиром (300 шт.),\n- солнечный настой (30 шт.),\n- лунный настой (30 шт.)' },
+        { id: 51239, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с изначальным рамианским оружием эпохи мифов' },
+        { id: 51240, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с изначальным рамианским оружием эпохи Двенадцати' },
+        { id: 54654, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с обновленным рамианским оружием эпохи Двенадцати' },
+        { id: 54655, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
+        { id: 47941, type: 'box', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
+        { id: 51243, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с магистерским эрнардским оружием эпохи Двенадцати' },
+        { id: 51940, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Сундучок с ценным украшением эпохи чудес' },
+        { id: 51236, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундучок с драгоценным украшением эпохи мифов', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов качества эпохи мифов:\n- перстень чемпиона Дома Норьетт,\n- серьга чемпиона Дома Норьетт,\n- ожерелье последнего рубежа,\n- ожерелье доблести воина XIII ранга,\n- ожерелье доблести целителя XIII ранга.' },
+        { id: 50924, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png', grade: 2, name: 'Дизайн широкополой шляпы стрелка' },
+        { id: 50925, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_hm/nu_f_hm_cloth519.png', grade: 2, name: 'Дизайн соломенной шляпы' },
+        { id: 8002486, type: 'equipment', subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_korean006.png', grade: 1, name: 'Дизайн костюма хоури эпохи Фарвати' },
+        { id: 129, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_accessory_0001.png', grade: 1, name: 'Дельфийская руна' },
+        { id: 55280, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, name: 'Легендарная руна ифнирского героя' },
+        { id: 55683, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями для украшений' },
+        { id: 50536, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями', description: 'Открыв мешочек, вы сможете выбрать один из следующих предметов:\n- мешочек с рубиновыми магистериями,\n- мешочек с кварцевыми магистериями,\n- мешочек с сапфировыми магистериями,\n- мешочек с изумрудными магистериями,\n- мешочек с янтарными магистериями.' },
+        { id: 8001148, icon: 'https://archeagecodex.com/items/icon_item_3807.png', grade: 2, name: 'Статуя «Орхидна на троне»' },
+        { id: 8001203, icon: 'https://archeagecodex.com/items/icon_item_3277.png', grade: 1, name: 'Сундучок с фамильными ценностями' },
+        { id: 54933, icon: 'https://archeagecodex.com/items/icon_item_5809.png', grade: 2, name: 'Замерзший пруд' },
+        { id: 48860, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, name: 'Большая эфенская сфера оружейника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.' },
+        { id: 48861, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, name: 'Большая эфенская сфера бронника', description: 'Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.' },
+        { id: 44359, type: 'potion', icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, name: 'Походный фиал славы' },
+        { id: 55800, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, name: 'Сундучок с фрагментами судьбы', description: 'Открыв этот сундучок, вы сможете выбрать один из следующих предметов:\n- пыль судьбы (25 шт.),\n- слиток судьбы (5 шт.),\n- призма судьбы.' },
+        { id: 8002772, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем', description: 'Сняв печать, вы получите Квадрума, Мистериона или Мистериона, Ужаса Ночи (на выбор).' },
+        { id: 50635, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, isPersonal: true, name: 'Заговоренная гадальная руна', description: 'Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для эфенского и рамианского снаряжения; трофеев, полученных за победу над мифическими противниками; ожерелий, полученных на Последнем рубеже; перстней говорящего с духами; а также для костюмов, плащей и украшений чемпионов Порт-Аргенто.|r', useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
+        { id: 8002769, icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, isPersonal: true, name: 'Знак «Ключевая фигура»', description: 'Позволяет получить титул «Ключевая фигура».', useDescription: 'Получить титул.' },
+        { id: 30604, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x100' },
+        { id: 55450, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
+        { id: 8002410, type: 'equipment', subType: 'cloak', icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', description: 'Неизвестно, в чем причина, но к человеку в таком шарфе окружающие почему-то относятся с особенным уважением (и даже с некоторой опаской).\n\n|nc;Усиливающие эффекты костюма действуют 30 дней. Чтобы активировать их заново, костюм нужно постирать.|r', tempEquipDescription: 'Скорость передвижения +|nc;3|r%\nСкорость плавания +|nc;3|r%\nСкорость занятия ремеслом |nc;+10%|r\nСкорость занятия животноводством |nc;+10%|r\nОпыт при занятии ремеслом |nc;+10|r%' },
+        { id: 34685, type: 'equipment', subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', grade: 1, name: 'Укрепленный аргенитовый кларнет' },
+        { id: 417, icon: 'https://archeagecodex.com/items/icon_item_0418.png', grade: 1, name: 'Редкий камень странствий', isPersonal: true, description: 'Необходим для перемещения с помощью книги порталов.', price: 0, reqLevel: 1 },
+        { id: 52701, icon: 'https://archeagecodex.com/items/icon_item_5282.png', grade: 1, name: 'Кристалл изначального анадия', description: 'Эти лиловые кристаллы – достойное подношение духам-хранителям.\nОдновременно в рюкзаке может быть не более пяти кристаллов. Кристаллы исчезнут через один час.', useDescription: 'Поднести кристалл духам-хранителям у древнего тотема или усилить призванного духа-хранителя.', price: 0 },
+        { id: 40491, icon: 'https://archeagecodex.com/items/icon_item_3090.png', grade: 2, name: 'Знак отваги' },
+        { id: 46695, icon: 'https://archeagecodex.com/items/icon_item_4557.png', grade: 3, name: 'Белоснежный олененок' },
+        { id: 48521, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_2070.png', grade: 5, name: 'Большой эфенский куб оружейника' },
+        { id: 48522, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_2069.png', grade: 5, name: 'Большой эфенский куб бронника' },
+        { id: 8002273, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_1668.png', grade: 1, name: 'Набор анимага' },
+        { id: 8002483, type: 'box', icon: 'https://archeagecodex.com/items/icon_item_3261.png', grade: 1, name: 'Коробка с бельем «Ночи Аль-Харбы»' },
+        { id: 45409, type: 'unidentified', overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/costume_ar/nu_m_ar_cloth292.png', grade: 2, name: 'Рамианское матерчатое снаряжение' },
+        { id: 53586, type: 'unidentified', icon: 'https://archeagecodex.com/items/icon_item_5144.png', grade: 4, name: 'Золотой сундучок со знаками культистов' },
+        { id: 46151, type: 'magical', icon: 'https://archeagecodex.com/items/icon_item_4467.png', grade: 3, name: 'Заготовка огранщика', isPersonal: true },
+        { id: 49252, type: 'quest', icon: 'https://archeagecodex.com/items/icon_item_4878.png', grade: 2, name: 'Образцы флоры Сада', isPersonal: true, price: 0, description: 'Пакетик с образцами флоры Сада Матери.' },
+        { id: 31151, type: 'other', icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 1, name: 'Перевязанный ленточкой подарок', description: 'Похоже, один из снеговиков вместе с украшениями прихватил подарок из тех, что должен был раздавать на улицах города.', useDescription: 'Открыть подарок.\nУдерживая Shift, щелкните правой кнопкой мыши, чтобы открыть все подарки этого вида один за другим.', isPersonal: true, price: 0 },
+        { id: 1, type: '', icon: '', grade: 1, name: '' },
     ].map(i => [i.id, i]));
 
     /**
@@ -1559,117 +1589,118 @@
      */
 
     /**
-     * @typedef {Object} QuestEvent
+     * @typedef {Object} EventSchedule
      * @property {string} timeStart - Время начала события (HH:MM).
      * @property {string} [timeEnd] - Время окончания события (HH:MM). Если указано — событие длится диапазон.
      * @property {number[]} [weekdays] - Дни недели (1–7), если не каждый день.
+     * @property {number} [duration] - Примерная длительность события (в минутах).
      */
 
     /**
-     * @typedef {Object} QuestMeta
-     * @property {number} id - ID квеста в ArcheageCodex.
-     * @property {string} eventId - ID квеста в ивенте (ключ в QUEST_META).
+     * @typedef {Object} Quest
+     * @property {number} id - ID квеста.
+     * @property {number} marathonId - ID задания в марафоне (ключ в MARATHON_QUESTS).
      * @property {string} short - Краткое описание / пояснение.
      * @property {'blue_salt'|'north'} [veksel] - Тип векселя.
      * @property {string[]} [locations] - Локации выполнения.
      * @property {Slot} [slot] - Предмет с количеством.
-     * @property {QuestEvent[]} [events] - Расписание событий.
+     * @property {EventSchedule[]} [schedule] - Расписание событий.
      */
 
-    /** @type {QuestMeta[]} */
+    /** @type {Quest[]} */
     const QUESTS = [
-        { eventId: '8246', id: 10559, short: "" },
-        { eventId: '8248', id: 9142, short: "", veksel: 'blue_salt' },
-        { eventId: '8250', id: 9318, short: 'Квест на Взрослого ольхона (портал "Укромный утес")' },
-        { eventId: '8252', id: 10512, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43176"], count: 20 } },
-        { eventId: '8254', id: 10513, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43176"], count: 60 } },
-        { eventId: '8256', id: 9100, short: "" },
-        { eventId: '8258', id: 7658, short: "" },
-        { eventId: '8260', id: 6797, short: "" },
-        { eventId: '8262', id: 8998, short: "" },
-        { eventId: '8268', id: 5972, short: "" },
-        { eventId: '8274', id: 10480, short: "" },
-        { eventId: '8282', id: 7154, short: "" },
-        { eventId: '8284', id: 9137, short: "", veksel: 'blue_salt', slot: { item: ITEMS["8318"], count: 60 } },
-        { eventId: '8286', id: 8000131, short: "Квест Нуи на 500 очков работы" },
-        { eventId: '8288', id: 10508, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["40928"], count: 25 } },
-        { eventId: '8290', id: 10509, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["40928"], count: 75 } },
-        { eventId: '8292', id: 5092, short: "" },
-        { eventId: '8294', id: 7659, short: "" },
-        { eventId: '8296', id: 7817, short: "" },
-        { eventId: '8298', id: 8000058, short: "Нагашар (только обычка)", slot: { item: ITEMS["8000749"] } },
-        { eventId: '8300', id: 5971, short: "", events: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-        { eventId: '8314', id: 10564, short: "Ифнир - змея", events: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] },
-        { eventId: '8316', id: 8000061, short: "Сады наслаждений (только хард)", slot: { item: ITEMS["8000752"] } },
-        { eventId: '8318', id: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
-        { eventId: '8320', id: 9152, short: "", veksel: 'blue_salt', slot: { item: ITEMS["16327"], count: 60 } },
-        { eventId: '8322', id: 8435, short: 'Портал "Лягушачьи пруды"' },
-        { eventId: '8324', id: 10510, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["42077"], count: 8 } },
-        { eventId: '8326', id: 10511, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS["42077"], count: 25 } },
-        { eventId: '8328', id: 7657, short: "" },
-        { eventId: '8330', id: 7813, short: "" },
-        { eventId: '8336', id: 5144, short: "Призрачный (ночной) разлом", events: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
-        { eventId: '8338', id: 5885, short: "Анталлон на Солнечных полях", events: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
-        { eventId: '8340', id: 8000060, short: "Сады наслаждений (изи или нормал)", slot: { item: ITEMS["8000751"] } },
-        { eventId: '8346', id: 10056, short: "Квест можно взять в любое время, боссы:", events: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] },
-        { eventId: '8348', id: 11154, short: "Лиловый (армия фантомов)", events: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] },
-        { eventId: '8350', id: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
-        { eventId: '8352', id: 9147, short: "", veksel: 'blue_salt', slot: { item: ITEMS["8256"], count: 60 } },
-        { eventId: '8354', id: 8000136, short: "Квест Нуи на 2500 ремесленки" },
-        { eventId: '8356', id: 10506, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["42076"], count: 10 } },
-        { eventId: '8358', id: 10507, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["42076"], count: 30 } },
-        { eventId: '8360', id: 5091, short: "" },
-        { eventId: '8362', id: 9101, short: "Библа, 3-ий босс" },
-        { eventId: '8364', id: 7656, short: "" },
-        { eventId: '8366', id: 9320, short: "" },
-        { eventId: '8372', id: 9297, short: "" },
-        { eventId: '8380', id: 7815, short: "Изи/нормал Сады наслаждений" },
-        { eventId: '8382', id: 10735, short: "Эншака на Солнечных полях", events: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
-        { eventId: '8388', id: 9153, short: "", veksel: 'blue_salt', slot: { item: ITEMS["16327"], count: 100 } },
-        { eventId: '8390', id: 5062, short: "" },
-        { eventId: '8392', id: 10514, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43177"], count: 7 } },
-        { eventId: '8394', id: 10515, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS["43177"], count: 20 } },
-        { eventId: '8396', id: 7155, short: "Нагашар обычка" },
-        { eventId: '8398', id: 9398, short: "100 мобов на Пустоши Корвуса" },
-        { eventId: '8400', id: 7152, short: "" },
-        { eventId: '8402', id: 9102, short: "Библа, голем" },
-        { eventId: '8404', id: 9205, short: "", events: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
-        { eventId: '8414', id: 10952, short: "" },
-        { eventId: '8422', id: 10304, short: "" },
-        { eventId: '8424', id: 9099, short: "Библа, первый босс" },
-        { eventId: '8426', id: 9143, short: "", veksel: 'blue_salt', slot: { item: ITEMS["8337"], count: 100 } },
-        { eventId: '8434', id: 10504, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["35461"], count: 30 } },
-        { eventId: '8436', id: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS["35461"], count: 90 } },
-        { eventId: '8438', id: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", slot: { item: ITEMS["8000753"] } },
-        { eventId: '8448', id: 2943, short: "Кровавый (дневной) разлом - 3-я волна", events: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
-        { eventId: '8450', id: 7935, short: "Гардум", events: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
-        { eventId: '8452', id: 7660, short: "" },
-        { eventId: '8470', id: 10739, short: "Призрачный (ночной) разлом - Эншака", events: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
-        { eventId: '8478', id: 10423, short: "" },
-        { eventId: '8494', id: 8635, short: "" },
-        { eventId: '8496', id: 9295, short: "" },
-        { eventId: '8498', id: 9294, short: "" },
-        { eventId: '8500', id: 8637, short: "Бухта - Жакар" },
-        { eventId: '8502', id: 7327, short: "50 мобов (100 очков) на Сверкающем побережье" },
-        { eventId: '8504', id: 9296, short: "" },
-        { eventId: '8506', id: 5969, short: "", events: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-        { eventId: '8508', id: 8641, short: "Эфен - жаба (через 5 минут после начала войны)" },
-        { eventId: '8510', id: 5077, short: "" },
-        { eventId: '8512', id: 8605, short: "" },
-        { eventId: '8514', id: 11096, short: "Луг - Битва хранителей", events: [{ timeStart: "18:00", weekdays: [6, 0] }] },
-        { eventId: '8516', id: 8000129, short: "" },
-        { eventId: '8518', id: 1415, short: "" },
-        { eventId: '8520', id: 5970, short: "", events: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-        { eventId: '8522', id: 10188, short: "" },
-        { eventId: '8524', id: 8618, short: "Эфен - мобы" },
+        { marathonId: 8246, id: 10559, short: "" },
+        { marathonId: 8248, id: 9142, short: "", veksel: 'blue_salt' },
+        { marathonId: 8250, id: 9318, short: 'Квест на Взрослого ольхона (портал "Укромный утес")' },
+        { marathonId: 8252, id: 10512, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43176], count: 20 } },
+        { marathonId: 8254, id: 10513, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43176], count: 60 } },
+        { marathonId: 8256, id: 9100, short: "" },
+        { marathonId: 8258, id: 7658, short: "" },
+        { marathonId: 8260, id: 6797, short: "" },
+        { marathonId: 8262, id: 8998, short: "" },
+        { marathonId: 8268, id: 5972, short: "" },
+        { marathonId: 8274, id: 10480, short: "" },
+        { marathonId: 8282, id: 7154, short: "" },
+        { marathonId: 8284, id: 9137, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8318], count: 60 } },
+        { marathonId: 8286, id: 8000131, short: "Квест Нуи на 500 очков работы" },
+        { marathonId: 8288, id: 10508, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 25 } },
+        { marathonId: 8290, id: 10509, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 75 } },
+        { marathonId: 8292, id: 5092, short: "" },
+        { marathonId: 8294, id: 7659, short: "" },
+        { marathonId: 8296, id: 7817, short: "" },
+        { marathonId: 8298, id: 8000058, short: "Нагашар (только обычка)", slot: { item: ITEMS[8000749] } },
+        { marathonId: 8300, id: 5971, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+        { marathonId: 8314, id: 10564, short: "Ифнир - змея", schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] },
+        { marathonId: 8316, id: 8000061, short: "Сады наслаждений (только хард)", slot: { item: ITEMS[8000752] } },
+        { marathonId: 8318, id: 9317, short: 'Квест на Космача (портал "Зимний Очаг")' },
+        { marathonId: 8320, id: 9152, short: "", veksel: 'blue_salt', slot: { item: ITEMS[16327], count: 60 } },
+        { marathonId: 8322, id: 8435, short: 'Портал "Лягушачьи пруды"' },
+        { marathonId: 8324, id: 10510, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[42077], count: 8 } },
+        { marathonId: 8326, id: 10511, short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[42077], count: 25 } },
+        { marathonId: 8328, id: 7657, short: "" },
+        { marathonId: 8330, id: 7813, short: "" },
+        { marathonId: 8336, id: 5144, short: "Призрачный (ночной) разлом", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
+        { marathonId: 8338, id: 5885, short: "Анталлон на Солнечных полях", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
+        { marathonId: 8340, id: 8000060, short: "Сады наслаждений (изи или нормал)", slot: { item: ITEMS[8000751] } },
+        { marathonId: 8346, id: 10056, short: "Квест можно взять в любое время, боссы:", schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] },
+        { marathonId: 8348, id: 11154, short: "Лиловый (армия фантомов)", schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] },
+        { marathonId: 8350, id: 11227, short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
+        { marathonId: 8352, id: 9147, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8256], count: 60 } },
+        { marathonId: 8354, id: 8000136, short: "Квест Нуи на 2500 ремесленки" },
+        { marathonId: 8356, id: 10506, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 10 } },
+        { marathonId: 8358, id: 10507, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 30 } },
+        { marathonId: 8360, id: 5091, short: "" },
+        { marathonId: 8362, id: 9101, short: "Библа, 3-ий босс" },
+        { marathonId: 8364, id: 7656, short: "" },
+        { marathonId: 8366, id: 9320, short: "" },
+        { marathonId: 8372, id: 9297, short: "" },
+        { marathonId: 8380, id: 7815, short: "Изи/нормал Сады наслаждений" },
+        { marathonId: 8382, id: 10735, short: "Эншака на Солнечных полях", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
+        { marathonId: 8388, id: 9153, short: "", veksel: 'blue_salt', slot: { item: ITEMS[16327], count: 100 } },
+        { marathonId: 8390, id: 5062, short: "" },
+        { marathonId: 8392, id: 10514, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43177], count: 7 } },
+        { marathonId: 8394, id: 10515, short: "", veksel: 'north', locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43177], count: 20 } },
+        { marathonId: 8396, id: 7155, short: "Нагашар обычка" },
+        { marathonId: 8398, id: 9398, short: "100 мобов на Пустоши Корвуса" },
+        { marathonId: 8400, id: 7152, short: "" },
+        { marathonId: 8402, id: 9102, short: "Библа, голем" },
+        { marathonId: 8404, id: 9205, short: "", schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
+        { marathonId: 8414, id: 10952, short: "" },
+        { marathonId: 8422, id: 10304, short: "" },
+        { marathonId: 8424, id: 9099, short: "Библа, первый босс" },
+        { marathonId: 8426, id: 9143, short: "", veksel: 'blue_salt', slot: { item: ITEMS[8337], count: 100 } },
+        { marathonId: 8434, id: 10504, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[35461], count: 30 } },
+        { marathonId: 8436, id: 10505, short: "", veksel: 'north', locations: ["Замок Ош"], slot: { item: ITEMS[35461], count: 90 } },
+        { marathonId: 8438, id: 8000062, short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", slot: { item: ITEMS[8000753] } },
+        { marathonId: 8448, id: 2943, short: "Кровавый (дневной) разлом - 3-я волна", schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
+        { marathonId: 8450, id: 7935, short: "Гардум", schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
+        { marathonId: 8452, id: 7660, short: "" },
+        { marathonId: 8470, id: 10739, short: "Призрачный (ночной) разлом - Эншака", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
+        { marathonId: 8478, id: 10423, short: "" },
+        { marathonId: 8494, id: 8635, short: "" },
+        { marathonId: 8496, id: 9295, short: "" },
+        { marathonId: 8498, id: 9294, short: "" },
+        { marathonId: 8500, id: 8637, short: "Бухта - Жакар" },
+        { marathonId: 8502, id: 7327, short: "50 мобов (100 очков) на Сверкающем побережье" },
+        { marathonId: 8504, id: 9296, short: "" },
+        { marathonId: 8506, id: 5969, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+        { marathonId: 8508, id: 8641, short: "Эфен - жаба (через 5 минут после начала войны)" },
+        { marathonId: 8510, id: 5077, short: "" },
+        { marathonId: 8512, id: 8605, short: "" },
+        { marathonId: 8514, id: 11096, short: "Луг - Битва хранителей", schedule: [{ timeStart: "18:00", weekdays: [6, 0] }] },
+        { marathonId: 8516, id: 8000129, short: "" },
+        { marathonId: 8518, id: 1415, short: "" },
+        { marathonId: 8520, id: 5970, short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+        { marathonId: 8522, id: 10188, short: "", slot: { item: ITEMS[49252], count: 20 } },
+        { marathonId: 8524, id: 8618, short: "Эфен - мобы" },
     ];
 
-    /** @type {Record<string, QuestMeta>} */
-    const QUEST_META = Object.fromEntries(QUESTS.map(q => [q.eventId, q]));
+    /** @type {Record<string, Quest>} */
+    const MARATHON_QUESTS = Object.fromEntries(QUESTS.map(q => [q.marathonId, q]));
 
     /**
      * @typedef {Object} EventQuest
-     * @property {number} id - ID квеста в ArcheageCodex.
+     * @property {number} id - ID квеста.
      * @property {string} title - Название квеста.
      */
 
@@ -1678,42 +1709,46 @@
      * @property {string} title - Название события.
      * @property {EventQuest[]} [quests] - Связанные квесты.
      * @property {string[]} [locations] - Локации проведения.
-     * @property {QuestEvent[]} schedule - Расписание события.
+     * @property {EventSchedule[]} schedule - Расписание события.
      */
 
     /** @type {EventEntry[]} Расписание игровых событий (для страницы /a). */
     const EVENTS = [
-        { title: "Оборона Ифнира", defaultVisible: true, schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }], locations: ["Ифнир"], quests: [{ id: 10569, title: "Оборона Ифнира" }, { id: 10564, title: "Освобожденные узницы Нагашара" }] },
-        { title: "Луг - Битва хранителей", defaultVisible: true, schedule: [{ timeStart: "18:00", weekdays: [6, 0] }], locations: ["Великий луг"], quests: [{ id: 11132, title: "Битва хранителей" }, { id: 11096, title: "Турнир в честь Отца-Солнца" }] },
+        { code: "ifnir", title: "Оборона Ифнира", defaultVisible: true, defaultNotifications: true, schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }], locations: ["Ифнир"], quests: [{ id: 10569, title: "Оборона Ифнира" }, { id: 10564, title: "Освобожденные узницы Нагашара" }] },
+        { code: "lug_guardians", title: "Луг - Битва хранителей", defaultVisible: true, defaultNotifications: true, schedule: [{ timeStart: "18:00", weekdays: [6, 0] }], locations: ["Великий луг"], quests: [{ id: 11132, title: "Битва хранителей" }, { id: 11096, title: "Турнир в честь Отца-Солнца" }] },
+        { code: "storm_eye", title: "Око бури", schedule: [{ timeStart: "21:00", timeEnd: "22:00", weekdays: [1, 3, 5] }], locations: ["Архипелаг погибших кораблей"], quests: [{ id: 6791, title: "Битва на Оке бури" }] },
+        { code: "storm_eye_sea", title: "Гроза над морем", schedule: [{ timeStart: "14:00", timeEnd: "15:00" }, { timeStart: "22:00", timeEnd: "23:00" }], locations: ["Архипелаг погибших кораблей"], quests: [{ id: 5765, title: "Гроза над морем" }] },
+        { code: "carrion", title: "Падаль", defaultVisible: true, schedule: [{ timeStart: "10:00" }, { timeStart: "22:00" }] },
+        { code: "siege", title: "Осада", schedule: [{ timeStart: "21:00", timeEnd: "22:00", weekdays: [3] }] },
 
-        { title: "Кровавый (дневной) разлом - Анталлон/Эншака", defaultVisible: true, schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }], locations: ["Солнечные поля"], quests: [{ id: 5885, title: "Советник Кириоса" }] },
-        { title: "Кровавый (дневной) разлом - собака", defaultVisible: true, schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }], locations: ["Инистра", "Полуостров Падающих Звезд"], quests: [{ id: 2943, title: "Элитные войска Кровавой армии" }] },
-        { title: "Призрачный (ночной) разлом - Призрак Эншаки", defaultVisible: true, schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }], locations: ["Инистра", "Полуостров Падающих Звезд"], quests: [{ id: 5144, title: "Разгром призрачного легиона" }] },
-        { title: "Фантомы (лиловый разлом)", defaultVisible: false, schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }], locations: ["Сокрытая долина", "Ирамийский хребет"], quests: [{ id: 11154, title: "Бой с тенью" }] },
+        { code: "rift_blood_antallon", title: "Кровавый (дневной) разлом - Анталлон/Эншака", defaultVisible: true, schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }], locations: ["Солнечные поля"], quests: [{ id: 5885, title: "Советник Кириоса" }] },
+        { code: "rift_blood_garron", title: "Кровавый (дневной) разлом - Гигантский гаррон", defaultVisible: true, schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }], locations: ["Инистра", "Полуостров Падающих Звезд"], quests: [{ id: 2943, title: "Элитные войска Кровавой армии" }] },
+        { code: "rift_ghost", title: "Призрачный (ночной) разлом - Призрак Эншаки", defaultVisible: true, schedule: [{ timeStart: "02:20", duration: 15 }, { timeStart: "06:20", duration: 15 }, { timeStart: "10:20", duration: 15 }, { timeStart: "14:20", duration: 15 }, { timeStart: "18:20", duration: 15 }, { timeStart: "22:20", duration: 15 }], locations: ["Инистра", "Полуостров Падающих Звезд"], quests: [{ id: 5144, title: "Разгром призрачного легиона" }] },
+        { code: "rift_phantom", title: "Фантомы (лиловый разлом)", schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }], locations: ["Сокрытая долина", "Ирамийский хребет"], quests: [{ id: 11154, title: "Бой с тенью" }] },
 
         /* Инстансы - Рейды */
-        { title: "Логово дракона", defaultVisible: true, schedule: [{ timeStart: "13:20", timeEnd: "14:00" }, { timeStart: "18:20", timeEnd: "19:00" }, { timeStart: "21:20", timeEnd: "22:00" }], locations: ["Инстансы - Рейды"] },
-        { title: "Гардум (Ущелье кровавой росы)", defaultVisible: true, schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }], locations: ["Инстансы - Рейды"], quests: [{ id: 7935, title: "Хранитель Звенящего ущелья" }] },
-        { title: "Последний день Ирамканда", defaultVisible: false, schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }], locations: ["Инстансы - Рейды"], quests: [{ id: 9205, title: "Последний день Ирамканда" }] },
+        { code: "dragon_lair", title: "Логово дракона", defaultVisible: true, schedule: [{ timeStart: "13:20", timeEnd: "14:00" }, { timeStart: "18:20", timeEnd: "19:00" }, { timeStart: "21:20", timeEnd: "22:00" }], locations: ["Инстансы - Рейды"] },
+        { code: "gardum", title: "Гардум (Ущелье кровавой росы)", defaultVisible: true, schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }], locations: ["Инстансы - Рейды"], quests: [{ id: 7935, title: "Хранитель Звенящего ущелья" }] },
+        { code: "iramkand", title: "Последний день Ирамканда", schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }], locations: ["Инстансы - Рейды"], quests: [{ id: 9205, title: "Последний день Ирамканда" }] },
 
         /* Инстансы - Фракции */
-        { title: "Битва за Даскшир", defaultVisible: true, schedule: [{ timeStart: "16:00", timeEnd: "17:00", weekdays: [1, 3, 5] }, { timeStart: "22:30", timeEnd: "23:59", weekdays: [1, 3, 5] }, { timeStart: "19:00", timeEnd: "20:00", weekdays: [0, 2, 3, 6] }], locations: ["Инстансы - Фракции"] },
-        { title: "Битва в Ущелье кровавой росы", defaultVisible: false, schedule: [{ timeStart: "15:15", timeEnd: "16:00" }, { timeStart: "18:00", timeEnd: "19:00" }, { timeStart: "21:45", timeEnd: "22:30" }], locations: ["Инстансы - Фракции"] },
-        { title: "Битва за Зачарованные пруды", defaultVisible: true, schedule: [{ timeStart: "14:30", timeEnd: "15:15" }, { timeStart: "17:00", timeEnd: "18:00" }, { timeStart: "21:00", timeEnd: "21:45" }], locations: ["Инстансы - Фракции"] },
+        { code: "daskshir", title: "Битва за Даскшир", defaultVisible: true, schedule: [{ timeStart: "16:00", timeEnd: "17:00", weekdays: [1, 3, 5] }, { timeStart: "22:30", timeEnd: "23:59", weekdays: [1, 3, 5] }, { timeStart: "19:00", timeEnd: "20:00", weekdays: [0, 2, 3, 6] }], locations: ["Инстансы - Фракции"] },
+        { code: "gorge_battle", title: "Битва в Ущелье кровавой росы", schedule: [{ timeStart: "15:15", timeEnd: "16:00" }, { timeStart: "18:00", timeEnd: "19:00" }, { timeStart: "21:45", timeEnd: "22:30" }], locations: ["Инстансы - Фракции"] },
+        { code: "enchanted_ponds", title: "Битва за Зачарованные пруды", defaultVisible: true, schedule: [{ timeStart: "14:30", timeEnd: "15:15" }, { timeStart: "17:00", timeEnd: "18:00" }, { timeStart: "21:00", timeEnd: "21:45" }], locations: ["Инстансы - Фракции"] },
 
         /* Мировые боссы */
-        { title: "Кракен", defaultVisible: false, schedule: [{ timeStart: "19:30", weekdays: [0, 3, 5] }], locations: ["Безмятежное море"] },
-        { title: "Калидис", defaultVisible: false, schedule: [{ timeStart: "20:30", weekdays: [0, 4, 5] }], locations: ["Туманный пролив"] },
-        { title: "Левиафан", defaultVisible: false, schedule: [{ timeStart: "20:30", weekdays: [1, 3, 6] }], locations: ["Безмятежное море"] },
-        { title: "Летучий дельфиец", defaultVisible: false, schedule: [{ timeStart: "21:00", weekdays: [0, 2, 4, 6] }], locations: ["Золотое море"] },
-        { title: "Ашьяра/Гленн/Лорея", defaultVisible: false, schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }], locations: ["Бездна", "Солнечные поля"], quests: [{ id: 5971, title: "Чешуя Ашьяры" }, { id: 5970, title: "Кольцо капитана Гленна" }, { id: 5969, title: "Кольцо Лореи" }] },
-        { title: "Ксанатос", defaultVisible: false, schedule: [{ timeStart: "19:30", weekdays: [1, 4, 6] }], locations: ["Кладбище драконов"] },
+        { code: "kraken", title: "Кракен", schedule: [{ timeStart: "19:30", weekdays: [0, 3, 5] }], locations: ["Безмятежное море"] },
+        { code: "kalidis", title: "Калидис", schedule: [{ timeStart: "20:30", weekdays: [0, 4, 5] }], locations: ["Туманный пролив"] },
+        { code: "leviathan", title: "Левиафан", schedule: [{ timeStart: "20:30", weekdays: [1, 3, 6] }], locations: ["Безмятежное море"] },
+        { code: "dolphin", title: "Летучий дельфиец", schedule: [{ timeStart: "21:00", weekdays: [0, 2, 4, 6] }], locations: ["Золотое море"] },
+        { code: "ashyara_glenn_loreya", title: "Ашьяра/Гленн/Лорея", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }], locations: ["Бездна", "Солнечные поля"], quests: [{ id: 5971, title: "Чешуя Ашьяры" }, { id: 5970, title: "Кольцо капитана Гленна" }, { id: 5969, title: "Кольцо Лореи" }] },
+        { code: "xanatos", title: "Ксанатос", schedule: [{ timeStart: "19:30", weekdays: [1, 4, 6] }], locations: ["Кладбище драконов"] },
 
-        { title: "Эншака/Лернея/Таврос/М'гер", defaultVisible: false, schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }], locations: ["Сады матери"], quests: [{ id: 10056, title: "Садовые работы" }] },
-        { title: "Анталлон в садах", defaultVisible: false, schedule: [{ timeStart: "21:30", weekdays: [0, 4, 6] }], locations: ["Сады матери"] },
+        { code: "gardens_bosses", title: "Эншака/Лернея/Таврос/М'гер", schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }], locations: ["Сады матери"], quests: [{ id: 10056, title: "Садовые работы" }] },
+        { code: "gardens_antallon", title: "Анталлон в садах", schedule: [{ timeStart: "21:30", weekdays: [0, 4, 6] }], locations: ["Сады матери"] },
 
-        { title: "Битва за алтари", defaultVisible: false, schedule: [{ timeStart: "16:00", timeEnd: "16:30", weekdays: [0, 2, 3, 4, 5] }, { timeStart: "20:00", timeEnd: "20:30", weekdays: [0, 2, 3, 4, 5] }], locations: ["Пепельные равнины"] },
-        { title: "Фесаникс", defaultVisible: false, schedule: [{ timeStart: "22:30", timeEnd: "23:30", weekdays: [2] }], locations: ["Пепельные равнины"] },
+        { code: "altars", title: "Битва за алтари", schedule: [{ timeStart: "16:00", timeEnd: "16:30", weekdays: [0, 2, 3, 4, 5] }, { timeStart: "20:00", timeEnd: "20:30", weekdays: [0, 2, 3, 4, 5] }], locations: ["Пепельные равнины"] },
+        { code: "fesanix", title: "Фесаникс", schedule: [{ timeStart: "22:30", timeEnd: "23:30", weekdays: [2] }], locations: ["Пепельные равнины"] },
     ];
 
     // ==================== API-запросы ====================
@@ -2021,9 +2056,8 @@
     /**
      * Заполняет тултип данными предмета.
      * @param {ItemBase} item
-     * @param {string} [overlay]
      */
-    const populateTooltip = (item, overlay) => {
+    const populateTooltip = (item) => {
         const tooltip = getTooltipContainer();
         tooltip.innerHTML = '';
 
@@ -2033,7 +2067,7 @@
         const headerSection = document.createElement('div');
         headerSection.className = 'tm-item-tooltip-header';
 
-        const iconEl = makeItemIconLink({ item, overlay, noTooltip: true });
+        const iconEl = makeItemIconLink({ item, noTooltip: true });
         headerSection.appendChild(iconEl);
 
         const tipMeta = document.createElement('div');
@@ -2156,15 +2190,14 @@
      * Показывает тултип рядом с элементом.
      * @param {HTMLElement} anchorEl
      * @param {ItemBase} item
-     * @param {string} [overlay]
      */
     const TOOLTIP_VISIBLE_CLASS = 'tm-item-tooltip--visible';
     const TOOLTIP_RIGHT_CLASS = 'tm-item-tooltip--right';
     const TOOLTIP_BOTTOM_CLASS = 'tm-item-tooltip--bottom';
     const TOOLTIP_WIDTH = 248;
 
-    const showTooltip = (anchorEl, item, overlay) => {
-        populateTooltip(item, overlay);
+    const showTooltip = (anchorEl, item) => {
+        populateTooltip(item);
 
         const tooltip = getTooltipContainer();
         const rect = anchorEl.getBoundingClientRect();
@@ -2222,14 +2255,13 @@
      *
      * @param {Object} params
      * @param {ItemBase} params.item - Предмет.
-     * @param {string} [params.overlay] - URL overlay-изображения типа предмета (из ITEM_TYPES).
      * @param {boolean} [params.linked=false] - Создать как `<a>` со ссылкой на ArcheageCodex.
      * @param {'small'|'medium'} [params.size='medium'] - Размер иконки: `'small'` (30px) или `'medium'` (42px).
      * @param {number} [params.count] - Количество предмета (бейдж снизу-справа, показывается при > 1).
      * @param {boolean} [params.noTooltip=false] - Не добавлять всплывашку (для иконки внутри тултипа).
      * @returns {HTMLElement} `.tm-item-icon`
      */
-    const makeItemIconLink = ({ item, overlay, linked = false, size = 'medium', count, noTooltip = false }) => {
+    const makeItemIconLink = ({ item, linked = false, size = 'medium', count, noTooltip = false }) => {
         const icon = document.createElement(linked ? 'a' : 'div');
         icon.className = `tm-item-icon tm-item-icon--${size}`;
 
@@ -2246,6 +2278,7 @@
 
         icon.appendChild(itemImg);
 
+        const overlay = ICON_OVERLAY[item.overlay]?.icon;
         // Overlay слой (между иконкой и рамкой редкости)
         if (overlay) {
             const overlayImg = document.createElement('img');
@@ -2270,7 +2303,7 @@
         }
 
         if (!noTooltip) {
-            icon.addEventListener('mouseenter', () => showTooltip(icon, item, overlay));
+            icon.addEventListener('mouseenter', () => showTooltip(icon, item));
             icon.addEventListener('mouseleave', hideTooltip);
         }
 
@@ -2318,9 +2351,9 @@
      * @param {Slot|null} [params.slot]
      * @param {'blue_salt'|'north'} [params.veksel]
      * @param {string[]} [params.locations]
-     * @param {QuestEvent[]} [params.events]
+     * @param {EventSchedule[]} [params.schedule]
      */
-    const makeLinksRow = ({ id, short, questTitle, slot, veksel, locations, events }) => {
+    const makeLinksRow = ({ id, short, questTitle, slot, veksel, locations, schedule }) => {
         const row = document.createElement('div');
         row.className = 'tm-links-row';
 
@@ -2336,7 +2369,6 @@
             if (hasIcon) {
                 leftPart.appendChild(makeItemIconLink({
                     item,
-                    overlay: ITEM_TYPES[item.type]?.icon || null,
                     linked: true,
                     size: 'small',
                     count: slot.count,
@@ -2353,12 +2385,12 @@
             }
         }
 
-        // Контейнер для локаций/short и events
+        // Контейнер для локаций/short и schedule
         const hasLocations = locations && locations.length > 0;
         const hasShort = !!short;
-        const hasEvents = events && events.length > 0;
+        const hasSchedule = schedule && schedule.length > 0;
 
-        if (hasLocations || hasShort || hasEvents) {
+        if (hasLocations || hasShort || hasSchedule) {
             const infoWrapper = document.createElement('div');
             infoWrapper.className = 'tm-info-wrapper';
 
@@ -2385,16 +2417,16 @@
             }
 
             // Вторая строка: события (времена)
-            if (hasEvents) {
+            if (hasSchedule) {
                 const eventsEl = document.createElement('div');
                 eventsEl.className = 'tm-events';
-                eventsEl.textContent = formatEventsToString(events);
+                eventsEl.textContent = formatEventsToString(schedule);
 
                 // Countdown
                 const countdown = document.createElement('span');
                 countdown.className = 'tm-countdown';
-                countdown.dataset.events = JSON.stringify(events);
-                const seconds = getSecondsUntilNextEvent(events);
+                countdown.dataset.schedule = JSON.stringify(schedule);
+                const seconds = getSecondsUntilNextEvent(schedule);
                 updateCountdownEl(countdown, seconds);
                 eventsEl.appendChild(countdown);
 
@@ -2449,10 +2481,10 @@
      * @param {Slot|null} [params.slot]
      * @param {'blue_salt'|'north'} [params.veksel]
      * @param {string[]} [params.locations]
-     * @param {QuestEvent[]} [params.events]
+     * @param {EventSchedule[]} [params.schedule]
      * @param {boolean} [params.animateCompletion=false] - Добавить анимацию "только что выполнено"
      */
-    const makeTaskCard = ({ q, amount, id, short, isDone, showLastDone, completionTime, isToday, slot, veksel, locations, events, animateCompletion = false }) => {
+    const makeTaskCard = ({ q, amount, id, short, isDone, showLastDone, completionTime, isToday, slot, veksel, locations, schedule, animateCompletion = false }) => {
         const card = document.createElement('div');
         card.className = `tasks__item tasks__item--${amount || 1}`;
 
@@ -2506,7 +2538,7 @@
 
         card.appendChild(makeRewardBlock(amount, isDone));
         card.appendChild(makeTaskText(q.description));
-        card.appendChild(makeLinksRow({ id, short, questTitle: q.title, slot, veksel, locations, events }));
+        card.appendChild(makeLinksRow({ id, short, questTitle: q.title, slot, veksel, locations, schedule }));
 
         return card;
     };
@@ -2924,7 +2956,7 @@
 
         for (const q of active) {
             const questId = Number(q.id);
-            const meta = QUEST_META?.[questId] || QUEST_META?.[String(questId)];
+            const meta = MARATHON_QUESTS?.[questId];
             if (!meta?.id) continue;
 
             const id = Number(meta.id);
@@ -2947,7 +2979,7 @@
                 slot: meta.slot || null,
                 veksel: meta.veksel,
                 locations: meta.locations,
-                events: meta.events,
+                schedule: meta.schedule,
                 animateCompletion: isNewlyDone,
             });
 
@@ -4376,10 +4408,8 @@
             nameWrap.className = 'tm-cart-item-name';
 
             if (mapped.itemBase) {
-                const typeInfo = mapped.itemBase.type ? ITEM_TYPES[mapped.itemBase.type] : null;
                 const icon = makeItemIconLink({
                     item: mapped.itemBase,
-                    overlay: typeInfo?.icon,
                     linked: true,
                     size: 'small',
                     count: mapped.count,
@@ -4430,7 +4460,7 @@
      * @typedef {Object} CartItem
      * @property {string} title - Название предмета.
      * @property {number} count - Количество.
-     * @property {string} date - Дата получения (строка из HTML).
+     * @property {Date} date - Дата получения.
      * @property {string} itemId - ID предмета (из data-item чекбокса).
      * @property {string} campaign - Название акции.
      * @property {boolean} disabled - Заблокирован (таймер передачи).
@@ -4467,7 +4497,9 @@
             const count = parseInt(countText, 10) || 1;
 
             const dateCell = row.querySelector('td:first-child');
-            const date = dateCell?.textContent?.trim() || '';
+            const dateStr = dateCell?.textContent?.trim() || '';
+            const dp = dateStr.match(/^(\d{2}):(\d{2}):(\d{2})\s+(\d{2})\.(\d{2})\.(\d{4})$/);
+            const date = dp ? new Date(+dp[6], +dp[5] - 1, +dp[4], +dp[1], +dp[2], +dp[3]) : new Date(dateStr);
 
             const itemId = checkbox.getAttribute('data-item') || '';
 
@@ -4534,7 +4566,9 @@
         // Ячейка: дата
         const tdDate = document.createElement('td');
         tdDate.className = 'gс_1';
-        tdDate.textContent = cartItem.date;
+        const d = cartItem.date;
+        const pad = (n) => n < 10 ? '0' + n : '' + n;
+        tdDate.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
         tr.appendChild(tdDate);
 
         // Ячейка: количество
@@ -4551,10 +4585,8 @@
 
         const itemData = findItemByName(cartItem.title);
         if (itemData) {
-            const typeInfo = itemData.type ? ITEM_TYPES[itemData.type] : null;
             const iconEl = makeItemIconLink({
                 item: itemData,
-                overlay: typeInfo?.icon,
                 linked: true,
                 size: 'small',
             });
@@ -4936,6 +4968,7 @@
             obs.disconnect();
 
             const cartItems = parseCartItems(layout);
+            cartItems.sort((a, b) => b.date - a.date);
             const characters = parseCartCharacters(layout);
             const container = document.getElementById('mr_block_cart');
             if (!container) return;
@@ -5070,7 +5103,7 @@
          * @returns {ItemBase}
          */
         const toItemBase = (item) => {
-            const known = ITEMS[`${item.type}`];
+            const known = ITEMS[item.type];
             return {
                 id: String(item.type || ''),
                 icon: item.iconurl || '',
@@ -5732,9 +5765,9 @@
         } catch { /* ignore */ }
     };
 
-    const isEventVisible = (index, overrides) => {
-        if (index in overrides) return overrides[index];
-        return EVENTS[index].defaultVisible;
+    const isEventVisible = (ev, overrides) => {
+        if (ev.code in overrides) return overrides[ev.code];
+        return !!ev.defaultVisible;
     };
 
     // --- Styles ---
@@ -5751,6 +5784,7 @@
                 inset: 0;
                 z-index: 10001;
                 background: rgba(0,0,0,0.45);
+                color: #2D364E;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -5975,18 +6009,17 @@
 
         const notifState = loadNotificationState();
 
-        for (let i = 0; i < EVENTS.length; i++) {
-            const ev = EVENTS[i];
+        for (const ev of EVENTS) {
             const li = document.createElement('li');
             const label = document.createElement('label');
             const cb = document.createElement('input');
             cb.type = 'checkbox';
-            cb.checked = isEventVisible(i, evVisOverrides);
+            cb.checked = isEventVisible(ev, evVisOverrides);
             cb.addEventListener('change', () => {
-                if (cb.checked === ev.defaultVisible) {
-                    delete evVisOverrides[i];
+                if (cb.checked === !!ev.defaultVisible) {
+                    delete evVisOverrides[ev.code];
                 } else {
-                    evVisOverrides[i] = cb.checked;
+                    evVisOverrides[ev.code] = cb.checked;
                 }
                 saveEventVisibility(evVisOverrides);
                 onChanged();
@@ -5999,7 +6032,8 @@
 
             // Колокольчик уведомления
             const bell = document.createElement('button');
-            bell.className = 'tm-ev-bell' + (notifState.events[i] ? '' : ' tm-ev-bell--off');
+            const bellOn = ev.code in notifState.events ? notifState.events[ev.code] : !!ev.defaultNotifications;
+            bell.className = 'tm-ev-bell' + (bellOn ? '' : ' tm-ev-bell--off');
             bell.textContent = '\u{1F514}';
             bell.title = 'Уведомление за 5 мин';
             bell.addEventListener('click', () => {
@@ -6009,14 +6043,16 @@
                 }
                 const toggle = () => {
                     const s = loadNotificationState();
-                    if (s.events[i]) {
-                        delete s.events[i];
+                    const wasOn = ev.code in s.events ? s.events[ev.code] : !!ev.defaultNotifications;
+                    const nowOn = !wasOn;
+                    if (nowOn === !!ev.defaultNotifications) {
+                        delete s.events[ev.code];
                     } else {
-                        s.enabled = true;
-                        s.events[i] = true;
+                        s.events[ev.code] = nowOn;
                     }
+                    if (nowOn) s.enabled = true;
                     saveNotificationState(s);
-                    bell.classList.toggle('tm-ev-bell--off', !s.events[i]);
+                    bell.classList.toggle('tm-ev-bell--off', !nowOn);
                     const globalBell = document.querySelector('.tm-popup-btn--bell');
                     if (globalBell) globalBell.classList.toggle('tm-popup-btn--bell-off', !s.enabled);
                 };
@@ -6140,7 +6176,7 @@
 
         /**
          * Собирает все ближайшие вхождения видимых событий.
-         * @returns {{ ev: EventEntry, evIndex: number, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]}
+         * @returns {{ ev: EventEntry, evCode: string, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]}
          */
         const collectOccurrences = () => {
             const serverNow = getServerNowMs();
@@ -6150,9 +6186,8 @@
             const within = [];
             const beyond = [];
 
-            for (let i = 0; i < EVENTS.length; i++) {
-                if (!isEventVisible(i, evVisOverrides)) continue;
-                const ev = EVENTS[i];
+            for (const ev of EVENTS) {
+                if (!isEventVisible(ev, evVisOverrides)) continue;
                 let hasWithin = false;
                 let nearest = null;
 
@@ -6167,16 +6202,16 @@
                         const endSec = end.hours * 3600 + end.minutes * 60;
                         const isToday = !entry.weekdays?.length || entry.weekdays.includes(nowWd);
                         if (isToday && nowSec >= startSec && nowSec < endSec) {
-                            within.push({ ev, evIndex: i, label: timeStr, secondsUntil: -(endSec - nowSec), isActive: true, isBeyond: false });
+                            within.push({ ev, evCode: ev.code, label: timeStr, secondsUntil: -(endSec - nowSec), isActive: true, isBeyond: false });
                             hasWithin = true;
                             continue;
                         }
                     } else {
-                        // Без timeEnd — подсвечиваем 5 минут после старта
-                        const activeDur = 300;
+                        // Без timeEnd — подсвечиваем duration минут после старта (по умолчанию 5)
+                        const activeDur = (entry.duration ?? 5) * 60;
                         const isToday = !entry.weekdays?.length || entry.weekdays.includes(nowWd);
                         if (isToday && nowSec >= startSec && nowSec < startSec + activeDur) {
-                            within.push({ ev, evIndex: i, label: timeStr, secondsUntil: 0, isActive: true, isBeyond: false });
+                            within.push({ ev, evCode: ev.code, label: timeStr, secondsUntil: 0, isActive: true, isBeyond: false });
                             hasWithin = true;
                             continue;
                         }
@@ -6185,7 +6220,7 @@
                     if (!entry.weekdays?.length) {
                         let diff = startSec - nowSec;
                         if (diff <= 0) diff += DAY_SEC;
-                        within.push({ ev, evIndex: i, label: timeStr, secondsUntil: diff, isActive: false, isBeyond: false });
+                        within.push({ ev, evCode: ev.code, label: timeStr, secondsUntil: diff, isActive: false, isBeyond: false });
                         hasWithin = true;
                     } else {
                         let minDiff = Infinity;
@@ -6200,10 +6235,10 @@
                         const fullLabel = `${dayName} ${timeStr}`;
 
                         if (minDiff <= DAY_SEC) {
-                            within.push({ ev, evIndex: i, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: false });
+                            within.push({ ev, evCode: ev.code, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: false });
                             hasWithin = true;
                         } else if (!nearest || minDiff < nearest.secondsUntil) {
-                            nearest = { ev, evIndex: i, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: true };
+                            nearest = { ev, evCode: ev.code, label: fullLabel, secondsUntil: minDiff, isActive: false, isBeyond: true };
                         }
                     }
                 }
@@ -6250,7 +6285,7 @@
         };
 
         const structureKey = (occs) => occs.map(o =>
-            `${o.evIndex}:${o.label}:${o.isActive}:${o.isBeyond}`
+            `${o.evCode}:${o.label}:${o.isActive}:${o.isBeyond}`
         ).join('|');
 
         let lastKey = '';
@@ -6263,7 +6298,7 @@
             const frag = document.createDocumentFragment();
 
             for (const occ of occs) {
-                const key = `${occ.evIndex}:${occ.label}`;
+                const key = `${occ.evCode}:${occ.label}`;
                 const tr = document.createElement('tr');
                 if (occ.isActive) tr.classList.add('tm-event-active');
                 if (occ.isBeyond) tr.classList.add('tm-event-beyond');
