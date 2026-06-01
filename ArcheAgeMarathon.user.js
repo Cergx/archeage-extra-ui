@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.4
+// @version      1.5
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -378,7 +378,9 @@
     const CODEX_BASE = 'https://archeagecodex.com/ru/quest/';
     const ICON_QUEST = 'https://archeagecodex.com/images/icon_quest_common.png';
     const ICON_VEKSEL = 'https://archeagecodex.com/items/icon_item_3493.png';
+    const ICON_VEKSEL_EAST = 'https://archeagecodex.com/items/icon_item_5054.png';
     const VEKSEL_OFFICIAL_IDS = new Set([8426, 8388, 8352, 8320, 8284, 8248]);
+    const EAST_VEKSEL_OFFICIAL_IDS = new Set([8252, 8254, 8288, 8290, 8324, 8326, 8356, 8358, 8392, 8394, 8434, 8436]);
     const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
 
     const SERVER_TO_VEKSEL_ID = {
@@ -393,8 +395,8 @@
         "8246": { codexId: 10559, short: "" },
         "8248": { codexId: 9142, short: "" },
         "8250": { codexId: 9318, short: "" },
-        "8252": { codexId: 10512, short: "" },
-        "8254": { codexId: 10512, short: "" },
+        "8252": { codexId: 10512, short: "20 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
+        "8254": { codexId: 10513, short: "60 <a href='https://archeagecodex.com/ru/item/43176/' target='_blank'>котомок эфенского странника</a>" },
         "8256": { codexId: 9100, short: "" },
         "8258": { codexId: 7658, short: "" },
         "8260": { codexId: 6797, short: "" },
@@ -402,10 +404,10 @@
         "8268": { codexId: 5972, short: "" },
         "8274": { codexId: 10480, short: "" },
         "8282": { codexId: 7154, short: "" },
-        "8284": { codexId: 9137, short: "Вексель за 60 железных слитков" },
+        "8284": { codexId: 9137, short: "60 <a href='https://archeagecodex.com/ru/item/8318/' target='_blank'>Железный слиток</a>" },
         "8286": { codexId: 8000131, short: "Квест Нуи на 500 очков работы" },
-        "8288": { codexId: 10508, short: "" },
-        "8290": { codexId: 10509, short: "" },
+        "8288": { codexId: 10508, short: "Бездна / Солнечные поля - 25 <a href='https://archeagecodex.com/ru/item/40928/' target='_blank'>расшитых жемчугом кошельков</a>" },
+        "8290": { codexId: 10509, short: "Бездна / Солнечные поля - 75 <a href='https://archeagecodex.com/ru/item/40928/' target='_blank'>расшитых жемчугом кошельков</a>" },
         "8292": { codexId: 5092, short: "" },
         "8294": { codexId: 7659, short: "" },
         "8296": { codexId: 7817, short: "" },
@@ -414,10 +416,10 @@
         "8314": { codexId: 10564, short: "" },
         "8316": { codexId: 8000061, short: "" },
         "8318": { codexId: 9317, short: "Квест на Космача" },
-        "8320": { codexId: 9152, short: "Вексель за 60 кожи" },
+        "8320": { codexId: 9152, short: "60 <a href='https://archeagecodex.com/ru/item/16327/' target='_blank'>Сыромятная кожа</a>" },
         "8322": { codexId: 8435, short: 'Портал "Лягушачьи пруды"' },
-        "8324": { codexId: 10510, short: "" },
-        "8326": { codexId: 10510, short: "" },
+        "8324": { codexId: 10510, short: "Бездна / Солнечные поля - 8 <a href='https://archeagecodex.com/ru/item/42077/' target='_blank'>фермерских сундучков</a>" },
+        "8326": { codexId: 10511, short: "Бездна / Солнечные поля - 25 <a href='https://archeagecodex.com/ru/item/42077/' target='_blank'>фермерских сундучков</a>" },
         "8328": { codexId: 7657, short: "" },
         "8330": { codexId: 7813, short: "" },
         "8336": { codexId: 5144, short: "" },
@@ -426,32 +428,32 @@
         "8346": { codexId: 10056, short: "" },
         "8348": { codexId: 11154, short: "Лиловый (армия фантомов)" },
         "8350": { codexId: 11227, short: "Превратиться в руру и получить билет (в данж идти необязательно)" },
-        "8352": { codexId: 9147, short: "Вексель за 60 ткани" },
+        "8352": { codexId: 9147, short: "60 <a href='https://archeagecodex.com/ru/item/8256/' target='_blank'>Ткань</a>" },
         "8354": { codexId: 8000136, short: "Квест Нуи на 2500 ремесленки" },
         "8356": { codexId: 10506, short: "" },
-        "8358": { codexId: 10506, short: "" },
-        "8360": { codexId: 5091, short: "" },
+        "8358": { codexId: 10507, short: "Замок Ош - 10 <a href='https://archeagecodex.com/ru/item/42076/' target='_blank'>резных сундучков</a>" },
+        "8360": { codexId: 5091, short: "Замок Ош - 30 <a href='https://archeagecodex.com/ru/item/42076/' target='_blank'>резных сундучков</a>" },
         "8362": { codexId: 9101, short: "Библа, 3-ий босс" },
         "8364": { codexId: 7656, short: "" },
         "8366": { codexId: 9320, short: "" },
         "8372": { codexId: 9297, short: "" },
         "8380": { codexId: 7815, short: "Изи Сады наслаждений" },
         "8382": { codexId: 10735, short: "Эншака на Солнечных полях" },
-        "8388": { codexId: 9153, short: "Вексель за 100 кожи" },
+        "8388": { codexId: 9153, short: "100 <a href='https://archeagecodex.com/ru/item/16327/' target='_blank'>Сыромятная кожа</a>" },
         "8390": { codexId: 5062, short: "" },
-        "8392": { codexId: 10514, short: "" },
-        "8394": { codexId: 10514, short: "" },
+        "8392": { codexId: 10514, short: "Бухта китобоев / Эфен'Хал - 7 <a href='https://archeagecodex.com/ru/item/43177/' target='_blank'>эфенских сундучков</a>" },
+        "8394": { codexId: 10515, short: "Бухта китобоев / Эфен'Хал - 20 <a href='https://archeagecodex.com/ru/item/43177/' target='_blank'>эфенских сундучков</a>" },
         "8396": { codexId: 7155, short: "Нагашар обычка" },
-        "8398": { codexId: 9398, short: "100 мобов" },
+        "8398": { codexId: 9398, short: "100 мобов на Пустоши Корвуса" },
         "8400": { codexId: 7152, short: "" },
         "8402": { codexId: 9102, short: "Библа, последний босс" },
         "8404": { codexId: 9205, short: "" },
         "8414": { codexId: 10952, short: "" },
         "8422": { codexId: 10304, short: "" },
         "8424": { codexId: 9099, short: "Библа, первый босс" },
-        "8426": { codexId: 9143, short: "Вексель за 100 досок" },
-        "8434": { codexId: 10504, short: "" },
-        "8436": { codexId: 10504, short: "" },
+        "8426": { codexId: 9143, short: "100 <a href='https://archeagecodex.com/ru/item/8337/' target='_blank'>Упаковка строительной древесины</a>" },
+        "8434": { codexId: 10504, short: "Замок Ош - 30 <a href='https://archeagecodex.com/ru/item/35461/' target='_blank'>полновесных мешочков с серебром</a>" },
+        "8436": { codexId: 10505, short: "Замок Ош - 90 <a href='https://archeagecodex.com/ru/item/35461/' target='_blank'>полновесных мешочков с серебром</a>" },
         "8438": { codexId: 8000062, short: "Аль-Харба / Ферма Хадира / Колыбель разрушений / Воющая Бездна / Копи пронизывающего ветра / Арсенал Сожженной крепости" },
         "8448": { codexId: 2943, short: "Кровавый (дневной) разлом - 3-я волна" },
         "8450": { codexId: 7935, short: "" },
@@ -461,11 +463,11 @@
         "8494": { codexId: 8635, short: "" },
         "8496": { codexId: 9295, short: "" },
         "8498": { codexId: 9294, short: "" },
-        "8500": { codexId: 8637, short: "" },
+        "8500": { codexId: 8637, short: "Бухта - Жакар" },
         "8502": { codexId: 7327, short: "" },
         "8504": { codexId: 9296, short: "" },
         "8506": { codexId: 5969, short: "" },
-        "8508": { codexId: 8641, short: "" },
+        "8508": { codexId: 8641, short: "Эфен - жаба" },
         "8510": { codexId: 5077, short: "" },
         "8512": { codexId: 8605, short: "" },
         "8514": { codexId: 11096, short: "Луг" },
@@ -574,6 +576,11 @@
 
             const vekselId = SERVER_TO_VEKSEL_ID[mainServer];
             VEkselUrlResolved = vekselId ? `${VEKSEL_BASE}${vekselId}` : VEKSEL_BASE;
+
+            // Обновляем href всех уже отрендеренных ссылок на вексель
+            document.querySelectorAll('.tm-veksel-link').forEach(link => {
+                link.href = VEkselUrlResolved;
+            });
         } catch {
             VEkselUrlResolved = VEKSEL_BASE;
         }
@@ -631,7 +638,7 @@
         if (short) {
             const d = document.createElement('div');
             d.className = 'tm-short';
-            d.textContent = short;
+            d.innerHTML = short;
             row.appendChild(d);
         }
 
@@ -654,6 +661,15 @@
             icons.appendChild(makeIconLink({
                 href: VEkselUrlResolved,
                 iconSrc: ICON_VEKSEL,
+                title: 'Открыть таблицу векселей',
+                className: 'tm-veksel-link',
+            }));
+        }
+
+        if (typeof officialId === 'number' && EAST_VEKSEL_OFFICIAL_IDS.has(officialId)) {
+            icons.appendChild(makeIconLink({
+                href: VEkselUrlResolved,
+                iconSrc: ICON_VEKSEL_EAST,
                 title: 'Открыть таблицу векселей',
                 className: 'tm-veksel-link',
             }));
