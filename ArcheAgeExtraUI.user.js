@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.8.0
+// @version      4.8.1
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -1852,7 +1852,7 @@
     /** @type {Record<string, ItemBase>} */
     const ITEMS = Object.fromEntries([
         { id: 8256, type: 'material', subType: 'cloth', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Ткань" }, // icon_item_0356.png
-        { id: 8318, type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Слиток железа" }, // icon_item_quest053.png
+        { id: 8318, type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}9d60cae3016a14b2cfc17a90de8e5f5b.png`, grade: 1, name: "Слиток железа" }, // icon_item_quest053.png
         { id: 8337, type: 'material', subType: 'lumber', icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, name: "Упаковка строительной древесины", vekselName: "Строительная древесина" }, // icon_item_0041.png
         { id: 16327, type: 'material', subType: 'leather', icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, name: "Сыромятная кожа" }, // icon_item_0352.png
         { id: 35461, type: 'unidentified', overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, name: "Полновесный мешочек с серебром" }, // icon_item_1839.png
