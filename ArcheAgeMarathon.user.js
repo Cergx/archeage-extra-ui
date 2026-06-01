@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAge Marathon – today completed tasks UI fix (MSK)
 // @namespace    https://archeage.ru/
-// @version      1.6
+// @version      1.7
 // @description  Подсветка выполненных задач по last_complete_time + иконки + done-блок + нормальная навигация (МСК)
 // @author       Cergx
 // @match        *://archeage.ru/promo/marathon/
@@ -656,7 +656,7 @@
         "8414": { codexId: 10952, short: "" },
         "8422": { codexId: 10304, short: "" },
         "8424": { codexId: 9099, short: "Библа, первый босс" },
-        "8426": { codexId: 9143, short: "100 <a href='https://archeagecodex.com/ru/item/8337/' target='_blank'>Упаковка строительной древесины</a>" },
+        "8426": { codexId: 9143, short: "100 <a href='https://archeagecodex.com/ru/item/8337/' target='_blank'>Строительная древесина</a>" },
         "8434": { codexId: 10504, short: "Замок Ош - 30 <a href='https://archeagecodex.com/ru/item/35461/' target='_blank'>полновесных мешочков с серебром</a>" },
         "8436": { codexId: 10505, short: "Замок Ош - 90 <a href='https://archeagecodex.com/ru/item/35461/' target='_blank'>полновесных мешочков с серебром</a>" },
         "8438": { codexId: 8000062, short: "Аль-Харба / Ферма Хадира / Колыбель разрушений / Воющая Бездна / Копи пронизывающего ветра / Арсенал Сожженной крепости" },
