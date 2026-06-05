@@ -1,3 +1,18 @@
+/**
+ * @typedef {Object} EventQuest
+ * @property {number} id - ID квеста.
+ * @property {string} title - Название квеста.
+ */
+
+/**
+ * @typedef {Object} EventEntry
+ * @property {string} title - Название события.
+ * @property {EventQuest[]} [quests] - Связанные квесты.
+ * @property {string[]} [locations] - Локации проведения.
+ * @property {EventSchedule[]} schedule - Расписание события.
+ */
+
+/** @type {EventEntry[]} Расписание игровых событий (для страницы /a). */
 export const EVENTS = [
     { code: "ifnir", title: "Оборона Ифнира", defaultVisible: true, defaultNotifications: true, schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }], locations: ["Ифнир"], quests: [{ id: 10569, title: "Оборона Ифнира" }, { id: 10564, title: "Освобожденные узницы Нагашара" }] },
     { code: "lug_guardians", title: "Луг - Битва хранителей", defaultVisible: true, defaultNotifications: true, schedule: [{ timeStart: "18:00", weekdays: [6, 7] }], locations: ["Великий луг"], quests: [{ id: 11132, title: "Битва хранителей" }, { id: 11096, title: "Турнир в честь Отца-Солнца" }] },
