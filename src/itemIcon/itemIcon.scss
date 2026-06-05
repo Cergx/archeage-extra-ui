@@ -1,0 +1,259 @@
+:root { --tm-screen-scale: 1; }
+.tm-item-icon {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tm-item-icon--small {
+  width: 30px;
+  height: 30px;
+  font-size: 11.5px;
+}
+
+.tm-item-icon--medium {
+  width: 42px;
+  height: 42px;
+  font-size: 11.5px;
+}
+
+.tm-item-icon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  box-shadow:
+          inset 0 0 12px rgba(255, 255, 255, 0.35),
+          inset 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.tm-item-icon:hover::after {
+  opacity: 1;
+}
+
+.tm-item-icon-img {
+  position: relative;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tm-item-icon-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.tm-item-icon-grade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tm-item-icon-count {
+  position: absolute;
+  right: 9%;
+  bottom: 12.5%;
+  line-height: 0.5;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Всплывашка предмета (глобальная, в body) */
+.tm-item-tooltip {
+  display: none;
+  position: fixed;
+  top: var(--tm-tooltip-top, 0);
+  left: var(--tm-tooltip-left, 0);
+  z-index: 10000;
+  box-sizing: border-box;
+  width: 248px;
+  padding: 15px 15px 14px;
+  background: rgba(0, 8, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  white-space: normal;
+  font-family: Calibri, Arial, Verdana, Tahoma;
+  font-size: 14px;
+  line-height: 18px;
+  color: #cfd6e0;
+  transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: top right;
+}
+
+.tm-item-tooltip--visible {
+  display: block;
+}
+
+.tm-item-tooltip--right {
+  transform: scale(var(--tm-tooltip-scale, 1));
+  transform-origin: top left;
+}
+
+.tm-item-tooltip--bottom {
+  transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: bottom right;
+}
+
+.tm-item-tooltip--bottom.tm-item-tooltip--right {
+  transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: bottom left;
+}
+
+.tm-item-tooltip-header {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 0;
+}
+
+.tm-item-tooltip-header > .tm-item-icon {
+  flex-shrink: 0;
+}
+
+.tm-item-tooltip-meta {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0 2px;
+}
+
+.tm-item-tooltip-type {
+  opacity: 0.7;
+}
+
+.tm-item-tooltip-grade {
+}
+
+.tm-item-tooltip-name {
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.tm-item-tooltip-sep {
+  height: 2px;
+  margin: 4px 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.25), rgba(255,255,255,0.10));
+  -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+  padding: 0;
+}
+
+.tm-item-tooltip-req {
+  padding: 0 3px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-level {
+  display: flex;
+  align-items: center;
+}
+
+.tm-item-tooltip-hero-level-icon {
+  width: 16px;
+  height: 16px;
+  margin: 0 2px;
+  flex: 0 0 auto;
+}
+
+.tm-item-tooltip-stats {
+  padding: 0 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-stat-row {
+  display: flex;
+  gap: 4px;
+}
+
+.tm-item-tooltip-stat-value {
+  color: #cfd6e0;
+  text-align: right;
+}
+
+.tm-item-tooltip-equipment-subtype {
+  padding: 0 3px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-desc {
+  padding: 4px 3px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tm-item-tooltip-use-label {
+  color: #888;
+}
+
+.tm-item-tooltip-use-text {
+  color: #4caf50;
+}
+
+.tm-item-tooltip-price {
+  padding: 0 3px;
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  gap: 8px;
+}
+.tm-item-tooltip-price--none {
+  display: block;
+  color: #d02e2e;
+}
+.tm-item-tooltip-price-value {
+  color: #cfd6e0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  text-align: right;
+}
+.tm-item-tooltip-price-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+.tm-item-tooltip-price-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.orange_text,
+.inv-nc,
+.inv-nn,
+.inv-buffvar {
+  color: #ff9c27;
+}
+
+.light_blue_text,
+.inv-nd {
+  color: #74b0ca;
+}
+
+.blue_text,
+.inv-ni {
+  color: #27b1c6;
+}
+
+.red_text,
+.inv-nr {
+  color: #de482f;
+}

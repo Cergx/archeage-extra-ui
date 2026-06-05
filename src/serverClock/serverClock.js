@@ -12,6 +12,7 @@ import {
     syncServerTime,
 } from '../utils.js';
 import { EVENTS } from '../data/events.js';
+import serverClockStyles from './serverClock.scss';
 
 export let serverClockEl = null;
 export let serverClockStylesInjected = false;
@@ -23,35 +24,7 @@ export const injectServerClockStyles = () => {
     if (serverClockStylesInjected) return;
     serverClockStylesInjected = true;
     const style = document.createElement('style');
-    style.textContent = `
-            .tm-server-clock {
-                position: fixed;
-                top: 50%;
-                right: 12px;
-                transform: translateY(-50%);
-                z-index: 9999;
-                padding: 6px 12px;
-                border-radius: 6px;
-                background: rgba(0, 0, 0, 0.7);
-                backdrop-filter: blur(4px);
-                font-size: 13px;
-                font-family: monospace;
-                color: rgba(255, 255, 255, 0.85);
-                max-width: 150px;
-                white-space: nowrap;
-                user-select: none;
-                line-height: 1.4;
-                text-decoration: none;
-                display: block;
-                cursor: pointer;
-            }
-            .tm-server-clock-event {
-                display: block;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                margin-top: 5px;
-            }
-        `;
+    style.textContent = serverClockStyles;
     document.head.appendChild(style);
 };
 

@@ -11,13 +11,13 @@ import {
     updateCountdownEl,
 } from './utils.js';
 
-import { initGisaa } from './gisaa.js';
+import { initGisaa } from './gisaa/gisaa.js';
 
-import { initServerClock } from './components/server-clock.js';
-import { openEventsPopup, checkEventNotifications } from './events.js';
+import { initServerClock } from './serverClock/serverClock.js';
+import { openEventsPopup, checkEventNotifications } from './events/events.js';
 
-import { initCart } from './cart.js';
-import { initItemRestore } from './itemrestore.js';
+import { initCart } from './cart/cart.js';
+import { initItemRestore } from './itemRestore/itemRestore.js';
 
 import {
     init as initMarathon,
@@ -36,10 +36,10 @@ import {
     injectMarathonStyles,
     injectCartStyles,
 } from './marathon/styles.js';
-import { initTooltips } from './marathon/tooltip.js';
-import { makeItemIconLink } from './marathon/tooltip.js';
-import { makeIconLink, updateRenderedItemIcons } from './components/item-icon.js';
-import { loadNotificationState, saveNotificationState } from './events.js';
+import { initTooltips } from './marathon/tooltip/tooltip.js';
+import { makeItemIconLink } from './marathon/tooltip/tooltip.js';
+import { makeIconLink, updateRenderedItemIcons } from './itemIcon/itemIcon.js';
+import { loadNotificationState, saveNotificationState } from './events/events.js';
 
 // ============================================================
 // ====================== GISAA.RU =============================

@@ -12,7 +12,8 @@ import {
     readGisaaTableRows,
     readGisaaTablesSnapshot,
     saveGisaaTablesSnapshot,
-} from './utils.js';
+} from '../utils.js';
+import gisaaStyles from './gisaa.scss';
 
 const GISAA_MATCH_CLASS = 'tm-gisaa-match';
 const GISAA_EXCLUDE_CLASS = 'tm-gisaa-exclude';
@@ -20,23 +21,7 @@ const GISAA_UNKNOWN_CLASS = 'tm-gisaa-unknown';
 
 export const injectGisaaStyles = () => {
     const style = document.createElement('style');
-    style.textContent = `
-        td.${GISAA_MATCH_CLASS} {
-            --bs-table-accent-bg: #005f1940;
-            background-color: #005f1940 !important;
-        }
-        td.${GISAA_EXCLUDE_CLASS} {
-            --bs-table-accent-bg: #5f000040;
-            background-color: #5f000040 !important;
-        }
-        td.${GISAA_UNKNOWN_CLASS} {
-            --bs-table-accent-bg: #5f5f0040;
-            background-color: #5f5f0040 !important;
-        }
-        .btn_vote.${GISAA_EXCLUDE_CLASS} {
-            opacity: 0.4;
-        }
-    `;
+    style.textContent = gisaaStyles;
     document.head.appendChild(style);
 };
 

@@ -1,0 +1,15 @@
+td.tm-gisaa-match {
+  --bs-table-accent-bg: #005f1940;
+  background-color: #005f1940 !important;
+}
+td.tm-gisaa-exclude {
+  --bs-table-accent-bg: #5f000040;
+  background-color: #5f000040 !important;
+}
+td.tm-gisaa-unknown {
+  --bs-table-accent-bg: #5f5f0040;
+  background-color: #5f5f0040 !important;
+}
+.btn_vote.tm-gisaa-exclude {
+  opacity: 0.4;
+}

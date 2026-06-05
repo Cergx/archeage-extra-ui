@@ -1,7 +1,7 @@
-import { ITEMS, GRADES, getItemIconUrl } from './data/items.js';
-import { renderSelectedItems } from './components/select.js';
-import { appendReloadBtn, injectReloadBtnStyles } from './components/reload-btn.js';
-import { pageDocument, pageWindow } from './utils.js';
+import { ITEMS, GRADES, getItemIconUrl } from '../data/items.js';
+import { renderSelectedItems } from '../select/select.js';
+import { appendReloadBtn, injectReloadBtnStyles } from '../reloadBtn/reloadBtn.js';
+import { pageDocument, pageWindow } from '../utils.js';
 
 export { getItemIconUrl };
 

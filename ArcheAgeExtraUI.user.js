@@ -361,29 +361,16 @@
     return weekdays.includes(getTodayWeekdayMonFirst()) ? "\u041C\u043E\u0436\u043D\u043E \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0432\u0437\u044F\u0442\u044C" : "\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u043D\u0435\u043B\u044C\u0437\u044F \u0432\u0437\u044F\u0442\u044C";
   }, "formatAvailableWeekdaysStatus");
 
-  // src/gisaa.js
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/gisaa/gisaa.scss
+  let gisaa_default = "td.tm-gisaa-match {\n  --bs-table-accent-bg: #005f1940;\n  background-color: rgba(0, 95, 25, 0.2509803922) !important;\n}\n\ntd.tm-gisaa-exclude {\n  --bs-table-accent-bg: #5f000040;\n  background-color: rgba(95, 0, 0, 0.2509803922) !important;\n}\n\ntd.tm-gisaa-unknown {\n  --bs-table-accent-bg: #5f5f0040;\n  background-color: rgba(95, 95, 0, 0.2509803922) !important;\n}\n\n.btn_vote.tm-gisaa-exclude {\n  opacity: 0.4;\n}";
+
+  // src/gisaa/gisaa.js
   let GISAA_MATCH_CLASS = "tm-gisaa-match";
   let GISAA_EXCLUDE_CLASS = "tm-gisaa-exclude";
   let GISAA_UNKNOWN_CLASS = "tm-gisaa-unknown";
   let injectGisaaStyles = /* @__PURE__ */ __name(() => {
     const style = document.createElement("style");
-    style.textContent = `
-        td.${GISAA_MATCH_CLASS} {
-            --bs-table-accent-bg: #005f1940;
-            background-color: #005f1940 !important;
-        }
-        td.${GISAA_EXCLUDE_CLASS} {
-            --bs-table-accent-bg: #5f000040;
-            background-color: #5f000040 !important;
-        }
-        td.${GISAA_UNKNOWN_CLASS} {
-            --bs-table-accent-bg: #5f5f0040;
-            background-color: #5f5f0040 !important;
-        }
-        .btn_vote.${GISAA_EXCLUDE_CLASS} {
-            opacity: 0.4;
-        }
-    `;
+    style.textContent = gisaa_default;
     document.head.appendChild(style);
   }, "injectGisaaStyles");
   let highlightWestEastRow = /* @__PURE__ */ __name((resourceName, amount) => {
@@ -546,7 +533,10 @@
     { code: "fesanix", title: "\u0424\u0435\u0441\u0430\u043D\u0438\u043A\u0441", schedule: [{ timeStart: "22:30", timeEnd: "23:30", weekdays: [2] }], locations: ["\u041F\u0435\u043F\u0435\u043B\u044C\u043D\u044B\u0435 \u0440\u0430\u0432\u043D\u0438\u043D\u044B"] }
   ];
 
-  // src/components/server-clock.js
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/serverClock/serverClock.scss
+  let serverClock_default = ".tm-server-clock {\n  position: fixed;\n  top: 50%;\n  right: 12px;\n  transform: translateY(-50%);\n  z-index: 9999;\n  padding: 6px 12px;\n  border-radius: 6px;\n  background: rgba(0, 0, 0, 0.7);\n  backdrop-filter: blur(4px);\n  font-size: 13px;\n  font-family: monospace;\n  color: rgba(255, 255, 255, 0.85);\n  max-width: 150px;\n  white-space: nowrap;\n  user-select: none;\n  line-height: 1.4;\n  text-decoration: none;\n  display: block;\n  cursor: pointer;\n}\n\n.tm-server-clock-event {\n  display: block;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  margin-top: 5px;\n}";
+
+  // src/serverClock/serverClock.js
   let serverClockEl = null;
   let serverClockStylesInjected = false;
   let loadEventVisibility = /* @__PURE__ */ __name(() => JSON.parse(localStorage.getItem("tm_aa_ev_vis") || "{}"), "loadEventVisibility");
@@ -555,35 +545,7 @@
     if (serverClockStylesInjected) return;
     serverClockStylesInjected = true;
     const style = document.createElement("style");
-    style.textContent = `
-            .tm-server-clock {
-                position: fixed;
-                top: 50%;
-                right: 12px;
-                transform: translateY(-50%);
-                z-index: 9999;
-                padding: 6px 12px;
-                border-radius: 6px;
-                background: rgba(0, 0, 0, 0.7);
-                backdrop-filter: blur(4px);
-                font-size: 13px;
-                font-family: monospace;
-                color: rgba(255, 255, 255, 0.85);
-                max-width: 150px;
-                white-space: nowrap;
-                user-select: none;
-                line-height: 1.4;
-                text-decoration: none;
-                display: block;
-                cursor: pointer;
-            }
-            .tm-server-clock-event {
-                display: block;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                margin-top: 5px;
-            }
-        `;
+    style.textContent = serverClock_default;
     document.head.appendChild(style);
   }, "injectServerClockStyles");
   let getNextVisibleEventInfo = /* @__PURE__ */ __name(() => {
@@ -1091,7 +1053,10 @@
   ].map((i) => [i.id, i]));
   let getItemCodexUrl = /* @__PURE__ */ __name((item) => `${CODEX_ITEM_URL}${item.id}/${item.isGradeInferred ? `?grade=${item.grade}` : ""}`, "getItemCodexUrl");
 
-  // src/events.js
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/events/events.scss
+  let events_default = '.tm-popup-overlay {\n  position: fixed;\n  inset: 0;\n  z-index: 10001;\n  background: rgba(0, 0, 0, 0.45);\n  color: #2D364E;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n\n.tm-popup-panel {\n  background: #fff;\n  border-radius: 8px;\n  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);\n  max-height: 85vh;\n  display: flex;\n  flex-direction: column;\n  font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;\n}\n\n.tm-popup-panel--events {\n  width: 1000px;\n  max-width: 95vw;\n}\n\n.tm-popup-panel--settings {\n  width: 680px;\n  max-width: 95vw;\n  max-height: 80vh;\n}\n\n.tm-popup-header {\n  display: flex;\n  align-items: center;\n  padding: 12px 16px;\n  border-bottom: 1px solid #ddd;\n  gap: 8px;\n  flex-shrink: 0;\n}\n\n.tm-popup-title {\n  flex: 1;\n  font-size: 18px;\n  font-weight: bold;\n  margin: 0;\n}\n\n.tm-popup-btn {\n  background: none;\n  border: none;\n  cursor: pointer;\n  font-size: 20px;\n  padding: 2px 6px;\n  border-radius: 4px;\n  color: #555;\n  line-height: 1;\n}\n\n.tm-popup-btn:hover {\n  background: #eee;\n  color: #000;\n}\n\n.tm-popup-body {\n  overflow-y: auto;\n  padding: 0;\n  flex: 1;\n}\n\n.tm-popup-body--settings {\n  display: flex;\n  gap: 24px;\n  padding: 12px 16px;\n  overflow: hidden;\n}\n\n.tm-settings-left {\n  flex: 0 0 280px;\n  min-width: 0;\n}\n\n.tm-settings-right {\n  flex: 1;\n  min-width: 0;\n  overflow-y: auto;\n}\n\n.tm-settings-section {\n  margin-bottom: 14px;\n}\n\n.tm-settings-section:last-child {\n  margin-bottom: 0;\n}\n\n.tm-settings-section-title {\n  font-weight: bold;\n  margin-bottom: 8px;\n}\n\n.tm-settings-server-select {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 5px 6px;\n  border: 1px solid #bbb;\n  border-radius: 4px;\n  background: #fff;\n  color: #2D364E;\n  font: inherit;\n}\n\n/* Events table */\n.tm-events-table {\n  width: 100%;\n  border-collapse: collapse;\n}\n\n.tm-events-table th {\n  background: #3d2a5a;\n  color: #fff;\n  padding: 8px 12px;\n  text-align: left;\n  font-weight: normal;\n  position: sticky;\n  top: 0;\n  z-index: 1;\n  border-bottom: none;\n}\n\n.tm-events-table td {\n  padding: 6px 12px;\n  border-bottom: 1px solid #ddd;\n  vertical-align: top;\n}\n\n.tm-events-table tr:nth-child(even) td {\n  background: #f5f5f5;\n}\n\n.tm-events-table tr.tm-event-active td {\n  background: #d4edda;\n}\n\n.tm-events-table tr.tm-event-beyond td {\n  opacity: 0.6;\n}\n\n.tm-events-table .tm-event-time {\n  white-space: nowrap;\n  font-family: monospace;\n  font-size: 13px;\n}\n\n.tm-event-time details {\n  cursor: pointer;\n}\n\n.tm-event-time summary {\n  display: list-item;\n}\n\n.tm-event-time summary::marker {\n  font-size: 10px;\n}\n\n.tm-event-time .tm-schedule-detail {\n  margin-top: 4px;\n  padding-left: 18px;\n  font-size: 12px;\n  color: #555;\n  white-space: normal;\n}\n\n.tm-event-time--active summary {\n  color: #155724;\n  font-weight: bold;\n}\n\n.tm-event-time--waiting summary {\n  color: #856404;\n}\n\n.tm-events-table a {\n  color: #2a6496;\n  text-decoration: none;\n}\n\n.tm-events-table a:hover {\n  text-decoration: underline;\n}\n\n/* Settings checkboxes */\n.tm-ev-settings-list {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.tm-ev-settings-list li {\n  padding: 4px 0;\n  display: flex;\n  align-items: center;\n  gap: 4px;\n}\n\n.tm-ev-settings-list label {\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex: 1;\n}\n\n.tm-ev-settings-list input[type=checkbox] {\n  width: 16px;\n  height: 16px;\n  flex-shrink: 0;\n}\n\n.tm-popup-btn--bell {\n  font-size: 16px;\n}\n\n.tm-popup-btn--bell-off {\n  opacity: 0.4;\n}\n\n.tm-ev-bell {\n  cursor: pointer;\n  font-size: 14px;\n  padding: 0 4px;\n  user-select: none;\n  border: none;\n  background: none;\n  vertical-align: middle;\n}\n\n.tm-ev-bell--off {\n  opacity: 0.25;\n}\n\n.tm-scale-row {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.tm-scale-input {\n  width: 75px;\n  padding: 4px 6px;\n  border: 1px solid #bbb;\n  border-radius: 4px;\n  font: inherit;\n}\n\n.tm-scale-suffix {\n  color: #555;\n}\n\n.tm-zoom-row {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  margin-top: 4px;\n}\n\n.tm-zoom-cb:disabled + .tm-zoom-label {\n  opacity: 0.5;\n}\n\n.tm-zoom-label {\n  cursor: pointer;\n  user-select: none;\n  font-size: 13px;\n}';
+
+  // src/events/events.js
   let LS_KEYS = {
     EVENT_VISIBILITY: "tm_aa_ev_vis",
     NOTIFICATIONS: "tm_aa_notifications"
@@ -1203,226 +1168,7 @@
     if (eventsPopupStylesInjected) return;
     eventsPopupStylesInjected = true;
     const style = document.createElement("style");
-    style.textContent = `
-            .tm-popup-overlay {
-                position: fixed;
-                inset: 0;
-                z-index: 10001;
-                background: rgba(0,0,0,0.45);
-                color: #2D364E;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            .tm-popup-panel {
-                background: #fff;
-                border-radius: 8px;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-                max-height: 85vh;
-                display: flex;
-                flex-direction: column;
-                font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;
-            }
-            .tm-popup-panel--events {
-                width: 1000px;
-                max-width: 95vw;
-            }
-            .tm-popup-panel--settings {
-                width: 680px;
-                max-width: 95vw;
-                max-height: 80vh;
-            }
-            .tm-popup-header {
-                display: flex;
-                align-items: center;
-                padding: 12px 16px;
-                border-bottom: 1px solid #ddd;
-                gap: 8px;
-                flex-shrink: 0;
-            }
-            .tm-popup-title {
-                flex: 1;
-                font-size: 18px;
-                font-weight: bold;
-                margin: 0;
-            }
-            .tm-popup-btn {
-                background: none;
-                border: none;
-                cursor: pointer;
-                font-size: 20px;
-                padding: 2px 6px;
-                border-radius: 4px;
-                color: #555;
-                line-height: 1;
-            }
-            .tm-popup-btn:hover {
-                background: #eee;
-                color: #000;
-            }
-            .tm-popup-body {
-                overflow-y: auto;
-                padding: 0;
-                flex: 1;
-            }
-            .tm-popup-body--settings {
-                display: flex;
-                gap: 24px;
-                padding: 12px 16px;
-                overflow: hidden;
-            }
-            .tm-settings-left {
-                flex: 0 0 280px;
-                min-width: 0;
-            }
-            .tm-settings-right {
-                flex: 1;
-                min-width: 0;
-                overflow-y: auto;
-            }
-            .tm-settings-section {
-                margin-bottom: 14px;
-            }
-            .tm-settings-section:last-child {
-                margin-bottom: 0;
-            }
-            .tm-settings-section-title {
-                font-weight: bold;
-                margin-bottom: 8px;
-            }
-            .tm-settings-server-select {
-                width: 100%;
-                box-sizing: border-box;
-                padding: 5px 6px;
-                border: 1px solid #bbb;
-                border-radius: 4px;
-                background: #fff;
-                color: #2D364E;
-                font: inherit;
-            }
-            /* Events table */
-            .tm-events-table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            .tm-events-table th {
-                background: #3d2a5a;
-                color: #fff;
-                padding: 8px 12px;
-                text-align: left;
-                font-weight: normal;
-                position: sticky;
-                top: 0;
-                z-index: 1;
-                border-bottom: none;
-            }
-            .tm-events-table td {
-                padding: 6px 12px;
-                border-bottom: 1px solid #ddd;
-                vertical-align: top;
-            }
-            .tm-events-table tr:nth-child(even) td {
-                background: #f5f5f5;
-            }
-            .tm-events-table tr.tm-event-active td {
-                background: #d4edda;
-            }
-            .tm-events-table tr.tm-event-beyond td {
-                opacity: 0.6;
-            }
-            .tm-events-table .tm-event-time {
-                white-space: nowrap;
-                font-family: monospace;
-                font-size: 13px;
-            }
-            .tm-event-time details {
-                cursor: pointer;
-            }
-            .tm-event-time summary {
-                display: list-item;
-            }
-            .tm-event-time summary::marker {
-                font-size: 10px;
-            }
-            .tm-event-time .tm-schedule-detail {
-                margin-top: 4px;
-                padding-left: 18px;
-                font-size: 12px;
-                color: #555;
-                white-space: normal;
-            }
-            .tm-event-time--active summary {
-                color: #155724;
-                font-weight: bold;
-            }
-            .tm-event-time--waiting summary {
-                color: #856404;
-            }
-            .tm-events-table a {
-                color: #2a6496;
-                text-decoration: none;
-            }
-            .tm-events-table a:hover {
-                text-decoration: underline;
-            }
-            /* Settings checkboxes */
-            .tm-ev-settings-list {
-                list-style: none;
-                margin: 0;
-                padding: 0;
-            }
-            .tm-ev-settings-list li {
-                padding: 4px 0;
-                display: flex;
-                align-items: center;
-                gap: 4px;
-            }
-            .tm-ev-settings-list label {
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                flex: 1;
-            }
-            .tm-ev-settings-list input[type="checkbox"] {
-                width: 16px;
-                height: 16px;
-                flex-shrink: 0;
-            }
-            .tm-popup-btn--bell { font-size: 16px; }
-            .tm-popup-btn--bell-off { opacity: 0.4; }
-            .tm-ev-bell {
-                cursor: pointer;
-                font-size: 14px;
-                padding: 0 4px;
-                user-select: none;
-                border: none;
-                background: none;
-                vertical-align: middle;
-            }
-            .tm-ev-bell--off { opacity: 0.25; }
-            .tm-scale-row {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-            .tm-scale-input {
-                width: 75px;
-                padding: 4px 6px;
-                border: 1px solid #bbb;
-                border-radius: 4px;
-                font: inherit;
-            }
-            .tm-scale-suffix { color: #555; }
-            .tm-zoom-row {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                margin-top: 4px;
-            }
-            .tm-zoom-cb:disabled + .tm-zoom-label { opacity: 0.5; }
-            .tm-zoom-label { cursor: pointer; user-select: none; font-size: 13px; }
-        `;
+    style.textContent = events_default;
     document.head.appendChild(style);
   }, "injectEventsPopupStyles");
   let eventsOverlay = null;
@@ -1924,7 +1670,7 @@
     eventsInterval = setInterval(tickTable, 1e3);
   }, "openEventsPopup");
 
-  // src/components/select.js
+  // src/select/select.js
   let makeSelect = /* @__PURE__ */ __name(({ options, selected, onChange }) => {
     const wrapper = document.createElement("div");
     wrapper.className = "itemrestore__select_wrapper";
@@ -1984,43 +1730,16 @@
     }
   }, "renderSelectedItems");
 
-  // src/components/reload-btn.js
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/reloadBtn/reloadBtn.scss
+  let reloadBtn_default = ".guild_header2.tm-has-reload {\n  display: flex;\n  align-items: center;\n}\n\n.tm-reload-btn {\n  width: 22px;\n  height: 22px;\n  margin-left: 8px;\n  padding: 0;\n  border: none;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.15);\n  color: rgba(255, 255, 255, 0.75);\n  font-size: 15px;\n  line-height: 1;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  transition: background 150ms ease, color 150ms ease;\n  flex-shrink: 0;\n}\n\n.tm-reload-btn:hover {\n  background: rgba(255, 255, 255, 0.25);\n  color: #fff;\n}\n\n.tm-reload-btn:active {\n  transform: scale(0.92);\n}";
+
+  // src/reloadBtn/reloadBtn.js
   let reloadBtnStylesInjected = false;
   let injectReloadBtnStyles = /* @__PURE__ */ __name(() => {
     if (reloadBtnStylesInjected) return;
     reloadBtnStylesInjected = true;
     const style = document.createElement("style");
-    style.textContent = `
-            .guild_header2.tm-has-reload {
-                display: flex;
-                align-items: center;
-            }
-            .tm-reload-btn {
-                width: 22px;
-                height: 22px;
-                margin-left: 8px;
-                padding: 0;
-                border: none;
-                border-radius: 50%;
-                background: rgba(255, 255, 255, 0.15);
-                color: rgba(255, 255, 255, 0.75);
-                font-size: 15px;
-                line-height: 1;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: background 150ms ease, color 150ms ease;
-                flex-shrink: 0;
-            }
-            .tm-reload-btn:hover {
-                background: rgba(255, 255, 255, 0.25);
-                color: #fff;
-            }
-            .tm-reload-btn:active {
-                transform: scale(0.92);
-            }
-        `;
+    style.textContent = reloadBtn_default;
     document.head.appendChild(style);
   }, "injectReloadBtnStyles");
   let appendReloadBtn = /* @__PURE__ */ __name((header) => {
@@ -2035,7 +1754,7 @@
     header.appendChild(btn);
   }, "appendReloadBtn");
 
-  // src/cart.js
+  // src/cart/cart.js
   let normalizeCartItemName = /* @__PURE__ */ __name((itemName) => (itemName || "").trim().replace(/\*$/, "").trim().toLowerCase().replace(/\bc\b/g, "\u0441").replace(/\s+/g, " "), "normalizeCartItemName");
   let inferGradeFromCartItemName = /* @__PURE__ */ __name((itemName) => {
     const normalized = normalizeCartItemName(itemName);
@@ -2542,7 +2261,7 @@
     cartObserver.observe(pageDocument.body, { childList: true, subtree: true });
   }, "initCart");
 
-  // src/itemrestore.js
+  // src/itemRestore/itemRestore.js
   let IR_URL = {
     grades: "/dynamic/itemrestore/index.php?a=get_item_grades",
     info: "/dynamic/itemrestore/index.php?a=get_restore_info",
@@ -4891,909 +4610,56 @@
     }
   }, "initPrizes");
 
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/itemIcon/itemIcon.scss
+  let itemIcon_default = '@charset "UTF-8";\n:root {\n  --tm-screen-scale: 1;\n}\n\n.tm-item-icon {\n  position: relative;\n  display: inline-block;\n  flex-shrink: 0;\n}\n\n.tm-item-icon--small {\n  width: 30px;\n  height: 30px;\n  font-size: 11.5px;\n}\n\n.tm-item-icon--medium {\n  width: 42px;\n  height: 42px;\n  font-size: 11.5px;\n}\n\n.tm-item-icon::after {\n  content: "";\n  position: absolute;\n  inset: 0;\n  border-radius: inherit;\n  opacity: 0;\n  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.35), inset 0 0 4px rgba(255, 255, 255, 0.6);\n}\n\n.tm-item-icon:hover::after {\n  opacity: 1;\n}\n\n.tm-item-icon-img {\n  position: relative;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  display: block;\n}\n\n.tm-item-icon-overlay {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  pointer-events: auto;\n}\n\n.tm-item-icon-grade {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  pointer-events: none;\n}\n\n.tm-item-icon-count {\n  position: absolute;\n  right: 9%;\n  bottom: 12.5%;\n  line-height: 0.5;\n  letter-spacing: 0.02em;\n  color: #fff;\n  text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;\n  pointer-events: none;\n  z-index: 3;\n}\n\n/* \u0412\u0441\u043F\u043B\u044B\u0432\u0430\u0448\u043A\u0430 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u0430 (\u0433\u043B\u043E\u0431\u0430\u043B\u044C\u043D\u0430\u044F, \u0432 body) */\n.tm-item-tooltip {\n  display: none;\n  position: fixed;\n  top: var(--tm-tooltip-top, 0);\n  left: var(--tm-tooltip-left, 0);\n  z-index: 10000;\n  box-sizing: border-box;\n  width: 248px;\n  padding: 15px 15px 14px;\n  background: rgba(0, 8, 24, 0.85);\n  border: 1px solid rgba(255, 255, 255, 0.25);\n  pointer-events: none;\n  white-space: normal;\n  font-family: Calibri, Arial, Verdana, Tahoma;\n  font-size: 14px;\n  line-height: 18px;\n  color: #cfd6e0;\n  transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: top right;\n}\n\n.tm-item-tooltip--visible {\n  display: block;\n}\n\n.tm-item-tooltip--right {\n  transform: scale(var(--tm-tooltip-scale, 1));\n  transform-origin: top left;\n}\n\n.tm-item-tooltip--bottom {\n  transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: bottom right;\n}\n\n.tm-item-tooltip--bottom.tm-item-tooltip--right {\n  transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: bottom left;\n}\n\n.tm-item-tooltip-header {\n  display: flex;\n  gap: 6px;\n  align-items: flex-start;\n  padding: 0;\n}\n\n.tm-item-tooltip-header > .tm-item-icon {\n  flex-shrink: 0;\n}\n\n.tm-item-tooltip-meta {\n  display: flex;\n  flex-direction: column;\n  padding: 6px 0 2px;\n}\n\n.tm-item-tooltip-type {\n  opacity: 0.7;\n}\n\n.tm-item-tooltip-name {\n  font-size: 16px;\n  line-height: 20px;\n}\n\n.tm-item-tooltip-sep {\n  height: 2px;\n  margin: 4px 0;\n  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));\n  -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);\n  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);\n  padding: 0;\n}\n\n.tm-item-tooltip-req {\n  padding: 0 3px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-level {\n  display: flex;\n  align-items: center;\n}\n\n.tm-item-tooltip-hero-level-icon {\n  width: 16px;\n  height: 16px;\n  margin: 0 2px;\n  flex: 0 0 auto;\n}\n\n.tm-item-tooltip-stats {\n  padding: 0 3px;\n  display: flex;\n  flex-direction: column;\n  gap: 1px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-stat-row {\n  display: flex;\n  gap: 4px;\n}\n\n.tm-item-tooltip-stat-value {\n  color: #cfd6e0;\n  text-align: right;\n}\n\n.tm-item-tooltip-equipment-subtype {\n  padding: 0 3px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-desc {\n  padding: 4px 3px 2px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n\n.tm-item-tooltip-use-label {\n  color: #888;\n}\n\n.tm-item-tooltip-use-text {\n  color: #4caf50;\n}\n\n.tm-item-tooltip-price {\n  padding: 0 3px;\n  display: grid;\n  grid-template-columns: min-content 1fr;\n  gap: 8px;\n}\n\n.tm-item-tooltip-price--none {\n  display: block;\n  color: #d02e2e;\n}\n\n.tm-item-tooltip-price-value {\n  color: #cfd6e0;\n  display: inline-flex;\n  align-items: center;\n  justify-content: flex-end;\n  flex-wrap: wrap;\n  gap: 4px;\n  text-align: right;\n}\n\n.tm-item-tooltip-price-part {\n  display: inline-flex;\n  align-items: center;\n  gap: 2px;\n  white-space: nowrap;\n}\n\n.tm-item-tooltip-price-icon {\n  width: 16px;\n  height: 16px;\n  flex: 0 0 auto;\n}\n\n.orange_text,\n.inv-nc,\n.inv-nn,\n.inv-buffvar {\n  color: #ff9c27;\n}\n\n.light_blue_text,\n.inv-nd {\n  color: #74b0ca;\n}\n\n.blue_text,\n.inv-ni {\n  color: #27b1c6;\n}\n\n.red_text,\n.inv-nr {\n  color: #de482f;\n}';
+
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/marathon/selectedItems/selectedItems.scss
+  let selectedItems_default = '.tm-selected-container {\n  position: relative;\n  min-height: 100px;\n  padding: 18px 14px 18px 11px;\n}\n\n.tm-selected-container::before {\n  content: "";\n  position: absolute;\n  left: -1px;\n  top: 0;\n  bottom: 0;\n  width: 100%;\n  pointer-events: none;\n  background: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_top.png) left top no-repeat, url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bottom.png) left bottom no-repeat;\n}\n\n.tm-selected-list {\n  display: flex;\n  flex-direction: column;\n  min-height: 181px;\n  padding: 13px 15px;\n  background: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bg.jpg) left bottom no-repeat;\n  max-height: 181px;\n  overflow: auto;\n  position: relative;\n}\n\n.tm-selected-items-help {\n  margin: auto;\n  color: #495a6d;\n  font: 14px/16px Cambria, Georgia, "Times New Roman", Times, serif;\n  text-align: center;\n  cursor: default;\n}\n\n.tm-selected-item {\n  position: relative;\n  display: flex;\n  align-items: center;\n  padding: 2px 36px 2px 0;\n  font: 14px/16px Cambria, Georgia, "Times New Roman", Times, serif;\n  border-bottom: 1px solid #d6dde5;\n  border-top: 1px solid #d6dde5;\n  cursor: default;\n  z-index: 1;\n}\n\n.tm-cart-item-name {\n  display: inline-flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.tm-selected-item .del_btn {\n  position: absolute;\n  display: block;\n  top: 50%;\n  margin-top: -12px;\n  right: 0;\n  width: 25px;\n  height: 25px;\n  background-image: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/icons.png);\n  background-repeat: no-repeat;\n  background-position: left 0px;\n  cursor: pointer;\n}';
+
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/marathon/page/page.scss
+  let page_default = '@charset "UTF-8";\n.tm-task-completed {\n  background-color: rgba(255, 240, 226, 0.7490196078);\n}\n\n/* \u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F "\u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043E" */\n@keyframes tm-just-completed-glow {\n  0% {\n    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7), inset 0 0 20px rgba(76, 175, 80, 0.3);\n    transform: scale(1);\n  }\n  15% {\n    box-shadow: 0 0 25px 8px rgba(76, 175, 80, 0.6), inset 0 0 30px rgba(76, 175, 80, 0.4);\n    transform: scale(1.02);\n  }\n  30% {\n    box-shadow: 0 0 35px 12px rgba(255, 215, 0, 0.5), inset 0 0 40px rgba(255, 215, 0, 0.3);\n    transform: scale(1.03);\n  }\n  50% {\n    box-shadow: 0 0 20px 6px rgba(76, 175, 80, 0.4), inset 0 0 25px rgba(76, 175, 80, 0.2);\n    transform: scale(1.01);\n  }\n  100% {\n    box-shadow: 0 0 0 0 transparent, inset 0 0 0 transparent;\n    transform: scale(1);\n  }\n}\n@keyframes tm-just-completed-bg {\n  0% {\n    background-color: rgba(255, 240, 226, 0.7490196078);\n  }\n  20% {\n    background-color: rgba(76, 175, 80, 0.35);\n  }\n  40% {\n    background-color: rgba(255, 215, 0, 0.3);\n  }\n  60% {\n    background-color: rgba(76, 175, 80, 0.25);\n  }\n  100% {\n    background-color: rgba(255, 240, 226, 0.7490196078);\n  }\n}\n@keyframes tm-checkmark-pop {\n  0% {\n    transform: scale(0) rotate(-45deg);\n    opacity: 0;\n  }\n  50% {\n    transform: scale(1.4) rotate(10deg);\n    opacity: 1;\n  }\n  70% {\n    transform: scale(0.9) rotate(-5deg);\n  }\n  100% {\n    transform: scale(1) rotate(0deg);\n    opacity: 1;\n  }\n}\n.tm-task-just-completed {\n  animation: tm-just-completed-glow 2s ease-out forwards, tm-just-completed-bg 2s ease-out forwards;\n  position: relative;\n  z-index: 9;\n}\n\n.tm-task-just-completed .tm-done-check {\n  animation: tm-checkmark-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;\n  animation-delay: 0.2s;\n  transform: scale(0);\n}\n\n.tasks__item {\n  overflow: visible;\n}\n\n.tasks__item-done {\n  display: flex;\n  flex-direction: column;\n  align-items: flex-end;\n  gap: 2px;\n  pointer-events: none;\n  opacity: 0.8;\n}\n\n.tm-done-row {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n}\n\n.tm-done-time {\n  font-size: 12px;\n}\n\n.tm-done-progress {\n  font-size: 12px;\n}\n\n.tm-done-check {\n  font-size: 14px;\n  font-weight: 700;\n  line-height: 1;\n  color: #3cb45a;\n}\n\n.tm-links-row {\n  margin-top: 6px;\n  display: flex;\n  gap: 4px;\n  justify-content: space-between;\n  align-items: center;\n  z-index: 1;\n}\n\n.tm-links-left {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  min-width: 0;\n}\n\n.tm-item-name-link {\n  font-size: 12px;\n  color: inherit;\n  opacity: 0.85;\n  text-decoration: none;\n}\n\n.tm-item-name-link:hover {\n  opacity: 1;\n  text-decoration: underline;\n}\n\n.tm-info-wrapper {\n  display: flex;\n  flex-direction: column;\n  gap: 2px;\n}\n\n.tm-info-line {\n  display: flex;\n  align-items: baseline;\n  gap: 6px;\n}\n\n.tm-locations {\n  font-size: 12px;\n  line-height: 1.25;\n  opacity: 0.85;\n}\n\n.tm-short {\n  font-size: 12px;\n  line-height: 1.25;\n  opacity: 0.85;\n}\n\n.tm-available-days {\n  font-size: 12px;\n  line-height: 1.25;\n  color: #8a6230;\n  font-weight: 600;\n}\n\n.tm-gisaa-status {\n  font-size: 12px;\n  line-height: 1.25;\n  font-weight: 600;\n}\n\n.tm-gisaa-status--available {\n  color: #3f8f3a;\n}\n\n.tm-gisaa-status--unavailable {\n  color: #b04a44;\n}\n\n.tm-short a {\n  color: inherit;\n}\n\n.tm-events {\n  font-size: 12px;\n  line-height: 1.25;\n  opacity: 0.85;\n}\n\n.tm-inline-icon {\n  display: inline-block;\n  position: relative;\n  width: 18px;\n  height: 18px;\n  vertical-align: middle;\n  margin: 0 2px;\n}\n\n.tm-inline-icon img:first-child {\n  width: 100%;\n  height: 100%;\n  display: block;\n}\n\n.tm-inline-icon-grade {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  pointer-events: none;\n}\n\n.tm-countdown {\n  font-weight: 500;\n  white-space: nowrap;\n}\n\n.tm-countdown.tm-countdown--active {\n  color: #4caf50;\n}\n\n.tm-countdown.tm-countdown--waiting {\n  color: #d02e2e;\n}\n\n.tm-icons {\n  display: flex;\n  flex-direction: row-reverse;\n  gap: 8px;\n  align-items: center;\n  flex: 0 0 auto;\n}\n\n.tm-icon-link {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  border-radius: 6px;\n  background: rgba(255, 255, 255, 0.06);\n  transition: box-shadow 150ms ease, opacity 150ms ease;\n}\n\n.tm-icon-link:hover {\n  transform: translateY(-1px);\n}\n\n.tm-icon-link img {\n  width: 30px;\n  display: block;\n}\n\n.tm-veksel-icon-link {\n  position: relative;\n  display: inline-block;\n  width: 30px;\n  height: 30px;\n  flex-shrink: 0;\n  transition: transform 120ms ease, opacity 120ms ease;\n}\n\n.tm-veksel-icon-link:hover {\n  transform: translateY(-1px);\n  opacity: 1;\n}\n\n.tm-veksel-icon-main {\n  width: 100%;\n  height: 100%;\n  display: block;\n}\n\n.tm-veksel-icon-badge {\n  position: absolute;\n  bottom: -2px;\n  right: -2px;\n  width: 18px;\n  height: 18px;\n  border-radius: 2px;\n  background: rgba(0, 0, 0, 0.6);\n}\n\n.tm-nav-wrapper {\n  display: flex;\n  align-items: center;\n  gap: 16px;\n}\n\n.tm-date-nav {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n@media (max-width: 1300px) {\n  .tm-nav-wrapper {\n    padding: 0 20px;\n  }\n}\n.tm-date-btn {\n  cursor: pointer;\n  padding: 4px 8px;\n  border-radius: 6px;\n  border: 1px solid rgba(255, 255, 255, 0.18);\n  background: rgba(255, 255, 255, 0.06);\n  color: inherit;\n  font: inherit;\n  font-size: 14px;\n  text-transform: uppercase;\n}\n\n.tm-date-btn:hover {\n  background: rgba(255, 255, 255, 0.1);\n}\n\n.tm-date-label {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  min-width: 150px;\n  text-align: center;\n}\n\n.tm-date-label-date {\n  font-size: 16px;\n}\n\n.tm-date-label-suffix {\n  font-size: 12px;\n  opacity: 0.75;\n  line-height: 1;\n}\n\n.tasks__header {\n  flex-wrap: wrap;\n  justify-content: space-between;\n  gap: 16px;\n}\n\n.tm-date-btn:disabled {\n  opacity: 0.35;\n  cursor: default;\n}\n\n.tm-hide-done-label {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  cursor: pointer;\n  font-size: 16px;\n}\n\n.tm-hide-done-label:hover {\n  opacity: 1;\n}\n\n.tm-hide-done-checkbox {\n  cursor: pointer;\n}\n\n.tm-hide-done .tm-task-completed {\n  display: none;\n}\n\n.tm-refresh-btn {\n  width: 26px;\n  height: 26px;\n  padding: 0;\n  border: none;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.06);\n  color: rgba(255, 255, 255, 0.7);\n  font-size: 18px;\n  line-height: 1;\n  cursor: pointer;\n  transition: background 150ms ease, color 150ms ease, transform 150ms ease;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n\n.tm-refresh-btn:hover {\n  background: rgba(255, 255, 255, 0.12);\n  color: rgba(255, 255, 255, 0.95);\n}\n\n.tm-refresh-btn:active {\n  transform: scale(0.92);\n}\n\n.tm-refresh-loader--active {\n  pointer-events: none;\n  animation: tm-spin 0.7s linear infinite;\n}\n\n@keyframes tm-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n/* \u0410\u0432\u0442\u043E\u0437\u0430\u0431\u043E\u0440 \u043F\u043E\u0434\u0430\u0440\u043A\u043E\u0432 */\n.prizes__title {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 16px;\n}\n\n.tm-auto-claim-label {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  font-size: 14px;\n  font-weight: normal;\n  cursor: pointer;\n  user-select: none;\n  white-space: nowrap;\n}\n\n.tm-auto-claim-checkbox {\n  width: 16px;\n  height: 16px;\n  cursor: pointer;\n}\n\n/* \u0410\u0432\u0442\u043E\u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u0441\u0443\u043D\u0434\u0443\u043A\u043E\u0432 */\n.lootbox__title {\n  gap: 30px;\n  flex-wrap: wrap;\n}\n\n.lootbox__title .icon-info {\n  margin-left: 0;\n}\n\n.tm-auto-open-label {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  font-size: 14px;\n  font-weight: normal;\n  cursor: pointer;\n  user-select: none;\n  white-space: nowrap;\n  text-transform: none;\n}\n\n.tm-auto-open-checkbox {\n  width: 16px;\n  height: 16px;\n  cursor: pointer;\n}\n\n.pagination__item--ellipsis {\n  cursor: default;\n  color: #777;\n}';
+
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/cart/cart.scss
+  let cart_default = '@charset "UTF-8";\n#block_content {\n  overflow: unset;\n}\n\n.cart_right {\n  position: sticky;\n  top: 0;\n}\n\n.guild_tab.cart_items .gh_1,\n.guild_tab.cart_items .g\u0441_1 {\n  width: 1%;\n}\n\n.guild_tab.cart_items .gh_2 {\n  border-left: none;\n  padding-left: 0;\n}\n\n.guild_tab.cart_items .gh_3 {\n  width: 1px;\n  min-width: 170px;\n  border-right: none;\n}\n\n.guild_tab.cart_items .gh_4 {\n  width: 1%;\n}\n\n.guild_tab.cart_items .g\u0441_2 {\n  border-left: none;\n  padding-left: 0;\n}\n\n.guild_tab.cart_items .g\u0441_4 {\n  white-space: nowrap;\n  text-align: right;\n  border-right: none;\n  width: 1%;\n}\n\n.cart_items .item:hover {\n  background: #edf4fa;\n}\n\n.cart_items .item.disabled:hover {\n  background: transparent;\n}\n\n.cart_items .item.tm-selected {\n  display: none;\n}\n\n.tm-cart-timer {\n  display: block;\n}\n\n.tm-char-face {\n  width: 100%;\n  height: 100%;\n  /*border-radius: 50%;*/\n  opacity: 0;\n  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent), linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);\n  -webkit-mask-composite: destination-in;\n  mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent), linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);\n  mask-composite: intersect;\n  filter: brightness(1.1);\n  mix-blend-mode: multiply;\n}\n\n.tm-char-face--loaded {\n  opacity: 1;\n}\n\n.tm-char-face--error {\n  opacity: 0;\n}\n\n.tm-char-face-ready div {\n  background: none !important;\n}';
+
   // src/marathon/styles.js
-  let DONE_CLASS2 = "tm-task-completed";
-  let JUST_DONE_CLASS2 = "tm-task-just-completed";
   let itemIconStylesInjected = false;
   let selectedItemsStylesInjected = false;
   let marathonStylesInjected = false;
   let cartStylesInjected = false;
-  let getSystemScale = /* @__PURE__ */ __name(() => window.devicePixelRatio / (window.visualViewport?.scale || 1), "getSystemScale");
-  let getItemIconStyles = /* @__PURE__ */ __name(() => {
-    const screenScale = getSystemScale();
-    return `
-            :root { --tm-screen-scale: ${1 / screenScale}; }
-            .tm-item-icon {
-                position: relative;
-                display: inline-block;
-                flex-shrink: 0;
-            }
-
-            .tm-item-icon--small {
-                width: 30px;
-                height: 30px;
-                font-size: 11.5px;
-            }
-
-            .tm-item-icon--medium {
-                width: 42px;
-                height: 42px;
-                font-size: 11.5px;
-            }
-
-            .tm-item-icon::after {
-                content: '';
-                position: absolute;
-                inset: 0;
-                border-radius: inherit;
-                opacity: 0;
-                box-shadow:
-                    inset 0 0 12px rgba(255, 255, 255, 0.35),
-                    inset 0 0 4px rgba(255, 255, 255, 0.6);
-            }
-
-            .tm-item-icon:hover::after {
-                opacity: 1;
-            }
-
-            .tm-item-icon-img {
-                position: relative;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                display: block;
-            }
-
-            .tm-item-icon-overlay {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                pointer-events: auto;
-            }
-
-            .tm-item-icon-grade {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                pointer-events: none;
-            }
-
-            .tm-item-icon-count {
-                position: absolute;
-                right: 9%;
-                bottom: 12.5%;
-                line-height: 0.5;
-                letter-spacing: 0.02em;
-                color: #fff;
-                text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;
-                pointer-events: none;
-                z-index: 3;
-            }
-
-            /* \u0412\u0441\u043F\u043B\u044B\u0432\u0430\u0448\u043A\u0430 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u0430 (\u0433\u043B\u043E\u0431\u0430\u043B\u044C\u043D\u0430\u044F, \u0432 body) */
-            .tm-item-tooltip {
-                display: none;
-                position: fixed;
-                top: var(--tm-tooltip-top, 0);
-                left: var(--tm-tooltip-left, 0);
-                z-index: 10000;
-                box-sizing: border-box;
-                width: 248px;
-                padding: 15px 15px 14px;
-                background: rgba(0, 8, 24, 0.85);
-                border: 1px solid rgba(255, 255, 255, 0.25);
-                pointer-events: none;
-                white-space: normal;
-                font-family: Calibri, Arial, Verdana, Tahoma;
-                font-size: 14px;
-                line-height: 18px;
-                color: #cfd6e0;
-                transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));
-                transform-origin: top right;
-            }
-
-            .tm-item-tooltip--visible {
-                display: block;
-            }
-
-            .tm-item-tooltip--right {
-                transform: scale(var(--tm-tooltip-scale, 1));
-                transform-origin: top left;
-            }
-
-            .tm-item-tooltip--bottom {
-                transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));
-                transform-origin: bottom right;
-            }
-
-            .tm-item-tooltip--bottom.tm-item-tooltip--right {
-                transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));
-                transform-origin: bottom left;
-            }
-
-            .tm-item-tooltip-header {
-                display: flex;
-                gap: 6px;
-                align-items: flex-start;
-                padding: 0;
-            }
-
-            .tm-item-tooltip-header > .tm-item-icon {
-                flex-shrink: 0;
-            }
-
-            .tm-item-tooltip-meta {
-                display: flex;
-                flex-direction: column;
-                padding: 6px 0 2px;
-            }
-
-            .tm-item-tooltip-type {
-                opacity: 0.7;
-            }
-
-            .tm-item-tooltip-grade {
-            }
-
-            .tm-item-tooltip-name {
-                font-size: 16px;
-                line-height: 20px;
-            }
-
-            .tm-item-tooltip-sep {
-                height: 2px;
-                margin: 4px 0;
-                background: linear-gradient(to bottom, rgba(255,255,255,0.25), rgba(255,255,255,0.10));
-                -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
-                mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
-                padding: 0;
-            }
-
-            .tm-item-tooltip-req {
-                padding: 0 3px;
-                letter-spacing: 0.03em;
-            }
-
-            .tm-item-tooltip-level {
-                display: flex;
-                align-items: center;
-            }
-
-            .tm-item-tooltip-hero-level-icon {
-                width: 16px;
-                height: 16px;
-                margin: 0 2px;
-                flex: 0 0 auto;
-            }
-
-            .tm-item-tooltip-stats {
-                padding: 0 3px;
-                display: flex;
-                flex-direction: column;
-                gap: 1px;
-                letter-spacing: 0.03em;
-            }
-
-            .tm-item-tooltip-stat-row {
-                display: flex;
-                gap: 4px;
-            }
-
-            .tm-item-tooltip-stat-value {
-                color: #cfd6e0;
-                text-align: right;
-            }
-
-            .tm-item-tooltip-equipment-subtype {
-                padding: 0 3px;
-                letter-spacing: 0.03em;
-            }
-
-            .tm-item-tooltip-desc {
-                padding: 4px 3px 2px;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .tm-item-tooltip-use-label {
-                color: #888;
-            }
-
-            .tm-item-tooltip-use-text {
-                color: #4caf50;
-            }
-
-            .tm-item-tooltip-price {
-                padding: 0 3px;
-                display: grid;
-                grid-template-columns: min-content 1fr;
-                gap: 8px;
-            }
-            .tm-item-tooltip-price--none {
-                display: block;
-                color: #d02e2e;
-            }
-            .tm-item-tooltip-price-value {
-                color: #cfd6e0;
-                display: inline-flex;
-                align-items: center;
-                justify-content: flex-end;
-                flex-wrap: wrap;
-                gap: 4px;
-                text-align: right;
-            }
-            .tm-item-tooltip-price-part {
-                display: inline-flex;
-                align-items: center;
-                gap: 2px;
-                white-space: nowrap;
-            }
-            .tm-item-tooltip-price-icon {
-                width: 16px;
-                height: 16px;
-                flex: 0 0 auto;
-            }
-
-            .orange_text,
-            .inv-nc,
-            .inv-nn,
-            .inv-buffvar {
-                color: #ff9c27;
-            }
-
-            .light_blue_text,
-            .inv-nd {
-                color: #74b0ca;
-            }
-
-            .blue_text,
-            .inv-ni {
-                color: #27b1c6;
-            }
-
-            .red_text,
-            .inv-nr {
-                color: #de482f;
-            }
-        `;
-  }, "getItemIconStyles");
-  let getMarathonStyles = /* @__PURE__ */ __name(() => `
-        .${DONE_CLASS2} {
-            background-color: #fff0e2bf;
-        }
-
-        /* \u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F "\u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043E" */
-        @keyframes tm-just-completed-glow {
-            0% {
-                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7), inset 0 0 20px rgba(76, 175, 80, 0.3);
-                transform: scale(1);
-            }
-            15% {
-                box-shadow: 0 0 25px 8px rgba(76, 175, 80, 0.6), inset 0 0 30px rgba(76, 175, 80, 0.4);
-                transform: scale(1.02);
-            }
-            30% {
-                box-shadow: 0 0 35px 12px rgba(255, 215, 0, 0.5), inset 0 0 40px rgba(255, 215, 0, 0.3);
-                transform: scale(1.03);
-            }
-            50% {
-                box-shadow: 0 0 20px 6px rgba(76, 175, 80, 0.4), inset 0 0 25px rgba(76, 175, 80, 0.2);
-                transform: scale(1.01);
-            }
-            100% {
-                box-shadow: 0 0 0 0 transparent, inset 0 0 0 transparent;
-                transform: scale(1);
-            }
-        }
-
-        @keyframes tm-just-completed-bg {
-            0% { background-color: #fff0e2bf; }
-            20% { background-color: rgba(76, 175, 80, 0.35); }
-            40% { background-color: rgba(255, 215, 0, 0.3); }
-            60% { background-color: rgba(76, 175, 80, 0.25); }
-            100% { background-color: #fff0e2bf; }
-        }
-
-        @keyframes tm-checkmark-pop {
-            0% { transform: scale(0) rotate(-45deg); opacity: 0; }
-            50% { transform: scale(1.4) rotate(10deg); opacity: 1; }
-            70% { transform: scale(0.9) rotate(-5deg); }
-            100% { transform: scale(1) rotate(0deg); opacity: 1; }
-        }
-
-        .${JUST_DONE_CLASS2} {
-            animation:
-                tm-just-completed-glow 2s ease-out forwards,
-                tm-just-completed-bg 2s ease-out forwards;
-            position: relative;
-            z-index: 9;
-        }
-
-        .${JUST_DONE_CLASS2} .tm-done-check {
-            animation: tm-checkmark-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            animation-delay: 0.2s;
-            transform: scale(0);
-        }
-
-        .tasks__item {
-            overflow: visible;
-        }
-
-        .tasks__item-done {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 2px;
-            pointer-events: none;
-            opacity: 0.8;
-        }
-
-        .tm-done-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .tm-done-time {
-            font-size: 12px;
-        }
-
-        .tm-done-progress {
-            font-size: 12px;
-        }
-
-        .tm-done-check {
-            font-size: 14px;
-            font-weight: 700;
-            line-height: 1;
-            color: #3cb45a;
-        }
-
-        .tm-links-row {
-            margin-top: 6px;
-            display: flex;
-            gap: 4px;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1;
-        }
-
-        .tm-links-left {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            min-width: 0;
-        }
-
-        .tm-item-name-link {
-            font-size: 12px;
-            color: inherit;
-            opacity: 0.85;
-            text-decoration: none;
-        }
-
-        .tm-item-name-link:hover {
-            opacity: 1;
-            text-decoration: underline;
-        }
-
-        .tm-info-wrapper {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .tm-info-line {
-            display: flex;
-            align-items: baseline;
-            gap: 6px;
-        }
-
-        .tm-locations {
-            font-size: 12px;
-            line-height: 1.25;
-            opacity: 0.85;
-        }
-
-        .tm-short {
-            font-size: 12px;
-            line-height: 1.25;
-            opacity: 0.85;
-        }
-
-        .tm-available-days {
-            font-size: 12px;
-            line-height: 1.25;
-            color: #8a6230;
-            font-weight: 600;
-        }
-
-        .tm-gisaa-status {
-            font-size: 12px;
-            line-height: 1.25;
-            font-weight: 600;
-        }
-
-        .tm-gisaa-status--available {
-            color: #3f8f3a;
-        }
-
-        .tm-gisaa-status--unavailable {
-            color: #b04a44;
-        }
-
-        .tm-short a {
-            color: inherit;
-        }
-
-        .tm-events {
-            font-size: 12px;
-            line-height: 1.25;
-            opacity: 0.85;
-        }
-
-        .tm-inline-icon {
-            display: inline-block;
-            position: relative;
-            width: 18px;
-            height: 18px;
-            vertical-align: middle;
-            margin: 0 2px;
-        }
-
-        .tm-inline-icon img:first-child {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        .tm-inline-icon-grade {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-
-        .tm-countdown {
-            font-weight: 500;
-            white-space: nowrap;
-        }
-        .tm-countdown.tm-countdown--active {
-            color: #4caf50;
-        }
-        .tm-countdown.tm-countdown--waiting {
-            color: #d02e2e;
-        }
-
-        .tm-icons {
-            display: flex;
-            flex-direction: row-reverse;
-            gap: 8px;
-            align-items: center;
-            flex: 0 0 auto;
-        }
-
-        .tm-icon-link {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            background: rgba(255,255,255,0.06);
-            transition: box-shadow 150ms ease, opacity 150ms ease;
-        }
-
-        .tm-icon-link:hover {
-            transform: translateY(-1px);
-        }
-
-        .tm-icon-link img {
-            width: 30px;
-            display: block;
-        }
-
-        .tm-veksel-icon-link {
-            position: relative;
-            display: inline-block;
-            width: 30px;
-            height: 30px;
-            flex-shrink: 0;
-            transition: transform 120ms ease, opacity 120ms ease;
-        }
-
-        .tm-veksel-icon-link:hover {
-            transform: translateY(-1px);
-            opacity: 1;
-        }
-
-        .tm-veksel-icon-main {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        .tm-veksel-icon-badge {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 18px;
-            height: 18px;
-            border-radius: 2px;
-            background: rgba(0, 0, 0, 0.6);
-        }
-
-        .tm-nav-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .tm-date-nav {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        @media (max-width: 1300px) {
-            .tm-nav-wrapper {
-                padding: 0 20px;
-            }
-        }
-
-        .tm-date-btn {
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255,0.18);
-            background: rgba(255, 255, 255, 0.06);
-            color: inherit;
-            font: inherit;
-            font-size: 14px;
-            text-transform: uppercase;
-        }
-
-        .tm-date-btn:hover {
-            background: rgba(255, 255, 255, 0.10);
-        }
-
-        .tm-date-label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 150px;
-            text-align: center;
-        }
-
-        .tm-date-label-date {
-            font-size: 16px;
-        }
-
-        .tm-date-label-suffix {
-            font-size: 12px;
-            opacity: 0.75;
-            line-height: 1;
-        }
-
-        .tasks__header {
-            flex-wrap: wrap;
-            justify-content: space-between;
-            gap: 16px;
-        }
-
-        .tm-date-btn:disabled {
-            opacity: 0.35;
-            cursor: default;
-        }
-
-        .tm-hide-done-label {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .tm-hide-done-label:hover {
-            opacity: 1;
-        }
-
-        .tm-hide-done-checkbox {
-            cursor: pointer;
-        }
-
-        .tm-hide-done .${DONE_CLASS2} {
-            display: none;
-        }
-
-        .tm-refresh-btn {
-            width: 26px;
-            height: 26px;
-            padding: 0;
-            border: none;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.06);
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 18px;
-            line-height: 1;
-            cursor: pointer;
-            transition: background 150ms ease, color 150ms ease, transform 150ms ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .tm-refresh-btn:hover {
-            background: rgba(255, 255, 255, 0.12);
-            color: rgba(255, 255, 255, 0.95);
-        }
-
-        .tm-refresh-btn:active {
-            transform: scale(0.92);
-        }
-
-        .tm-refresh-loader--active {
-            pointer-events: none;
-            animation: tm-spin 0.7s linear infinite;
-        }
-
-        @keyframes tm-spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* \u0410\u0432\u0442\u043E\u0437\u0430\u0431\u043E\u0440 \u043F\u043E\u0434\u0430\u0440\u043A\u043E\u0432 */
-        .prizes__title {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-        }
-
-        .tm-auto-claim-label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 14px;
-            font-weight: normal;
-            cursor: pointer;
-            user-select: none;
-            white-space: nowrap;
-        }
-
-        .tm-auto-claim-checkbox {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-
-        /* \u0410\u0432\u0442\u043E\u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u0441\u0443\u043D\u0434\u0443\u043A\u043E\u0432 */
-        .lootbox__title {
-            gap: 30px;
-            flex-wrap: wrap;
-        }
-
-        .lootbox__title .icon-info {
-            margin-left: 0;
-        }
-
-        .tm-auto-open-label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 14px;
-            font-weight: normal;
-            cursor: pointer;
-            user-select: none;
-            white-space: nowrap;
-            text-transform: none;
-        }
-
-        .tm-auto-open-checkbox {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-
-        .pagination__item--ellipsis {
-            cursor: default;
-            color: #777;
-        }
-    `, "getMarathonStyles");
-  let getCartStyles = /* @__PURE__ */ __name(() => `
-        #block_content {
-            overflow: unset;
-        }
-
-        .cart_right {
-            position: sticky;
-            top: 0;
-        }
-
-        .guild_tab.cart_items .gh_1,
-        .guild_tab.cart_items .g\u0441_1 {
-            width: 1%;
-        }
-
-        .guild_tab.cart_items .gh_2 {
-            border-left: none;
-            padding-left: 0;
-        }
-
-        .guild_tab.cart_items .gh_3 {
-            width: 1px;
-            min-width: 170px;
-            border-right: none;
-        }
-
-        .guild_tab.cart_items .gh_4 {
-            width: 1%;
-        }
-
-        .guild_tab.cart_items .g\u0441_2 {
-            border-left: none;
-            padding-left: 0;
-        }
-
-        .guild_tab.cart_items .g\u0441_4 {
-            white-space: nowrap;
-            text-align: right;
-            border-right: none;
-            width: 1%;
-        }
-
-        .cart_items .item:hover {
-            background: #edf4fa;
-        }
-
-        .cart_items .item.disabled:hover {
-            background: transparent;
-        }
-
-        .cart_items .item.tm-selected {
-            display: none;
-        }
-
-
-        .tm-cart-timer {
-            display: block;
-        }
-
-        .tm-char-face {
-            width: 100%;
-            height: 100%;
-            /*border-radius: 50%;*/
-            opacity: 0;
-            -webkit-mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent),
-                                linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);
-            -webkit-mask-composite: destination-in;
-            mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent),
-                        linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);
-            mask-composite: intersect;
-            filter: brightness(1.1);
-            mix-blend-mode: multiply;
-        }
-
-        .tm-char-face--loaded {
-            opacity: 1;
-        }
-
-        .tm-char-face--error {
-            opacity: 0;
-        }
-
-        .tm-char-face-ready div {
-            background: none !important;
-        }
-    `, "getCartStyles");
   let injectItemIconStyles = /* @__PURE__ */ __name(() => {
     if (itemIconStylesInjected) return;
     itemIconStylesInjected = true;
     const style = document.createElement("style");
-    style.textContent = getItemIconStyles();
+    style.textContent = itemIcon_default;
     document.head.appendChild(style);
   }, "injectItemIconStyles");
   let injectMarathonStyles = /* @__PURE__ */ __name(() => {
     if (marathonStylesInjected) return;
     marathonStylesInjected = true;
     const style = document.createElement("style");
-    style.textContent = getMarathonStyles();
+    style.textContent = page_default;
     document.head.appendChild(style);
   }, "injectMarathonStyles");
   let injectCartStyles = /* @__PURE__ */ __name(() => {
     if (cartStylesInjected) return;
     cartStylesInjected = true;
     const style = document.createElement("style");
-    style.textContent = getCartStyles();
+    style.textContent = cart_default;
     document.head.appendChild(style);
   }, "injectCartStyles");
   let injectSelectedItemsStyles = /* @__PURE__ */ __name(() => {
     if (selectedItemsStylesInjected) return;
     selectedItemsStylesInjected = true;
     const style = document.createElement("style");
-    style.textContent = `
-            .tm-selected-container {
-                position: relative;
-                min-height: 100px;
-                padding: 18px 14px 18px 11px;
-            }
-
-            .tm-selected-container::before {
-                content: '';
-                position: absolute;
-                left: -1px;
-                top: 0;
-                bottom: 0;
-                width: 100%;
-                pointer-events: none;
-                background:
-                    url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_top.png) left top no-repeat,
-                    url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bottom.png) left bottom no-repeat;
-            }
-
-            .tm-selected-list {
-                display: flex;
-                flex-direction: column;
-                min-height: 181px;
-                padding: 13px 15px;
-                background: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bg.jpg) left bottom no-repeat;
-                max-height: 181px;
-                overflow: auto;
-                position: relative;
-            }
-
-            .tm-selected-items-help {
-                margin: auto;
-                color: #495a6d;
-                font: 14px / 16px Cambria, Georgia, "Times New Roman", Times, serif;
-                text-align: center;
-                cursor: default;
-            }
-
-            .tm-selected-item {
-                position: relative;
-                display: flex;
-                align-items: center;
-                padding: 2px 36px 2px 0;
-                font: 14px / 16px Cambria, Georgia, "Times New Roman", Times, serif;
-                border-bottom: 1px solid #d6dde5;
-                border-top: 1px solid #d6dde5;
-                cursor: default;
-                z-index: 1;
-            }
-
-            .tm-cart-item-name {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-            }
-
-            .tm-selected-item .del_btn {
-                position: absolute;
-                display: block;
-                top: 50%;
-                margin-top: -12px;
-                right: 0;
-                width: 25px;
-                height: 25px;
-                background-image: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/icons.png);
-                background-repeat: no-repeat;
-                background-position: left 0px;
-                cursor: pointer;
-            }
-
-        `;
+    style.textContent = selectedItems_default;
     document.head.appendChild(style);
   }, "injectSelectedItemsStyles");
 
-  // src/marathon/tooltip.js
+  // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/marathon/tooltip/tooltip.scss
+  let tooltip_default = ".tm-item-tooltip {\n  display: none;\n  position: fixed;\n  top: var(--tm-tooltip-top, 0);\n  left: var(--tm-tooltip-left, 0);\n  z-index: 10000;\n  box-sizing: border-box;\n  width: 248px;\n  padding: 15px 15px 14px;\n  background: rgba(0, 8, 24, 0.85);\n  border: 1px solid rgba(255, 255, 255, 0.25);\n  pointer-events: none;\n  white-space: normal;\n  font-family: Calibri, Arial, Verdana, Tahoma;\n  font-size: 14px;\n  line-height: 18px;\n  color: #cfd6e0;\n  transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: top right;\n}\n\n.tm-item-tooltip--visible {\n  display: block;\n}\n\n.tm-item-tooltip--right {\n  transform: scale(var(--tm-tooltip-scale, 1));\n  transform-origin: top left;\n}\n\n.tm-item-tooltip--bottom {\n  transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: bottom right;\n}\n\n.tm-item-tooltip--bottom.tm-item-tooltip--right {\n  transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: bottom left;\n}\n\n.tm-item-tooltip-header {\n  display: flex;\n  gap: 6px;\n  align-items: flex-start;\n  padding: 0;\n}\n\n.tm-item-tooltip-header > .tm-item-icon {\n  flex-shrink: 0;\n}\n\n.tm-item-tooltip-meta {\n  display: flex;\n  flex-direction: column;\n  padding: 6px 0 2px;\n}\n\n.tm-item-tooltip-type {\n  opacity: 0.7;\n}\n\n.tm-item-tooltip-name {\n  font-size: 16px;\n  line-height: 20px;\n}\n\n.tm-item-tooltip-sep {\n  height: 2px;\n  margin: 4px 0;\n  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));\n  -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);\n  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);\n  padding: 0;\n}\n\n.tm-item-tooltip-req {\n  padding: 0 3px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-level {\n  display: flex;\n  align-items: center;\n}\n\n.tm-item-tooltip-hero-level-icon {\n  width: 16px;\n  height: 16px;\n  margin: 0 2px;\n  flex: 0 0 auto;\n}\n\n.tm-item-tooltip-stats {\n  padding: 0 3px;\n  display: flex;\n  flex-direction: column;\n  gap: 1px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-stat-row {\n  display: flex;\n  gap: 4px;\n}\n\n.tm-item-tooltip-stat-value {\n  color: #cfd6e0;\n  text-align: right;\n}\n\n.tm-item-tooltip-equipment-subtype {\n  padding: 0 3px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-desc {\n  padding: 4px 3px 2px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n\n.tm-item-tooltip-use-label {\n  color: #888;\n}\n\n.tm-item-tooltip-use-text {\n  color: #4caf50;\n}\n\n.tm-item-tooltip-price {\n  padding: 0 3px;\n  display: grid;\n  grid-template-columns: min-content 1fr;\n  gap: 8px;\n}\n\n.tm-item-tooltip-price--none {\n  display: block;\n  color: #d02e2e;\n}\n\n.tm-item-tooltip-price-value {\n  color: #cfd6e0;\n  display: inline-flex;\n  align-items: center;\n  justify-content: flex-end;\n  flex-wrap: wrap;\n  gap: 4px;\n  text-align: right;\n}\n\n.tm-item-tooltip-price-part {\n  display: inline-flex;\n  align-items: center;\n  gap: 2px;\n  white-space: nowrap;\n}\n\n.tm-item-tooltip-price-icon {\n  width: 16px;\n  height: 16px;\n  flex: 0 0 auto;\n}\n\n.orange_text,\n.inv-nc,\n.inv-nn,\n.inv-buffvar {\n  color: #ff9c27;\n}\n\n.inv-nd {\n  color: #d02e2e;\n}\n\n.inv-ni {\n  color: #4caf50;\n}\n\n.inv-nr {\n  color: #b19cff;\n}";
+
+  // src/marathon/tooltip/tooltip.js
   let LS_KEY_DYNAMIC_TOOLTIPS = "tm_aa_dynamic_tooltips";
   let DEBUG_PREFIX2 = "[ArcheAgeExtraUI]";
   let debugWarn2 = /* @__PURE__ */ __name((...args) => console.warn(DEBUG_PREFIX2, ...args), "debugWarn");
@@ -5806,7 +4672,7 @@
   let TOOLTIP_RIGHT_CLASS = "tm-item-tooltip--right";
   let TOOLTIP_BOTTOM_CLASS = "tm-item-tooltip--bottom";
   let TOOLTIP_WIDTH = 248;
-  let getSystemScale2 = /* @__PURE__ */ __name(() => {
+  let getSystemScale = /* @__PURE__ */ __name(() => {
     if (loadIconScaleBrowserZoom()) return 1;
     return pageWindow.devicePixelRatio;
   }, "getSystemScale");
@@ -5821,191 +4687,7 @@
     if (pageDocument.getElementById("tm-item-tooltip-styles")) return;
     const style = pageDocument.createElement("style");
     style.id = "tm-item-tooltip-styles";
-    style.textContent = `
-        .tm-item-tooltip {
-            display: none;
-            position: fixed;
-            top: var(--tm-tooltip-top, 0);
-            left: var(--tm-tooltip-left, 0);
-            z-index: 10000;
-            box-sizing: border-box;
-            width: 248px;
-            padding: 15px 15px 14px;
-            background: rgba(0, 8, 24, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            pointer-events: none;
-            white-space: normal;
-            font-family: Calibri, Arial, Verdana, Tahoma;
-            font-size: 14px;
-            line-height: 18px;
-            color: #cfd6e0;
-            transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));
-            transform-origin: top right;
-        }
-
-        .tm-item-tooltip--visible {
-            display: block;
-        }
-
-        .tm-item-tooltip--right {
-            transform: scale(var(--tm-tooltip-scale, 1));
-            transform-origin: top left;
-        }
-
-        .tm-item-tooltip--bottom {
-            transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));
-            transform-origin: bottom right;
-        }
-
-        .tm-item-tooltip--bottom.tm-item-tooltip--right {
-            transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));
-            transform-origin: bottom left;
-        }
-
-        .tm-item-tooltip-header {
-            display: flex;
-            gap: 6px;
-            align-items: flex-start;
-            padding: 0;
-        }
-
-        .tm-item-tooltip-header > .tm-item-icon {
-            flex-shrink: 0;
-        }
-
-        .tm-item-tooltip-meta {
-            display: flex;
-            flex-direction: column;
-            padding: 6px 0 2px;
-        }
-
-        .tm-item-tooltip-type {
-            opacity: 0.7;
-        }
-
-        .tm-item-tooltip-name {
-            font-size: 16px;
-            line-height: 20px;
-        }
-
-        .tm-item-tooltip-sep {
-            height: 2px;
-            margin: 4px 0;
-            background: linear-gradient(to bottom, rgba(255,255,255,0.25), rgba(255,255,255,0.10));
-            -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
-            mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
-            padding: 0;
-        }
-
-        .tm-item-tooltip-req {
-            padding: 0 3px;
-            letter-spacing: 0.03em;
-        }
-
-        .tm-item-tooltip-level {
-            display: flex;
-            align-items: center;
-        }
-
-        .tm-item-tooltip-hero-level-icon {
-            width: 16px;
-            height: 16px;
-            margin: 0 2px;
-            flex: 0 0 auto;
-        }
-
-        .tm-item-tooltip-stats {
-            padding: 0 3px;
-            display: flex;
-            flex-direction: column;
-            gap: 1px;
-            letter-spacing: 0.03em;
-        }
-
-        .tm-item-tooltip-stat-row {
-            display: flex;
-            gap: 4px;
-        }
-
-        .tm-item-tooltip-stat-value {
-            color: #cfd6e0;
-            text-align: right;
-        }
-
-        .tm-item-tooltip-equipment-subtype {
-            padding: 0 3px;
-            letter-spacing: 0.03em;
-        }
-
-        .tm-item-tooltip-desc {
-            padding: 4px 3px 2px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .tm-item-tooltip-use-label {
-            color: #888;
-        }
-
-        .tm-item-tooltip-use-text {
-            color: #4caf50;
-        }
-
-        .tm-item-tooltip-price {
-            padding: 0 3px;
-            display: grid;
-            grid-template-columns: min-content 1fr;
-            gap: 8px;
-        }
-
-        .tm-item-tooltip-price--none {
-            display: block;
-            color: #d02e2e;
-        }
-
-        .tm-item-tooltip-price-value {
-            color: #cfd6e0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: flex-end;
-            flex-wrap: wrap;
-            gap: 4px;
-            text-align: right;
-        }
-
-        .tm-item-tooltip-price-part {
-            display: inline-flex;
-            align-items: center;
-            gap: 2px;
-            white-space: nowrap;
-        }
-
-        .tm-item-tooltip-price-icon {
-            width: 16px;
-            height: 16px;
-            flex: 0 0 auto;
-        }
-
-        .orange_text,
-        .inv-nc,
-        .inv-nn,
-        .inv-buffvar {
-            color: #ff9c27;
-        }
-
-        .inv-nd {
-            color: #d02e2e;
-        }
-
-        .inv-ni {
-            color: #4caf50;
-        }
-
-        .inv-nr {
-            color: #b19cff;
-        }
-    `;
+    style.textContent = tooltip_default;
     pageDocument.head.appendChild(style);
   }, "injectTooltipStyles");
   let initTooltipDom = /* @__PURE__ */ __name(() => {
@@ -6439,7 +5121,7 @@
   let positionTooltip = /* @__PURE__ */ __name((anchorEl) => {
     const tooltip = getTooltipContainer();
     const rect = anchorEl.getBoundingClientRect();
-    const screenScale = getSystemScale2();
+    const screenScale = getSystemScale();
     const scale = 1 / screenScale * (loadIconScalePercent() / 100);
     const tooltipLeftEdge = rect.left + 8 - TOOLTIP_WIDTH * scale;
     const showOnRight = tooltipLeftEdge < 0;
@@ -6509,7 +5191,7 @@
     });
   }, "initTooltips");
 
-  // src/components/item-icon.js
+  // src/itemIcon/itemIcon.js
   let makeIconLink = /* @__PURE__ */ __name(({ href, iconSrc, title, className }) => {
     const a = document.createElement("a");
     a.className = `tm-icon-link ${className || ""}`.trim();
