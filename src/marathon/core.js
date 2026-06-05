@@ -1,0 +1,1595 @@
+import {
+    TZ,
+    MSK_OFFSET_HOURS,
+    NOW_MS,
+    SERVER_TIME_OFFSET,
+    pad2,
+    nowMs,
+    getNowMs,
+    getMSKDatePartsFromUtcMs,
+    formatDMY,
+    formatTimeMSK,
+    dayUtcMsFromUnixByTZ,
+    getTodayUtcMsByTZ,
+    addDaysUtcMs,
+    getDayBoundsUnix,
+    getUnixForDayAtHour,
+    isSameDayByTZ,
+    isThursdayByTZ,
+    getServerNowMs,
+    initServerTimeOffset,
+    syncServerTime,
+    getMSKWeekday,
+    getMSKTimeOfDaySeconds,
+    WEEKDAY_NAMES,
+    parseTime,
+    formatEventsToString,
+    formatCountdown,
+    getSecondsUntilNextEvent,
+    updateCountdownEl,
+    GAME_MIDNIGHT_MSK_SECONDS,
+    GAME_DAY_REAL_SECONDS,
+    REAL_TO_GAME_FACTOR,
+    getGameTime,
+    formatAvailableWeekdaysStatus,
+    getTodayWeekdayMonFirst,
+    pageWindow,
+    pageDocument,
+    readSharedJson,
+    writeSharedJson,
+    getNowUnix,
+    setNowMs,
+    setServerTimeOffset,
+    makeGisaaVekselKey,
+    getSavedGisaaVekselInfo,
+    getSavedGisaaTablesSnapshot,
+} from '../utils.js';
+import {
+    ITEMS,
+    GRADES,
+    ITEM_TYPES,
+    ITEM_SUB_TYPES,
+    EQUIPMENT_SUB_TYPES,
+    ICON_OVERLAY,
+    HERO_LEVEL_ICON,
+    MAX_HERO_LEVEL,
+    MAX_LEVEL,
+    CURRENCY_ICONS,
+    ICON_SEX_VALUES,
+    loadIconSex,
+    saveIconSex,
+    getItemIconUrlFromParts,
+    getItemIconUrl,
+    getItemCodexUrl,
+    CODEX_ITEM_URL,
+    CODEX_ITEM_ICONS,
+    CODEX_IMAGES_BASE as ITEM_CODEX_IMAGES_BASE,
+    GMRU_CDN_ICONS,
+    LS_KEYS as ITEM_LS_KEYS,
+} from '../data/items.js';
+import {
+    QUESTS,
+    CODEX_BASE,
+    ICON_QUEST,
+    ICON_VEKSEL,
+    ICON_VEKSEL_NORTH,
+    ICON_GISAA_OVERLAY,
+    VEKSEL_BASE,
+    findQuestMetaForMarathonQuest,
+    normalizeQuestTitleForMatch,
+    getQuestTitleMatchWords,
+    scoreQuestTitleMatch,
+} from '../data/quests.js';
+import { SERVERS } from '../data/servers.js';
+
+void ITEMS; void GRADES; void ITEM_TYPES; void ITEM_SUB_TYPES; void EQUIPMENT_SUB_TYPES;
+void ICON_OVERLAY; void HERO_LEVEL_ICON; void MAX_HERO_LEVEL; void MAX_LEVEL;
+void CURRENCY_ICONS; void ICON_SEX_VALUES; void loadIconSex; void saveIconSex;
+void getItemIconUrlFromParts; void getItemIconUrl; void CODEX_ITEM_URL;
+void CODEX_ITEM_ICONS; void ITEM_CODEX_IMAGES_BASE; void GMRU_CDN_ICONS; void ITEM_LS_KEYS;
+void QUESTS; void normalizeQuestTitleForMatch; void getQuestTitleMatchWords; void scoreQuestTitleMatch;
+void getNowMs; void getServerNowMs; void syncServerTime; void getMSKWeekday;
+void getMSKTimeOfDaySeconds; void WEEKDAY_NAMES; void parseTime; void formatCountdown;
+void GAME_MIDNIGHT_MSK_SECONDS; void GAME_DAY_REAL_SECONDS; void REAL_TO_GAME_FACTOR;
+void getGameTime; void formatAvailableWeekdaysStatus; void pageDocument;
+void readSharedJson; void writeSharedJson;
+
+// ==================== Константы ====================
+
+export const DONE_CLASS = 'tm-task-completed';
+export const JUST_DONE_CLASS = 'tm-task-just-completed';
+// TZ, MSK_OFFSET_HOURS → imported from utils.js
+export const THU_PRE_HOUR = 3;
+export const DEFAULT_HOUR = 16;
+/** Эндпоинт информации о марафоне. Ответ: {@link ApiInfoResponse}. */
+export const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
+export const LS_KEYS = {
+    HIDE_DONE: 'tm_aa_hide_done',
+    AUTO_CLAIM: 'tm_aa_auto_claim',
+    QUEST_HISTORY: 'tm_aa_qh',
+    AUTO_OPEN_BOXES: 'tm_aa_auto_open_boxes',
+    IR_PER_PAGE: 'tm_aa_ir_per_page',
+    EVENT_VISIBILITY: 'tm_aa_ev_vis',
+    VEKSEL_SERVER_ID: 'tm_aa_veksel_server_id',
+    ICON_SEX: 'tm_aa_icon_sex',
+    NOTIFICATIONS: 'tm_aa_notifications',
+    DYNAMIC_TOOLTIPS: 'tm_aa_dynamic_tooltips',
+};
+export const HISTORY_MAX_ENTRIES = 500;
+export const HISTORY_PER_PAGE = 10;
+export const DEBUG_PREFIX = '[ArcheAgeExtraUI]';
+export const DEBUG_ENABLED = true;
+
+export const debugLog = (...args) => {
+    if (DEBUG_ENABLED) console.log(DEBUG_PREFIX, ...args);
+};
+
+export const debugWarn = (...args) => {
+    console.warn(DEBUG_PREFIX, ...args);
+};
+export const DAY_RESET_HOUR = 0;
+export const CLAIM_DELAY_MS = 400;
+
+// ==================== Типы API ====================
+
+/**
+ * @typedef {Object} ApiReward
+ * @property {'moh_experience'|'cart_item'|'currency'|string} type
+ * @property {{ amount?: number, id?: number, count?: number, site_count?: number, code?: string }} value
+ * @property {string} [title] - Название (для `cart_item`).
+ */
+
+/**
+ * @typedef {Object} ApiQuestStep
+ * @property {number} id
+ * @property {number} target
+ * @property {ApiReward[]} rewards
+ */
+
+/**
+ * @typedef {Object} ApiQuest
+ * @property {number} id - ID задания марафона.
+ * @property {string} code - Код задания марафона.
+ * @property {string} type
+ * @property {string} group
+ * @property {number} end_time - Время окончания задания.
+ * @property {number} start_time - Время начала задания.
+ * @property {'now'|'future'|'past'} time_status
+ * @property {number} max_completed_step
+ * @property {number} progress
+ * @property {number} max_target
+ * @property {string} title - Заголовок марафона.
+ * @property {string} description - Описание задания марафона.
+ * @property {any[]} payload
+ * @property {number|null} reset_time
+ * @property {number|null} stop_time
+ * @property {number} last_complete_time
+ * @property {Record<string, ApiQuestStep>} steps
+ */
+
+/**
+ * @typedef {Object} ApiUserInfo
+ * @property {number} level
+ * @property {'trial'|'premium'} status
+ * @property {number} count_boxes_for_open
+ * @property {number} week_exp
+ * @property {number} exp_total
+ * @property {Record<string, string[]>} farmed_rewards
+ */
+
+/**
+ * @typedef {Object} ApiActionInfo
+ * @property {number} count_levels_for_box
+ * @property {number} exp_for_level
+ * @property {number} increase_max_exp_per_week
+ * @property {Record<string, Record<string, ApiReward[]>>} level_prizes
+ * @property {ApiReward[]} box_rewards
+ */
+
+/**
+ * @typedef {Object} ApiInfoData
+ * @property {ApiUserInfo} user_info
+ * @property {Record<string, ApiQuest>} quests
+ * @property {number} week_number
+ * @property {number} next_week_at
+ * @property {ApiActionInfo} action_info
+ * @property {any[]} pins
+ * @property {Record<string, Record<string, number>>} prices
+ */
+
+/**
+ * @typedef {Object} ApiInfoResponse
+ * @property {ApiInfoData} data
+ * @property {any} meta
+ * @property {'Success'|'Fail'} state
+ */
+
+// ==================== Состояние ====================
+
+export let selectedDayUtcMs = null;
+export let selectedSegment = 'auto';
+
+/** @type {ApiInfoResponse|null} */
+export let API_INFO_CACHE = null;
+export let API_INFO_PROMISE = null;
+// NOW_MS, SERVER_TIME_OFFSET → imported from utils.js
+
+export const AUTO_REFRESH_INTERVAL_FOCUSED_MS = 30000;
+export const AUTO_REFRESH_INTERVAL_HIDDEN_MS = 1800000;
+export let autoRefreshIntervalId = null;
+export let isRefreshing = false;
+
+/** @type {Set<number>} ID квестов, которые были выполнены на прошлой отрисовке */
+export let previouslyDoneQuestIds = new Set();
+
+export let MIN_DAY_UTC_MS = null;
+export let MAX_DAY_UTC_MS = null;
+export let MIN_SEG = null;
+export let MAX_SEG = null;
+
+export const DOM = {
+    nav: null,
+    label: null,
+    prevBtn: null,
+    nextBtn: null,
+    todayBtn: null,
+    hideDoneCheckbox: null,
+    refreshLoader: null,
+    tasksHeader: null,
+    tasksList: null,
+};
+
+export const clearDOMCache = () => {
+    for (const key of Object.keys(DOM)) {
+        DOM[key] = null;
+    }
+};
+
+// ==================== Перехват API ====================
+
+/** @param {string|URL} url */
+export const normalizeUrlToPath = (url) => {
+    try {
+        return new URL(url, location.href).pathname;
+    } catch {
+        return String(url || '');
+    }
+};
+
+export const installApiInfoInterceptor = () => {
+    if (pageWindow.__tmAA_fetchPatched) return;
+    pageWindow.__tmAA_fetchPatched = true;
+
+    const origFetch = pageWindow.fetch.bind(pageWindow);
+
+    pageWindow.fetch = async (...args) => {
+        const input = args[0];
+        const urlStr =
+            typeof input === 'string' ? input :
+                (input && typeof input === 'object' && 'url' in input) ? input.url :
+                    String(input);
+
+        const path = normalizeUrlToPath(urlStr);
+        const t0 = Date.now();
+        const res = await origFetch(...args);
+        const t1 = Date.now();
+
+        if (path === API_INFO_PATH) {
+            if (NOW_MS == null) {
+                const dateHeader = res.headers.get('Date');
+                const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
+                if (Number.isFinite(parsed)) {
+                    const halfRtt = (t1 - t0) / 2;
+                    setNowMs(parsed + halfRtt);
+                }
+            }
+
+            if (API_INFO_PROMISE == null) {
+                API_INFO_PROMISE = res.clone().json();
+                API_INFO_PROMISE
+                    .then((json) => { API_INFO_CACHE = json; })
+                    .catch(() => {});
+            }
+        }
+
+        return res;
+    };
+};
+
+// ==================== Форматирование title квеста ====================
+
+/** @param {number} num */
+export const toRoman = (num) => {
+    const numerals = [
+        ['M', 1000], ['CM', 900], ['D', 500], ['CD', 400],
+        ['C', 100], ['XC', 90], ['L', 50], ['XL', 40],
+        ['X', 10], ['IX', 9], ['V', 5], ['IV', 4], ['I', 1]
+    ];
+    let result = '';
+    for (const [roman, value] of numerals) {
+        while (num >= value) {
+            result += roman;
+            num -= value;
+        }
+    }
+    return result;
+};
+
+/** @param {string} title */
+export const formatQuestTitle = (title) => {
+    if (!title) return '';
+    let result = title.replace(/\*+$/, '');
+    const match = result.match(/(\s*)(\d+)$/);
+    if (match) {
+        const num = parseInt(match[2], 10);
+        if (num > 0 && num < 100) {
+            const roman = toRoman(num);
+            result = result.slice(0, -match[0].length) + ' ' + roman;
+        }
+    }
+    return result.trim();
+};
+
+// ==================== LocalStorage для "Скрыть выполненные" ====================
+
+export const getHideDoneDayKey = () => {
+    const ms = nowMs();
+    const shiftedMs = ms - DAY_RESET_HOUR * 3600 * 1000;
+    const { y, m, d } = getMSKDatePartsFromUtcMs(shiftedMs);
+    return `${y}-${pad2(m)}-${pad2(d)}`;
+};
+
+export const loadHideDoneState = () => {
+    try {
+        const raw = localStorage.getItem(LS_KEYS.HIDE_DONE);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (data.dayKey !== getHideDoneDayKey()) return false;
+        return !!data.checked;
+    } catch {
+        return false;
+    }
+};
+
+export const saveHideDoneState = (checked) => {
+    try {
+        localStorage.setItem(LS_KEYS.HIDE_DONE, JSON.stringify({
+            checked,
+            dayKey: getHideDoneDayKey(),
+        }));
+    } catch {
+        // ignore
+    }
+};
+
+// ==================== История выполнений заданий ====================
+
+/**
+ * @typedef {Object} HistoryEntry
+ * @property {string} code
+ * @property {number} completedAt — unix timestamp (last_complete_time)
+ */
+
+/** @returns {Record<string, HistoryEntry[]>} */
+export const loadAllQuestHistory = () => {
+    try {
+        return JSON.parse(localStorage.getItem(LS_KEYS.QUEST_HISTORY)) || {};
+    } catch {
+        return {};
+    }
+};
+
+/** UID текущего пользователя; заполняется при инициализации. */
+export let cachedUid = null;
+export let historyCurrentPage = 1;
+/** @type {HistoryEntry[]} */
+export let historyEntries = [];
+
+/**
+ * Читает историю из localStorage, мержит новые записи из API и сохраняет обратно.
+ * @param {ApiQuest[]} quests
+ * @returns {HistoryEntry[]}
+ */
+export const mergeQuestHistory = (quests) => {
+    if (!cachedUid) return [];
+    const all = loadAllQuestHistory();
+    const history = all[cachedUid] || [];
+    const existing = new Set(history.map(e => `${e.code}:${e.completedAt}`));
+
+    for (const q of quests) {
+        const t = Number(q.last_complete_time || 0);
+        if (!t) continue;
+        const key = `${q.code}:${t}`;
+        if (existing.has(key)) continue;
+        history.push({ code: q.code, completedAt: t });
+        existing.add(key);
+    }
+
+    history.sort((a, b) => b.completedAt - a.completedAt);
+    if (history.length > HISTORY_MAX_ENTRIES) history.length = HISTORY_MAX_ENTRIES;
+
+    try {
+        all[cachedUid] = history;
+        localStorage.setItem(LS_KEYS.QUEST_HISTORY, JSON.stringify(all));
+    } catch {
+        // ignore
+    }
+
+    return history;
+};
+
+/** Форматирует unix-секунды в строку «DD.MM.YYYY HH:MM» (МСК). */
+export const formatDateTimeMSK = (unixSec) => {
+    if (!unixSec) return '';
+    const ms = unixSec * 1000;
+    const { y, m, d } = getMSKDatePartsFromUtcMs(ms);
+    const time = formatTimeMSK(unixSec);
+    return `${pad2(d)}.${pad2(m)}.${y} ${time}`;
+};
+
+/** Перерисовывает таблицу истории выполнений в DOM. */
+export const renderHistoryTable = () => {
+    const section = document.querySelector('section.history-events');
+    if (!section) return;
+    const layout = section.querySelector('.layout');
+    if (!layout) return;
+    const oldWrap = layout.querySelector('.table__wrap');
+    if (oldWrap) oldWrap.remove();
+    if (!historyEntries.length) return;
+
+    const totalPages = Math.ceil(historyEntries.length / HISTORY_PER_PAGE);
+    if (historyCurrentPage > totalPages) historyCurrentPage = totalPages;
+    const start = (historyCurrentPage - 1) * HISTORY_PER_PAGE;
+    const pageItems = historyEntries.slice(start, start + HISTORY_PER_PAGE);
+    const questsMap = API_INFO_CACHE?.data?.quests || {};
+
+    const table = document.createElement('table');
+    table.className = 'table table--history_events';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Дата</th><th>Задание</th><th>Опыт</th></tr>';
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    for (const entry of pageItems) {
+        const tr = document.createElement('tr');
+        const tdDate = document.createElement('td');
+        tdDate.textContent = formatDateTimeMSK(entry.completedAt);
+        tr.appendChild(tdDate);
+        const tdTitle = document.createElement('td');
+        tdTitle.textContent = questsMap[entry.code]?.description || entry.code;
+        tr.appendChild(tdTitle);
+        const tdReward = document.createElement('td');
+        const quest = questsMap[entry.code];
+        if (quest) {
+            const span = document.createElement('span');
+            span.className = 'table__status';
+            const dots = Math.max(1, getRewardAmount(quest));
+            for (let i = 0; i < dots; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'icon-point icon-point--received';
+                span.appendChild(dot);
+            }
+            tdReward.appendChild(span);
+        }
+        tr.appendChild(tdReward);
+        tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'table__wrap';
+    wrap.appendChild(table);
+
+    if (totalPages > 1) {
+        const ul = document.createElement('ul');
+        ul.className = 'pagination';
+        const makePageItem = (page, text, className, disabled, onClick) => {
+            const li = document.createElement('li');
+            li.className = 'pagination__item' + (className ? ' ' + className : '') + (disabled ? ' disabled' : '');
+            li.textContent = text;
+            li.addEventListener('click', () => { if (!disabled) onClick(page); });
+            return li;
+        };
+        const makeEllipsisItem = () => {
+            const li = document.createElement('li');
+            li.className = 'pagination__item pagination__item--ellipsis disabled';
+            li.textContent = '...';
+            return li;
+        };
+        const maxVisiblePages = 9;
+        let firstPage = Math.max(1, historyCurrentPage - 4);
+        let lastPage = Math.min(totalPages, historyCurrentPage + 4);
+        if (lastPage - firstPage + 1 < maxVisiblePages) {
+            if (firstPage === 1) lastPage = Math.min(totalPages, firstPage + maxVisiblePages - 1);
+            else if (lastPage === totalPages) firstPage = Math.max(1, lastPage - maxVisiblePages + 1);
+        }
+        const firstLi = makePageItem(1, '«', 'pagination__item--first', historyCurrentPage <= 1, () => {
+            historyCurrentPage = 1;
+            renderHistoryTable();
+        });
+        firstLi.title = 'Первая страница';
+        ul.appendChild(firstLi);
+        const prevLi = document.createElement('li');
+        prevLi.className = 'pagination__item pagination__item--prev' + (historyCurrentPage <= 1 ? ' disabled' : '');
+        prevLi.title = 'Предыдущая страница';
+        prevLi.innerHTML = '<i class="icons-arrow"></i>';
+        prevLi.addEventListener('click', () => {
+            if (historyCurrentPage > 1) {
+                historyCurrentPage--;
+                renderHistoryTable();
+            }
+        });
+        ul.appendChild(prevLi);
+        if (firstPage > 1) ul.appendChild(makeEllipsisItem());
+        for (let p = firstPage; p <= lastPage; p++) {
+            const li = document.createElement('li');
+            li.className = 'pagination__item' + (p === historyCurrentPage ? ' active' : '');
+            li.textContent = String(p);
+            li.addEventListener('click', () => {
+                historyCurrentPage = p;
+                renderHistoryTable();
+            });
+            ul.appendChild(li);
+        }
+        if (lastPage < totalPages) ul.appendChild(makeEllipsisItem());
+        const nextLi = document.createElement('li');
+        nextLi.className = 'pagination__item pagination__item--next' + (historyCurrentPage >= totalPages ? ' disabled' : '');
+        nextLi.title = 'Следующая страница';
+        nextLi.innerHTML = '<i class="icons-arrow"></i>';
+        nextLi.addEventListener('click', () => {
+            if (historyCurrentPage < totalPages) {
+                historyCurrentPage++;
+                renderHistoryTable();
+            }
+        });
+        ul.appendChild(nextLi);
+        const lastLi = makePageItem(totalPages, '»', 'pagination__item--last', historyCurrentPage >= totalPages, () => {
+            historyCurrentPage = totalPages;
+            renderHistoryTable();
+        });
+        lastLi.title = 'Последняя страница';
+        ul.appendChild(lastLi);
+        wrap.appendChild(ul);
+    }
+
+    layout.appendChild(wrap);
+};
+
+export const updateQuestHistory = () => {
+    if (!API_INFO_CACHE) return;
+    try {
+        const quests = getQuestsArrayFromInfo(API_INFO_CACHE);
+        historyEntries = mergeQuestHistory(quests);
+    } catch (e) {
+        console.warn('[ArcheAgeExtraUI] updateQuestHistory failed:', e);
+    }
+    renderHistoryTable();
+};
+
+// ==================== Слоты и сегменты (четверг pre/post) ====================
+
+/** @typedef {'pre'|'post'|'auto'|null} Segment */
+/** @typedef {{ dayUtcMs: number, segment: Segment }} SlotPosition */
+
+/** @param {number} dayUtcMs @param {Segment} segment @returns {number} */
+export const slotKey = (dayUtcMs, segment) => {
+    const seg = segment === 'pre' ? 0 : segment === 'post' ? 2 : 1;
+    return dayUtcMs * 10 + seg;
+};
+
+/** @param {number} dayUtcMs @param {Segment} seg @returns {Segment} */
+export const normalizeSegmentForDay = (dayUtcMs, seg) => {
+    if (!isThursdayByTZ(dayUtcMs)) return null;
+    if (seg === 'pre' || seg === 'post' || seg === 'auto') return seg;
+    return 'post';
+};
+
+/** @param {number} dayUtcMs @param {Segment} seg @returns {'pre'|'post'|null} */
+export const effectiveSegment = (dayUtcMs, seg) => {
+    if (!isThursdayByTZ(dayUtcMs)) return null;
+    if (seg === 'pre' || seg === 'post') return seg;
+    const todayUtc = getTodayUtcMsByTZ();
+    const isToday = isSameDayByTZ(dayUtcMs, todayUtc);
+    if (!isToday) return 'post';
+    const { start } = getDayBoundsUnix(dayUtcMs);
+    const cut = start + 9 * 3600;
+    return getNowUnix() < cut ? 'pre' : 'post';
+};
+
+/** @param {number} dayUtcMs @param {Segment} seg @returns {{ start: number, end: number }} */
+export const getSlotBoundsUnix = (dayUtcMs, seg) => {
+    const { start, end } = getDayBoundsUnix(dayUtcMs);
+    if (!isThursdayByTZ(dayUtcMs)) return { start, end };
+    const cut = start + 9 * 3600;
+    const s = effectiveSegment(dayUtcMs, seg);
+    if (s === 'pre') return { start, end: cut };
+    return { start: cut, end };
+};
+
+/** @param {number} dayUtcMs @param {Segment} seg @returns {SlotPosition} */
+export const getPrevSlot = (dayUtcMs, seg) => {
+    const isThu = isThursdayByTZ(dayUtcMs);
+    if (isThu) {
+        if (seg === 'post') return { dayUtcMs, segment: 'pre' };
+        if (seg === 'pre') {
+            const prevDay = addDaysUtcMs(dayUtcMs, -1);
+            return { dayUtcMs: prevDay, segment: normalizeSegmentForDay(prevDay, null) };
+        }
+        return { dayUtcMs, segment: 'pre' };
+    }
+    const prevDay = addDaysUtcMs(dayUtcMs, -1);
+    if (isThursdayByTZ(prevDay)) return { dayUtcMs: prevDay, segment: 'post' };
+    return { dayUtcMs: prevDay, segment: null };
+};
+
+/** @param {number} dayUtcMs @param {Segment} seg @returns {SlotPosition} */
+export const getNextSlot = (dayUtcMs, seg) => {
+    const isThu = isThursdayByTZ(dayUtcMs);
+    if (isThu) {
+        if (seg === 'pre') return { dayUtcMs, segment: 'post' };
+        if (seg === 'post') {
+            const nextDay = addDaysUtcMs(dayUtcMs, +1);
+            return { dayUtcMs: nextDay, segment: normalizeSegmentForDay(nextDay, null) };
+        }
+        return { dayUtcMs, segment: 'post' };
+    }
+    const nextDay = addDaysUtcMs(dayUtcMs, +1);
+    if (isThursdayByTZ(nextDay)) return { dayUtcMs: nextDay, segment: 'pre' };
+    return { dayUtcMs: nextDay, segment: null };
+};
+
+/** @param {number} dayUtcMs @param {Segment} segment @returns {SlotPosition} */
+export const clampNotPast = (dayUtcMs, segment) => {
+    const todayUtc = getTodayUtcMsByTZ();
+    if (dayUtcMs < todayUtc) {
+        dayUtcMs = todayUtc;
+        if (isThursdayByTZ(dayUtcMs)) segment = (segment === 'auto') ? 'auto' : 'post';
+        else segment = 'auto';
+    }
+    return { dayUtcMs, segment };
+};
+
+/** @param {number} dayUtcMs @param {Segment} segment @returns {SlotPosition} */
+export const clampSelectedDay = (dayUtcMs, segment) => {
+    if (dayUtcMs == null) return { dayUtcMs, segment };
+    segment = normalizeSegmentForDay(dayUtcMs, segment);
+    const curKey = slotKey(dayUtcMs, segment);
+    const minKey = MIN_DAY_UTC_MS != null ? slotKey(MIN_DAY_UTC_MS, MIN_SEG) : null;
+    const maxKey = MAX_DAY_UTC_MS != null ? slotKey(MAX_DAY_UTC_MS, MAX_SEG) : null;
+    if (minKey != null && curKey < minKey) return { dayUtcMs: MIN_DAY_UTC_MS, segment: MIN_SEG };
+    if (maxKey != null && curKey > maxKey) return { dayUtcMs: MAX_DAY_UTC_MS, segment: MAX_SEG };
+    segment = normalizeSegmentForDay(dayUtcMs, segment);
+    return { dayUtcMs, segment };
+};
+
+export const applySlot = (dayUtcMs, segment) => {
+    segment = effectiveSegment(dayUtcMs, segment) ?? segment;
+    const c = clampSelectedDay(dayUtcMs, segment);
+    selectedDayUtcMs = c.dayUtcMs;
+    selectedSegment = c.segment;
+};
+
+// ==================== Квесты ====================
+
+/** @param {ApiQuest} q @param {number} unix */
+export const isQuestActiveAtUnix = (q, unix) => {
+    const qs = Number(q?.start_time || 0);
+    const qe = Number(q?.end_time || 0);
+    if (!qs || !qe) return false;
+    return qs <= unix && unix < qe;
+};
+
+/** @param {string} code @param {number} dayUtcMs @param {Segment} seg @returns {number} unix timestamp или 0 */
+export const getCompletionTimeInSlot = (code, dayUtcMs, seg) => {
+    const b = getSlotBoundsUnix(dayUtcMs, seg);
+    const entry = historyEntries.find(e => e.code === code && b.start <= e.completedAt && e.completedAt < b.end);
+    return entry ? entry.completedAt : 0;
+};
+
+export const isDoneInSelectedSlot = (q, dayUtcMs, seg) => {
+    return getCompletionTimeInSlot(q.code, dayUtcMs, seg) > 0;
+};
+
+/** @param {ApiQuest} q */
+export const getRewardAmount = (q) => {
+    const steps = q?.steps;
+    const step1 = steps?.['1'] || steps?.[1];
+    const amount = step1?.rewards?.[0]?.value?.amount;
+    return Number(amount || 0);
+};
+
+/** @param {ApiInfoResponse} json @returns {ApiQuest[]} */
+export const getQuestsArrayFromInfo = (json) => {
+    const quests = json?.data?.quests;
+    if (!quests || typeof quests !== 'object') throw new Error('api/info: quests not found');
+    return Object.values(quests);
+};
+
+/** @param {number} unix */
+export const debugTime = (unix) => {
+    if (!unix) return null;
+    return new Date(unix * 1000).toISOString();
+};
+
+/** @param {ApiQuest} q */
+export const summarizeQuestForDebug = (q) => ({
+    id: q?.id,
+    code: q?.code,
+    title: q?.title,
+    group: q?.group,
+    type: q?.type,
+    time_status: q?.time_status,
+    start_time: q?.start_time,
+    start_iso: debugTime(Number(q?.start_time || 0)),
+    end_time: q?.end_time,
+    end_iso: debugTime(Number(q?.end_time || 0)),
+    progress: q?.progress,
+    max_completed_step: q?.max_completed_step,
+    reward: getRewardAmount(q),
+    known_meta: !!findQuestMetaForMarathonQuest(q),
+});
+
+export const renderEmptyTasksDiagnostic = (listEl, message) => {
+    const empty = document.createElement('div');
+    empty.className = 'tasks__item tm-tasks-empty';
+    empty.textContent = message;
+    listEl.appendChild(empty);
+};
+
+// ==================== Внешние ссылки (Codex, Veksel) ====================
+
+export let vekselUrlResolved = VEKSEL_BASE;
+export let vekselAutoDetectedServerId = '';
+
+export const loadVekselServerIdOverride = () => {
+    try {
+        const id = localStorage.getItem(LS_KEYS.VEKSEL_SERVER_ID);
+        return id && SERVERS[id] ? id : '';
+    } catch {
+        return '';
+    }
+};
+
+export const saveVekselServerIdOverride = (serverId) => {
+    try {
+        if (serverId && SERVERS[serverId]) localStorage.setItem(LS_KEYS.VEKSEL_SERVER_ID, serverId);
+        else localStorage.removeItem(LS_KEYS.VEKSEL_SERVER_ID);
+    } catch {
+        // ignore
+    }
+};
+
+export const getVekselAutoOptionText = () => {
+    const serverName = SERVERS[vekselAutoDetectedServerId];
+    return `Автоопределение${serverName ? ` (${serverName})` : ''}`;
+};
+
+export const updateVekselServerAutoOptionText = () => {
+    document.querySelectorAll('[data-veksel-server-auto-option="1"]').forEach(option => {
+        option.textContent = getVekselAutoOptionText();
+    });
+};
+
+export const updateRenderedVekselLinks = () => {
+    document.querySelectorAll('.tm-veksel-link').forEach(link => {
+        const veksel = link.dataset.veksel;
+        let slot = null;
+        let locations = null;
+        try { slot = link.dataset.slot ? JSON.parse(link.dataset.slot) : null; } catch {}
+        try { locations = link.dataset.locations ? JSON.parse(link.dataset.locations) : null; } catch {}
+        link.href = buildVekselUrl(veksel, slot, locations);
+    });
+};
+
+/** @param {'blue_salt'|'north'|undefined} veksel @param {Slot|null} slot @param {string[]|undefined} locations */
+export const buildVekselUrl = (veksel, slot, locations) => {
+    const isBlueSalt = veksel === 'blue_salt';
+    const isNorth = veksel === 'north';
+    if (!isBlueSalt && !isNorth) return vekselUrlResolved;
+    let params = null;
+    const item = slot?.item;
+    if (slot?.count && (item?.vekselName || item?.name)) {
+        if (isBlueSalt) params = `res=${encodeURIComponent(item.vekselName || item.name)}&amount=${slot.count}`;
+        else if (isNorth) {
+            const iconType = item.vekselType || 'sack';
+            if (locations && locations.length > 0) params = `loc=${encodeURIComponent(locations.join(','))}&amount=${slot.count}&icon=${iconType}`;
+            else params = `amount=${slot.count}&icon=${iconType}`;
+        }
+    }
+    if (!params) return vekselUrlResolved;
+    const separator = vekselUrlResolved.includes('?') ? '&' : '?';
+    return `${vekselUrlResolved}${separator}${params}`;
+};
+
+export const getGisaaVekselKeyForQuest = (veksel, slot, locations) => {
+    const item = slot?.item;
+    const amount = Number(slot?.count || 0);
+    if (!amount || !item) return null;
+    if (veksel === 'blue_salt' && (item.vekselName || item.name)) {
+        return makeGisaaVekselKey({ type: 'blue_salt', resourceName: item.vekselName || item.name, amount });
+    }
+    if (veksel === 'north') {
+        return makeGisaaVekselKey({ type: 'north', amount, iconType: item.vekselType || 'sack', locations });
+    }
+    return null;
+};
+
+export const makeGisaaInfoFromRows = (rows) => {
+    const unique = (values) => [...new Set((values || []).filter(Boolean))];
+    const matches = unique(rows.filter(row => row.status === 'match').map(row => row.location));
+    const unknown = unique(rows.filter(row => row.status === 'unknown').map(row => row.location));
+    const excludes = unique(rows.filter(row => row.status === 'exclude').map(row => row.location));
+    if (matches.length) return { status: 'available', locations: matches, unknownLocations: unknown, excludedLocations: excludes };
+    if (!unknown.length && excludes.length) return { status: 'unavailable', locations: [], unknownLocations: unknown, excludedLocations: excludes };
+    return null;
+};
+
+export const getGisaaVekselInfoFromSavedTable = (veksel, slot, locations) => {
+    const snapshot = getSavedGisaaTablesSnapshot();
+    if (!snapshot) return null;
+    const item = slot?.item;
+    const amount = Number(slot?.count || 0);
+    if (!item || !amount) return null;
+    if (veksel === 'blue_salt') {
+        const resourceName = item.vekselName || item.name;
+        const rows = snapshot.resources?.[resourceName];
+        if (!rows?.length) return null;
+        return makeGisaaInfoFromRows(rows.map(row => ({
+            location: row.location,
+            status: row.unknown ? 'unknown' : row.amount === amount ? 'match' : 'exclude',
+        })));
+    }
+    if (veksel === 'north') {
+        const iconType = item.vekselType || 'sack';
+        const wantedLocations = locations || [];
+        const rows = (snapshot.north || []).filter(row => wantedLocations.some(loc =>
+            row.location.toLowerCase().includes(loc.toLowerCase()) ||
+            loc.toLowerCase().includes(row.location.toLowerCase())
+        ));
+        if (!rows.length) return null;
+        return makeGisaaInfoFromRows(rows.map(row => ({
+            location: row.location,
+            status: row.unknown ? 'unknown' : row.amount === amount && row.iconType === iconType ? 'match' : 'exclude',
+        })));
+    }
+    return null;
+};
+
+export const getGisaaVekselInfoForQuest = (veksel, slot, locations) => (
+    getGisaaVekselInfoFromSavedTable(veksel, slot, locations)
+    || getSavedGisaaVekselInfo(getGisaaVekselKeyForQuest(veksel, slot, locations))
+);
+
+// ==================== API-запросы ====================
+
+/** @param {string} url */
+export const fetchJson = async (url) => {
+    const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    const json = await res.json();
+    const quests = json?.data?.quests;
+    debugLog('api/info loaded', {
+        state: json?.state,
+        hasData: !!json?.data,
+        questContainerType: quests == null ? String(quests) : Array.isArray(quests) ? 'array' : typeof quests,
+        questCount: quests && typeof quests === 'object' ? Object.keys(quests).length : 0,
+        weekNumber: json?.data?.week_number,
+        nextWeekAt: json?.data?.next_week_at,
+        serverNowIso: NOW_MS ? new Date(NOW_MS).toISOString() : null,
+        sampleQuests: quests && typeof quests === 'object' ? Object.values(quests).slice(0, 5).map(summarizeQuestForDebug) : [],
+    });
+    return json;
+};
+
+/** @param {string} url */
+export const fetchText = async (url) => {
+    const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    return res.text();
+};
+
+/** @returns {Promise<ApiInfoResponse>} */
+export const fetchApiInfo = async () => {
+    const t0 = Date.now();
+    const res = await fetch(API_INFO_PATH, { credentials: 'include', cache: 'no-store' });
+    const t1 = Date.now();
+    if (!res.ok) throw new Error(`api/info failed: ${res.status}`);
+    const dateHeader = res.headers.get('Date');
+    const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
+    if (Number.isFinite(parsed)) {
+        const halfRtt = (t1 - t0) / 2;
+        setNowMs(parsed + halfRtt);
+    } else if (NOW_MS == null) {
+        throw new Error('[ArcheAgeExtraUI] Cannot read server Date header');
+    }
+    return res.json();
+};
+
+/** @returns {Promise<ApiInfoResponse>} */
+export const getApiInfoCached = async () => {
+    if (API_INFO_CACHE) return API_INFO_CACHE;
+    if (API_INFO_PROMISE) {
+        try {
+            API_INFO_CACHE = await API_INFO_PROMISE;
+            return API_INFO_CACHE;
+        } catch {
+            // fallback to manual fetch
+        }
+    }
+    API_INFO_CACHE = await fetchApiInfo();
+    return API_INFO_CACHE;
+};
+
+export const getUidFromCheckUser = async () => {
+    const json = await fetchJson('/dynamic/auth/?a=checkuser');
+    const uid = json?.user?.uid;
+    if (!uid) throw new Error('uid not found');
+    return String(uid);
+};
+
+export const showRefreshLoader = () => {
+    if (DOM.refreshLoader) DOM.refreshLoader.classList.add('tm-refresh-loader--active');
+};
+
+export const hideRefreshLoader = () => {
+    if (DOM.refreshLoader) DOM.refreshLoader.classList.remove('tm-refresh-loader--active');
+};
+
+export let API_INFO_DATA_JSON = null;
+
+export const refreshApiInfo = async ({ loadAutoClaimState = () => false, claimAllLevelRewards = async () => {} } = {}) => {
+    if (isRefreshing) return;
+    isRefreshing = true;
+    showRefreshLoader();
+    try {
+        const prevDataJson = API_INFO_DATA_JSON;
+        API_INFO_CACHE = null;
+        API_INFO_PROMISE = null;
+        API_INFO_CACHE = await fetchApiInfo();
+        if (NOW_MS !== null) {
+            setServerTimeOffset(NOW_MS - Date.now());
+        }
+        const oldSelectedKey = slotKey(selectedDayUtcMs, selectedSegment);
+        const newTodayUtc = getTodayUtcMsByTZ();
+        const newTodaySegment = effectiveSegment(newTodayUtc, 'auto');
+        const newTodayKey = slotKey(newTodayUtc, newTodaySegment);
+        const dayChanged = oldSelectedKey !== newTodayKey && oldSelectedKey < newTodayKey;
+        if (dayChanged) applySlot(newTodayUtc, 'auto');
+        const newDataJson = JSON.stringify(API_INFO_CACHE?.data);
+        API_INFO_DATA_JSON = newDataJson;
+        if (newDataJson === prevDataJson && !dayChanged) return;
+        updateQuestHistory();
+        if (dayChanged) await onSelectedDateChanged();
+        else await renderTasksForSelectedDay({ animateNewlyDone: true });
+        if (loadAutoClaimState()) await claimAllLevelRewards();
+    } catch (e) {
+        console.warn('[ArcheAgeExtraUI] refreshApiInfo failed:', e);
+    } finally {
+        isRefreshing = false;
+        hideRefreshLoader();
+    }
+};
+
+export const stopAutoRefresh = () => {
+    if (autoRefreshIntervalId != null) {
+        clearInterval(autoRefreshIntervalId);
+        autoRefreshIntervalId = null;
+    }
+};
+
+/** @param {number} intervalMs */
+export const startAutoRefresh = (intervalMs) => {
+    stopAutoRefresh();
+    autoRefreshIntervalId = setInterval(refreshApiInfo, intervalMs);
+};
+
+export const restartAutoRefresh = () => {
+    const interval = document.hidden ? AUTO_REFRESH_INTERVAL_HIDDEN_MS : AUTO_REFRESH_INTERVAL_FOCUSED_MS;
+    startAutoRefresh(interval);
+};
+
+export const handleVisibilityChange = () => {
+    if (document.hidden) startAutoRefresh(AUTO_REFRESH_INTERVAL_HIDDEN_MS);
+    else {
+        refreshApiInfo();
+        startAutoRefresh(AUTO_REFRESH_INTERVAL_FOCUSED_MS);
+    }
+};
+
+export const parseServersFromCharListHtml = (html) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return [...doc.querySelectorAll('li')]
+        .map(li => {
+            const spans = li.querySelectorAll('span');
+            const last = spans?.[spans.length - 1];
+            return last ? last.textContent.trim() : null;
+        })
+        .filter(Boolean);
+};
+
+export const pickMainServer = (servers) => {
+    if (!servers.length) return null;
+    const counts = new Map();
+    const order = [];
+    for (const s of servers) {
+        if (!counts.has(s)) order.push(s);
+        counts.set(s, (counts.get(s) || 0) + 1);
+    }
+    let best = null;
+    let bestCount = -1;
+    for (const s of order) {
+        const c = counts.get(s);
+        if (c > bestCount) { best = s; bestCount = c; }
+    }
+    return best;
+};
+
+export const resolveVekselUrl = async () => {
+    try {
+        const serverIdOverride = loadVekselServerIdOverride();
+        if (serverIdOverride) {
+            vekselUrlResolved = `${VEKSEL_BASE}${serverIdOverride}`;
+            updateRenderedVekselLinks();
+            updateVekselServerAutoOptionText();
+            return;
+        }
+        const uid = await getUidFromCheckUser();
+        const html = await fetchText(`/dynamic/user/?a=char_list&u=${encodeURIComponent(uid)}`);
+        const servers = parseServersFromCharListHtml(html);
+        const mainServer = pickMainServer(servers);
+        if (!mainServer) {
+            vekselAutoDetectedServerId = '';
+            vekselUrlResolved = VEKSEL_BASE;
+            updateVekselServerAutoOptionText();
+            return;
+        }
+        const vekselId = Object.keys(SERVERS).find(id => SERVERS[id] === mainServer);
+        vekselAutoDetectedServerId = vekselId || '';
+        vekselUrlResolved = vekselId ? `${VEKSEL_BASE}${vekselId}` : VEKSEL_BASE;
+        updateRenderedVekselLinks();
+        updateVekselServerAutoOptionText();
+    } catch {
+        vekselAutoDetectedServerId = '';
+        vekselUrlResolved = VEKSEL_BASE;
+        updateVekselServerAutoOptionText();
+    }
+};
+
+// ==================== UI: карточки и список ====================
+
+export const makeVekselIconLink = ({ href, title, vekselIcon }) => {
+    const a = document.createElement('a');
+    a.className = 'tm-veksel-icon-link';
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    if (title) a.title = title;
+    const mainImg = document.createElement('img');
+    mainImg.className = 'tm-veksel-icon-main';
+    mainImg.src = ICON_GISAA_OVERLAY;
+    mainImg.alt = 'gisaa';
+    const badgeImg = document.createElement('img');
+    badgeImg.className = 'tm-veksel-icon-badge';
+    badgeImg.src = vekselIcon;
+    badgeImg.alt = 'veksel';
+    a.appendChild(mainImg);
+    a.appendChild(badgeImg);
+    return a;
+};
+
+/** @param {number} amount @param {boolean} isDone */
+export const makeRewardBlock = (amount, isDone) => {
+    const reward = document.createElement('div');
+    reward.className = 'tasks__item-reward';
+    const name = document.createElement('span');
+    name.className = 'tasks__item-reward-name';
+    name.textContent = 'Награда:';
+    reward.appendChild(name);
+    const n = Math.max(0, Math.min(20, amount));
+    const cls = isDone ? 'icon-point--received' : 'icon-point--not-received';
+    for (let i = 0; i < n; i++) {
+        const icon = document.createElement('div');
+        icon.className = `icon-point ${cls}`;
+        reward.appendChild(icon);
+    }
+    return reward;
+};
+
+/** @param {string} desc */
+export const makeTaskText = (desc) => {
+    const t = document.createElement('div');
+    t.className = 'tasks__item-text';
+    t.textContent = desc || '';
+    return t;
+};
+
+export const makeGisaaStatusLine = (info) => {
+    if (!info) return null;
+    const line = document.createElement('div');
+    line.className = `tm-gisaa-status tm-gisaa-status--${info.status}`;
+    if (info.status === 'available') {
+        const places = (info.locations || []).filter(location => !/^copy$/i.test(String(location).trim())).join(' / ');
+        line.textContent = places ? `Сегодня можно выполнить: ${places}` : 'Сегодня можно выполнить';
+    } else if (info.status === 'unavailable') line.textContent = 'Сегодня нельзя выполнить';
+    else return null;
+    return line;
+};
+
+/**
+ * @param {Object} params
+ * @param {number|null} params.id
+ * @param {string} params.short
+ * @param {string} params.questTitle
+ * @param {Slot|null} [params.slot]
+ * @param {'blue_salt'|'north'} [params.veksel]
+ * @param {string[]} [params.locations]
+ * @param {number[]} [params.availableWeekdays]
+ * @param {EventSchedule[]} [params.schedule]
+ * @param {Function} params.makeItemIconLink
+ * @param {Function} params.makeIconLink
+ */
+export const makeLinksRow = ({ id, short, questTitle, slot, veksel, locations, availableWeekdays, schedule, makeItemIconLink, makeIconLink }) => {
+    const row = document.createElement('div');
+    row.className = 'tm-links-row';
+    const leftPart = document.createElement('div');
+    leftPart.className = 'tm-links-left';
+    const item = slot?.item;
+    if (item?.id) {
+        const hasIcon = item.icon && item.grade;
+        if (hasIcon) leftPart.appendChild(makeItemIconLink({ item, linked: true, size: 'small', count: slot.count }));
+        else if (item.name) {
+            const nameLink = document.createElement('a');
+            nameLink.className = 'tm-item-name-link';
+            nameLink.href = getItemCodexUrl(item);
+            nameLink.target = '_blank';
+            nameLink.rel = 'noopener noreferrer';
+            nameLink.textContent = item.name;
+            leftPart.appendChild(nameLink);
+        }
+    }
+    const hasLocations = locations && locations.length > 0;
+    const hasShort = !!short;
+    const availableWeekdaysStatus = formatAvailableWeekdaysStatus(availableWeekdays);
+    const hasAvailableWeekdays = !!availableWeekdaysStatus;
+    const hasSchedule = schedule && schedule.length > 0;
+    const gisaaInfo = getGisaaVekselInfoForQuest(veksel, slot, locations);
+    if (hasLocations || hasShort || hasAvailableWeekdays || hasSchedule || gisaaInfo) {
+        const infoWrapper = document.createElement('div');
+        infoWrapper.className = 'tm-info-wrapper';
+        if (hasLocations || hasShort) {
+            const infoLine = document.createElement('div');
+            infoLine.className = 'tm-info-line';
+            if (hasLocations) {
+                const locEl = document.createElement('span');
+                locEl.className = 'tm-locations';
+                locEl.textContent = locations.join(' / ');
+                infoLine.appendChild(locEl);
+            }
+            if (hasShort) {
+                const d = document.createElement('span');
+                d.className = 'tm-short';
+                d.innerHTML = short;
+                infoLine.appendChild(d);
+            }
+            infoWrapper.appendChild(infoLine);
+        }
+        if (hasAvailableWeekdays) {
+            const daysEl = document.createElement('div');
+            daysEl.className = 'tm-available-days';
+            daysEl.textContent = availableWeekdaysStatus;
+            infoWrapper.appendChild(daysEl);
+        }
+        if (hasSchedule) {
+            const eventsEl = document.createElement('div');
+            eventsEl.className = 'tm-events';
+            eventsEl.textContent = formatEventsToString(schedule);
+            const countdown = document.createElement('span');
+            countdown.className = 'tm-countdown';
+            countdown.dataset.schedule = JSON.stringify(schedule);
+            const seconds = getSecondsUntilNextEvent(schedule);
+            updateCountdownEl(countdown, seconds);
+            eventsEl.appendChild(countdown);
+            infoWrapper.appendChild(eventsEl);
+        }
+        const gisaaStatusLine = makeGisaaStatusLine(gisaaInfo);
+        if (gisaaStatusLine) infoWrapper.appendChild(gisaaStatusLine);
+        leftPart.appendChild(infoWrapper);
+    }
+    row.appendChild(leftPart);
+    const icons = document.createElement('div');
+    icons.className = 'tm-icons';
+    row.appendChild(icons);
+    const codexTitle = questTitle ? `${formatQuestTitle(questTitle)} - ArcheageCodex` : 'Открыть задание в ArcheageCodex';
+    if (id) icons.appendChild(makeIconLink({ href: `${CODEX_BASE}${id}/`, iconSrc: ICON_QUEST, title: codexTitle, className: 'tm-codex-link' }));
+    if (veksel === 'blue_salt' || veksel === 'north') {
+        const link = makeVekselIconLink({ href: buildVekselUrl(veksel, slot, locations), title: 'Открыть таблицу векселей', vekselIcon: veksel === 'blue_salt' ? ICON_VEKSEL : ICON_VEKSEL_NORTH });
+        link.classList.add('tm-veksel-link');
+        link.dataset.veksel = veksel;
+        if (slot) link.dataset.slot = JSON.stringify(slot);
+        if (locations) link.dataset.locations = JSON.stringify(locations);
+        icons.appendChild(link);
+    }
+    return row;
+};
+
+/**
+ * @param {Object} params
+ * @param {ApiQuest} params.q
+ * @param {number} params.amount
+ * @param {number} params.id
+ * @param {string} params.short
+ * @param {boolean} params.isDone
+ * @param {boolean} params.showLastDone
+ * @param {Function} params.makeItemIconLink
+ * @param {Function} params.makeIconLink
+ */
+export const makeTaskCard = ({ q, amount, id, short, isDone, showLastDone, completionTime, isToday, slot, veksel, locations, availableWeekdays, schedule, animateCompletion = false, makeItemIconLink, makeIconLink }) => {
+    const card = document.createElement('div');
+    card.className = `tasks__item tasks__item--${amount || 1}`;
+    if (isDone) {
+        card.classList.add(DONE_CLASS);
+        if (animateCompletion) {
+            card.classList.add(JUST_DONE_CLASS);
+            card.addEventListener('animationend', () => { card.classList.remove(JUST_DONE_CLASS); }, { once: true });
+        }
+        const done = document.createElement('div');
+        done.className = 'tasks__item-done';
+        const row = document.createElement('div');
+        row.className = 'tm-done-row';
+        const maxStep = Number(q?.max_completed_step || 0);
+        const progress = Number(q?.progress || 0);
+        const progressEl = document.createElement('span');
+        progressEl.className = 'tm-done-progress';
+        if (maxStep === 0 && isToday) progressEl.textContent = 'Можно выполнить повторно';
+        else if (maxStep === 0) progressEl.textContent = '';
+        else progressEl.textContent = `${progress}/${maxStep}`;
+        row.appendChild(progressEl);
+        const checkEl = document.createElement('span');
+        checkEl.className = 'tm-done-check';
+        checkEl.textContent = '✔';
+        row.appendChild(checkEl);
+        done.appendChild(row);
+        if (showLastDone) {
+            const time = formatTimeMSK(completionTime || 0);
+            if (time) {
+                const timeEl = document.createElement('span');
+                timeEl.className = 'tm-done-time';
+                timeEl.textContent = time;
+                done.appendChild(timeEl);
+            }
+        }
+        card.appendChild(done);
+    }
+    card.appendChild(makeRewardBlock(amount, isDone));
+    card.appendChild(makeTaskText(q.description));
+    card.appendChild(makeLinksRow({ id, short, questTitle: q.title, slot, veksel, locations, availableWeekdays, schedule, makeItemIconLink, makeIconLink }));
+    return card;
+};
+
+export const updateLevelBlock = (json) => {
+    const userInfo = json?.data?.user_info;
+    if (!userInfo) return;
+    const level = Number(userInfo.level || 1);
+    const expTotal = Number(userInfo.exp_total || 0);
+    const expForLevel = Number(json?.data?.action_info?.exp_for_level || 10);
+    const progress = expTotal - (level - 1) * expForLevel;
+    const clampedProgress = Math.max(0, Math.min(expForLevel, progress));
+    const levelBlock = document.querySelector('.level');
+    if (!levelBlock) return;
+    levelBlock.innerHTML = '';
+    const levelCurrent = document.createElement('div');
+    levelCurrent.className = 'level__current';
+    const levelCurrentTitle = document.createElement('div');
+    levelCurrentTitle.className = 'level__current-title';
+    levelCurrentTitle.textContent = 'Ваш уровень:';
+    levelCurrent.appendChild(levelCurrentTitle);
+    const iconLevel = document.createElement('div');
+    iconLevel.className = 'icon_level';
+    const iconLevelText = document.createElement('div');
+    iconLevelText.className = 'icon_level-text';
+    iconLevelText.textContent = String(level);
+    iconLevel.appendChild(iconLevelText);
+    const iconsStar = document.createElement('div');
+    iconsStar.className = 'icons-star';
+    iconLevel.appendChild(iconsStar);
+    levelCurrent.appendChild(iconLevel);
+    const iconInfo = document.createElement('div');
+    iconInfo.className = 'icon-info tooltip-on';
+    const tooltipWrap = document.createElement('div');
+    tooltipWrap.className = 'tooltip-wrap';
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    const tooltipText = document.createElement('div');
+    tooltipText.className = 'tooltip__text';
+    tooltipText.textContent = 'Выполняйте внутриигровые задания — и получайте за это уровни в событии «Марафон героев»!';
+    tooltip.appendChild(tooltipText);
+    tooltipWrap.appendChild(tooltip);
+    iconInfo.appendChild(tooltipWrap);
+    levelCurrent.appendChild(iconInfo);
+    levelBlock.appendChild(levelCurrent);
+    const levelNext = document.createElement('div');
+    levelNext.className = 'level__next';
+    const levelNextTitle = document.createElement('div');
+    levelNextTitle.className = 'level__next-title';
+    levelNextTitle.textContent = 'Прогресс до следующего уровня:';
+    levelNext.appendChild(levelNextTitle);
+    const levelNextList = document.createElement('div');
+    levelNextList.className = 'level__next-list';
+    for (let i = 0; i < expForLevel; i++) {
+        const iconPoint = document.createElement('div');
+        iconPoint.className = i < clampedProgress ? 'icon-point icon-point--received' : 'icon-point icon-point--not-received';
+        levelNextList.appendChild(iconPoint);
+    }
+    levelNext.appendChild(levelNextList);
+    levelBlock.appendChild(levelNext);
+};
+
+export const updateTasksHeader = (json) => {
+    const userInfo = json?.data?.user_info;
+    if (!userInfo) return;
+    const weekExp = Number(userInfo.week_exp || 0);
+    const maxWeekExp = Number(json?.data?.action_info?.increase_max_exp_per_week || 100);
+    if (!DOM.tasksHeader || !DOM.tasksHeader.isConnected) DOM.tasksHeader = document.querySelector('.section.tasks .tasks__header');
+    if (!DOM.tasksHeader) return;
+    let balanceEl = DOM.tasksHeader.querySelector('.tasks__balance');
+    if (!balanceEl) {
+        balanceEl = document.createElement('div');
+        balanceEl.className = 'tasks__balance';
+        DOM.tasksHeader.appendChild(balanceEl);
+    }
+    balanceEl.innerHTML = '';
+    const label = document.createTextNode(`Заработано за эту неделю: ${weekExp} / ${maxWeekExp}`);
+    balanceEl.appendChild(label);
+    const iconPoint = document.createElement('div');
+    iconPoint.className = 'icon-point icon-point--received';
+    balanceEl.appendChild(iconPoint);
+};
+
+export const ensureTasksListEl = () => {
+    if (!DOM.tasksList || !DOM.tasksList.isConnected) DOM.tasksList = document.querySelector('.section.tasks .tasks__list');
+    if (!DOM.tasksList) {
+        debugWarn('tasks list element not found', {
+            path: location.pathname,
+            hasTasksSection: !!document.querySelector('.section.tasks'),
+            taskSectionHtml: document.querySelector('.section.tasks')?.outerHTML?.slice(0, 1000) || null,
+        });
+    }
+    return DOM.tasksList;
+};
+
+export const ensureDateNavInHeader = () => {
+    if (DOM.nav && DOM.nav.isConnected) return DOM.nav;
+    if (!DOM.tasksHeader || !DOM.tasksHeader.isConnected) DOM.tasksHeader = document.querySelector('.section.tasks .tasks__header');
+    if (!DOM.tasksHeader) return null;
+    let nav = DOM.tasksHeader.querySelector('.tm-date-nav');
+    if (nav) {
+        DOM.nav = nav; DOM.label = nav.querySelector('.tm-date-label'); DOM.prevBtn = nav.querySelector('.tm-date-prev'); DOM.nextBtn = nav.querySelector('.tm-date-next'); DOM.todayBtn = nav.querySelector('.tm-date-today');
+        return nav;
+    }
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tm-nav-wrapper';
+    const todayBtn = document.createElement('button');
+    todayBtn.className = 'tm-date-btn tm-date-today'; todayBtn.type = 'button'; todayBtn.textContent = 'Сегодня';
+    nav = document.createElement('div'); nav.className = 'tm-date-nav';
+    const left = document.createElement('button'); left.className = 'tm-date-btn tm-date-prev'; left.type = 'button'; left.textContent = '←';
+    const right = document.createElement('button'); right.className = 'tm-date-btn tm-date-next'; right.type = 'button'; right.textContent = '→';
+    const label = document.createElement('div'); label.className = 'tm-date-label'; label.textContent = '...';
+    nav.appendChild(left); nav.appendChild(label); nav.appendChild(right);
+    const hideDoneLabel = document.createElement('label'); hideDoneLabel.className = 'tm-hide-done-label';
+    const hideDoneCheckbox = document.createElement('input'); hideDoneCheckbox.type = 'checkbox'; hideDoneCheckbox.className = 'tm-hide-done-checkbox';
+    const hideDoneText = document.createTextNode(' Скрыть выполненные');
+    hideDoneLabel.appendChild(hideDoneCheckbox); hideDoneLabel.appendChild(hideDoneText);
+    const refreshBtn = document.createElement('button');
+    refreshBtn.type = 'button'; refreshBtn.className = 'tm-refresh-btn'; refreshBtn.title = 'Обновить данные'; refreshBtn.innerHTML = '&#x21bb;';
+    DOM.refreshLoader = refreshBtn;
+    refreshBtn.addEventListener('click', () => { refreshApiInfo(); restartAutoRefresh(); });
+    wrapper.appendChild(todayBtn); wrapper.appendChild(nav); wrapper.appendChild(hideDoneLabel); wrapper.appendChild(refreshBtn);
+    DOM.tasksHeader.insertAdjacentElement('afterbegin', wrapper);
+    DOM.nav = nav; DOM.label = label; DOM.prevBtn = left; DOM.nextBtn = right; DOM.todayBtn = todayBtn; DOM.hideDoneCheckbox = hideDoneCheckbox;
+    const savedState = loadHideDoneState();
+    hideDoneCheckbox.checked = savedState;
+    if (savedState) {
+        const listEl = ensureTasksListEl();
+        if (listEl) listEl.classList.add('tm-hide-done');
+    }
+    hideDoneCheckbox.addEventListener('change', () => {
+        const listEl = ensureTasksListEl();
+        if (listEl) listEl.classList.toggle('tm-hide-done', hideDoneCheckbox.checked);
+        saveHideDoneState(hideDoneCheckbox.checked);
+    });
+    left.addEventListener('click', async () => { const prev = getPrevSlot(selectedDayUtcMs, selectedSegment); applySlot(prev.dayUtcMs, prev.segment); await onSelectedDateChanged(); });
+    right.addEventListener('click', async () => { const next = getNextSlot(selectedDayUtcMs, selectedSegment); applySlot(next.dayUtcMs, next.segment); await onSelectedDateChanged(); });
+    todayBtn.addEventListener('click', async () => { applySlot(getTodayUtcMsByTZ(), 'auto'); await onSelectedDateChanged(); });
+    return nav;
+};
+
+export const updateDateNavLabel = () => {
+    if (!DOM.label) return;
+    const parts = getMSKDatePartsFromUtcMs(selectedDayUtcMs);
+    const dateStr = formatDMY(parts);
+    const isThu = isThursdayByTZ(selectedDayUtcMs);
+    let suffix = '';
+    if (isThu && selectedSegment === 'pre') suffix = 'до 09:00';
+    else if (isThu && selectedSegment === 'post') suffix = 'после 09:00';
+    DOM.label.innerHTML = '';
+    const dateEl = document.createElement('span');
+    dateEl.className = 'tm-date-label-date';
+    dateEl.textContent = dateStr;
+    DOM.label.appendChild(dateEl);
+    if (suffix) {
+        const suffixEl = document.createElement('span');
+        suffixEl.className = 'tm-date-label-suffix';
+        suffixEl.textContent = suffix;
+        DOM.label.appendChild(suffixEl);
+    }
+    updateDateNavButtons();
+};
+
+export const updateDateNavButtons = () => {
+    if (!DOM.prevBtn && !DOM.nextBtn) return;
+    const curKey = slotKey(selectedDayUtcMs, selectedSegment);
+    const minKey = MIN_DAY_UTC_MS != null ? slotKey(MIN_DAY_UTC_MS, MIN_SEG) : null;
+    const maxKey = MAX_DAY_UTC_MS != null ? slotKey(MAX_DAY_UTC_MS, MAX_SEG) : null;
+    if (DOM.prevBtn) DOM.prevBtn.disabled = (minKey != null && curKey <= minKey);
+    if (DOM.nextBtn) DOM.nextBtn.disabled = (maxKey != null) && (curKey >= maxKey);
+    if (DOM.todayBtn) DOM.todayBtn.disabled = isSameDayByTZ(selectedDayUtcMs, getTodayUtcMsByTZ());
+};
+
+export const onSelectedDateChanged = async () => {
+    updateDateNavLabel();
+    updateDateNavButtons();
+    try { await renderTasksForSelectedDay(); }
+    catch (e) { console.warn('[ArcheAgeExtraUI] renderTasksForSelectedDay failed:', e); }
+};
+
+export const computeThuSegmentsAvailability = (dayUtcMs, questsArr) => {
+    const preUnix = getUnixForDayAtHour(dayUtcMs, THU_PRE_HOUR);
+    const postUnix = getUnixForDayAtHour(dayUtcMs, DEFAULT_HOUR);
+    const hasPre = questsArr.some(q => isQuestActiveAtUnix(q, preUnix));
+    const hasPost = questsArr.some(q => isQuestActiveAtUnix(q, postUnix));
+    return { hasPre, hasPost };
+};
+
+export const computeDateBoundsFromApiInfo = async () => {
+    if (MIN_DAY_UTC_MS != null && MAX_DAY_UTC_MS != null) return;
+    const json = await getApiInfoCached();
+    const questsArr = getQuestsArrayFromInfo(json);
+    let minStart = Infinity;
+    let maxEnd = -Infinity;
+    for (const q of questsArr) {
+        const s = Number(q?.start_time || 0);
+        const e = Number(q?.end_time || 0);
+        if (!s || !e) continue;
+        if (s < minStart) minStart = s;
+        if (e > maxEnd) maxEnd = e;
+    }
+    if (!isFinite(minStart) || !isFinite(maxEnd)) {
+        MIN_DAY_UTC_MS = null; MAX_DAY_UTC_MS = null; MIN_SEG = null; MAX_SEG = null; return;
+    }
+    MIN_DAY_UTC_MS = dayUtcMsFromUnixByTZ(minStart);
+    MAX_DAY_UTC_MS = dayUtcMsFromUnixByTZ(maxEnd - 1);
+    MIN_SEG = null; MAX_SEG = null;
+    if (MIN_DAY_UTC_MS != null && isThursdayByTZ(MIN_DAY_UTC_MS)) {
+        const { hasPre, hasPost } = computeThuSegmentsAvailability(MIN_DAY_UTC_MS, questsArr);
+        if (hasPre) MIN_SEG = 'pre'; else if (hasPost) MIN_SEG = 'post'; else MIN_SEG = 'post';
+    }
+    if (MAX_DAY_UTC_MS != null && isThursdayByTZ(MAX_DAY_UTC_MS)) {
+        const { hasPre, hasPost } = computeThuSegmentsAvailability(MAX_DAY_UTC_MS, questsArr);
+        if (hasPost) MAX_SEG = 'post'; else if (hasPre) MAX_SEG = 'pre'; else MAX_SEG = 'pre';
+    }
+};
+
+export let taskCardFactories = { makeItemIconLink: null, makeIconLink: null };
+export const setTaskCardFactories = (factories) => {
+    taskCardFactories = { ...taskCardFactories, ...factories };
+};
+
+export const renderTasksForSelectedDay = async ({ animateNewlyDone = false, makeItemIconLink = taskCardFactories.makeItemIconLink, makeIconLink = taskCardFactories.makeIconLink } = {}) => {
+    const listEl = ensureTasksListEl();
+    if (!listEl) return;
+    if (!makeItemIconLink || !makeIconLink) throw new Error('[ArcheAgeExtraUI] makeItemIconLink/makeIconLink are required');
+    const json = await getApiInfoCached();
+    API_INFO_DATA_JSON = JSON.stringify(json?.data);
+    const all = getQuestsArrayFromInfo(json);
+    updateLevelBlock(json);
+    updateTasksHeader(json);
+    const todayUtc = getTodayUtcMsByTZ();
+    const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
+    const isThu = isThursdayByTZ(selectedDayUtcMs);
+    let unixPoint;
+    if (isThu && selectedSegment === 'pre') unixPoint = getUnixForDayAtHour(selectedDayUtcMs, THU_PRE_HOUR);
+    else unixPoint = getUnixForDayAtHour(selectedDayUtcMs, DEFAULT_HOUR);
+    const active = all.filter(q => isQuestActiveAtUnix(q, unixPoint));
+    const questMetaByApiQuest = new Map(active.map(q => [q, findQuestMetaForMarathonQuest(q)]));
+    const knownActive = active.filter(q => questMetaByApiQuest.get(q));
+    const unknownActive = active.filter(q => !questMetaByApiQuest.get(q));
+    debugLog('renderTasksForSelectedDay', {
+        selectedDayUtcMs, selectedSegment, unixPoint, unixPointIso: debugTime(unixPoint), totalQuests: all.length,
+        activeQuests: active.length, knownActiveQuests: knownActive.length, unknownActiveQuests: unknownActive.length,
+        minDayIso: MIN_DAY_UTC_MS ? new Date(MIN_DAY_UTC_MS).toISOString() : null,
+        maxDayIso: MAX_DAY_UTC_MS ? new Date(MAX_DAY_UTC_MS).toISOString() : null,
+    });
+    if (!active.length) debugWarn('No active quests for selected slot. First API quests:', all.slice(0, 10).map(summarizeQuestForDebug));
+    else if (unknownActive.length) debugWarn('Active quests without local QUESTS metadata:', unknownActive.map(summarizeQuestForDebug));
+    active.sort((a, b) => {
+        const da = getRewardAmount(a);
+        const db = getRewardAmount(b);
+        if (da !== db) return da - db;
+        return Number(a?.id || 0) - Number(b?.id || 0);
+    });
+    listEl.innerHTML = '';
+    /** @type {Set<number>} */
+    const currentDoneIds = new Set();
+    let renderedCount = 0;
+    for (const q of active) {
+        const questId = Number(q.id);
+        const meta = questMetaByApiQuest.get(q);
+        const id = meta?.id ? Number(meta.id) : null;
+        const short = (meta?.short || '').trim();
+        const amount = getRewardAmount(q);
+        const completionTime = getCompletionTimeInSlot(q.code, selectedDayUtcMs, selectedSegment);
+        const doneInSlot = completionTime > 0;
+        if (doneInSlot) currentDoneIds.add(questId);
+        const isNewlyDone = animateNewlyDone && doneInSlot && !previouslyDoneQuestIds.has(questId);
+        const card = makeTaskCard({
+            q, amount, id, short, isDone: doneInSlot, showLastDone: doneInSlot, completionTime, isToday,
+            slot: meta?.slot || null, veksel: meta?.veksel, locations: meta?.locations,
+            availableWeekdays: meta?.availableWeekdays, schedule: meta?.schedule, animateCompletion: isNewlyDone,
+            makeItemIconLink, makeIconLink,
+        });
+        listEl.appendChild(card);
+        renderedCount++;
+    }
+    if (active.length && !renderedCount) renderEmptyTasksDiagnostic(listEl, 'ArcheAgeExtraUI: активные задания есть в API, но карточки не были отрисованы. Проверьте консоль.');
+    else if (!active.length) renderEmptyTasksDiagnostic(listEl, 'ArcheAgeExtraUI: для выбранного дня активные задания не найдены. Проверьте консоль.');
+    previouslyDoneQuestIds = currentDoneIds;
+};
+
+// ==================== Инициализация ====================
+
+export const init = async ({
+    injectStyles = () => {},
+    startCountdownInterval = () => {},
+    initPrizes = async () => {},
+    initAutoOpenBoxesCheckbox = () => {},
+    makeItemIconLink,
+    makeIconLink,
+} = {}) => {
+    if (makeItemIconLink || makeIconLink) setTaskCardFactories({ makeItemIconLink, makeIconLink });
+    installApiInfoInterceptor();
+    injectStyles();
+    debugLog('init marathon page', {
+        path: location.pathname,
+        hasTasksSection: !!document.querySelector('.section.tasks'),
+        hasTasksHeader: !!document.querySelector('.section.tasks .tasks__header'),
+        hasTasksList: !!document.querySelector('.section.tasks .tasks__list'),
+    });
+    try { await getApiInfoCached(); }
+    catch (e) { debugWarn('getApiInfoCached failed during init', e); return; }
+    try { cachedUid = await getUidFromCheckUser(); }
+    catch (e) { console.warn('[ArcheAgeExtraUI] getUidFromCheckUser failed:', e); }
+    initServerTimeOffset();
+    startCountdownInterval();
+    ensureDateNavInHeader();
+    try { await computeDateBoundsFromApiInfo(); }
+    catch (e) { console.warn('[ArcheAgeExtraUI] computeDateBoundsFromApiInfo failed:', e); }
+    applySlot(selectedDayUtcMs || getTodayUtcMsByTZ(), 'auto');
+    updateQuestHistory();
+    try { await onSelectedDateChanged(); }
+    catch (e) { console.warn('[ArcheAgeExtraUI] renderTasksForSelectedDay failed:', e); }
+    requestAnimationFrame(() => {
+        const el = document.querySelector('.section.tasks .tasks__header');
+        if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 85;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+    });
+    resolveVekselUrl();
+    try { await initPrizes(); }
+    catch (e) { console.warn('[ArcheAgeExtraUI] initPrizes failed:', e); }
+    try { initAutoOpenBoxesCheckbox(); }
+    catch (e) { console.warn('[ArcheAgeExtraUI] initAutoOpenBoxesCheckbox failed:', e); }
+    const initialInterval = document.hidden ? AUTO_REFRESH_INTERVAL_HIDDEN_MS : AUTO_REFRESH_INTERVAL_FOCUSED_MS;
+    startAutoRefresh(initialInterval);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+};

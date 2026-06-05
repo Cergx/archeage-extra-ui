@@ -1,0 +1,148 @@
+// ============================================================
+// Entry point — wires together all modules
+// ============================================================
+
+import {
+    isGisaaSite,
+    isArcheageSite,
+    isCartPage,
+    isItemRestorePage,
+    pageDocument,
+    updateCountdownEl,
+} from './utils.js';
+
+import { initGisaa } from './gisaa.js';
+
+import { initServerClock } from './components/server-clock.js';
+import { openEventsPopup, checkEventNotifications } from './events.js';
+
+import { initCart } from './cart.js';
+import { initItemRestore } from './itemrestore.js';
+
+import {
+    init as initMarathon,
+    debugWarn,
+    fetchText,
+    getUidFromCheckUser,
+    loadVekselServerIdOverride,
+    saveVekselServerIdOverride,
+    resolveVekselUrl,
+    getVekselAutoOptionText,
+} from './marathon/core.js';
+import { initPrizes, initAutoOpenBoxesCheckbox } from './marathon/prizes.js';
+import {
+    injectItemIconStyles,
+    injectSelectedItemsStyles,
+    injectMarathonStyles,
+    injectCartStyles,
+} from './marathon/styles.js';
+import { initTooltips } from './marathon/tooltip.js';
+import { makeItemIconLink } from './marathon/tooltip.js';
+import { makeIconLink, updateRenderedItemIcons } from './components/item-icon.js';
+import { loadNotificationState, saveNotificationState } from './events.js';
+
+// ============================================================
+// ====================== GISAA.RU =============================
+// ============================================================
+
+if (isGisaaSite) {
+    initGisaa();
+}
+
+// ============================================================
+// ===================== ARCHEAGE.RU ===========================
+// ============================================================
+
+if (!isArcheageSite) {
+    // nothing more — exit
+} else {
+    const injectStyles = () => {
+        injectItemIconStyles();
+        injectMarathonStyles();
+    };
+
+    // Simple countdown interval (server clock handles primary countdown)
+    const startCountdownInterval = () => {
+        setInterval(() => {
+            document.querySelectorAll('.tm-countdown').forEach(el => {
+                const remaining = parseInt(el.dataset.remaining || '0', 10);
+                if (remaining > 0) {
+                    el.dataset.remaining = String(remaining - 1);
+                }
+                updateCountdownEl(el, remaining - 1);
+            });
+        }, 1000);
+    };
+
+    // --- Server clock on ALL archeage.ru pages ---
+    const openEventsPopupWithDeps = () => openEventsPopup({
+        loadVekselServerIdOverride,
+        saveVekselServerIdOverride,
+        resolveVekselUrl,
+        getVekselAutoOptionText,
+        loadNotificationState,
+        saveNotificationState,
+        updateRenderedItemIcons,
+    });
+    const checkEventNotificationsWithDeps = () => checkEventNotifications({
+        loadNotificationState,
+        saveNotificationState,
+    });
+    initServerClock(openEventsPopupWithDeps, checkEventNotificationsWithDeps);
+
+    // --- Page routing ---
+    if (isCartPage) {
+        const startCart = () => initCart({
+            injectItemIconStyles,
+            injectSelectedItemsStyles,
+            injectCartStyles,
+            makeItemIconLink,
+            fetchText,
+            getUidFromCheckUser,
+        });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startCart);
+        } else {
+            startCart();
+        }
+    } else if (isItemRestorePage) {
+        initItemRestore({
+            injectItemIconStyles,
+            injectSelectedItemsStyles,
+            makeItemIconLink,
+        });
+    } else if (location.pathname.startsWith('/promo/marathon')) {
+        const observer = new MutationObserver(() => {
+            if (document.querySelector('.section.tasks')) {
+                observer.disconnect();
+                initMarathon({
+                    injectStyles,
+                    startCountdownInterval,
+                    initPrizes,
+                    initAutoOpenBoxesCheckbox,
+                    makeItemIconLink,
+                    makeIconLink,
+                });
+                initTooltips();
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+        setTimeout(() => {
+            if (!document.querySelector('.section.tasks')) {
+                debugWarn('marathon tasks section did not appear after 10s', {
+                    path: location.pathname,
+                    sections: [...document.querySelectorAll('section, .section')]
+                        .slice(0, 20)
+                        .map(el => ({
+                            tag: el.tagName,
+                            className: el.className,
+                            id: el.id,
+                            text: el.textContent?.trim().slice(0, 120),
+                        })),
+                });
+            }
+        }, 10000);
+    }
+}
