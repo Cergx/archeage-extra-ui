@@ -679,6 +679,7 @@
   // src/data/items.js
   let CODEX_IMAGES_BASE = "https://archeagecodex.com/images/";
   let LS_KEY_ICON_SEX = "tm_aa_icon_sex";
+  let LS_KEY_ICON_SCALE = "tm_aa_icon_scale";
   let GRADES = [
     /* 0  */
     { overlay: `${CODEX_IMAGES_BASE}icon_grade0.png`, title: "\u0411\u0435\u0441\u043F\u043E\u043B\u0435\u0437\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#949293" },
@@ -852,6 +853,28 @@
     } catch {
     }
   }, "saveIconSex");
+  let loadIconScalePercent = /* @__PURE__ */ __name(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY_ICON_SCALE);
+      if (raw != null) {
+        const val = parseInt(raw, 10);
+        if (Number.isFinite(val) && val >= 10 && val <= 5e3) return val;
+      }
+    } catch {
+    }
+    return 100;
+  }, "loadIconScalePercent");
+  let saveIconScalePercent = /* @__PURE__ */ __name((val) => {
+    try {
+      const intVal = Math.round(val);
+      if (Number.isFinite(intVal) && intVal >= 10 && intVal <= 5e3) {
+        localStorage.setItem(LS_KEY_ICON_SCALE, String(intVal));
+      } else {
+        localStorage.removeItem(LS_KEY_ICON_SCALE);
+      }
+    } catch {
+    }
+  }, "saveIconScalePercent");
   let getItemIconUrlFromParts = /* @__PURE__ */ __name((icon, iconM, iconF) => {
     const sex = loadIconSex();
     const sexIcon = sex === "m" ? iconM || iconF || "m" : iconF || iconM || "f";
@@ -1190,8 +1213,9 @@
                 max-width: 95vw;
             }
             .tm-popup-panel--settings {
-                width: 380px;
-                max-width: 90vw;
+                width: 680px;
+                max-width: 95vw;
+                max-height: 80vh;
             }
             .tm-popup-header {
                 display: flex;
@@ -1227,7 +1251,19 @@
                 flex: 1;
             }
             .tm-popup-body--settings {
+                display: flex;
+                gap: 24px;
                 padding: 12px 16px;
+                overflow: hidden;
+            }
+            .tm-settings-left {
+                flex: 0 0 280px;
+                min-width: 0;
+            }
+            .tm-settings-right {
+                flex: 1;
+                min-width: 0;
+                overflow-y: auto;
             }
             .tm-settings-section {
                 margin-bottom: 14px;
@@ -1411,6 +1447,10 @@
     panel.appendChild(header);
     const body = document.createElement("div");
     body.className = "tm-popup-body tm-popup-body--settings";
+    const leftCol = document.createElement("div");
+    leftCol.className = "tm-settings-left";
+    const rightCol = document.createElement("div");
+    rightCol.className = "tm-settings-right";
     const serverSection = document.createElement("div");
     serverSection.className = "tm-settings-section";
     const serverTitle = document.createElement("div");
@@ -1436,7 +1476,7 @@
       resolveVekselUrl2();
     });
     serverSection.appendChild(serverSelect);
-    body.appendChild(serverSection);
+    leftCol.appendChild(serverSection);
     const sexSection = document.createElement("div");
     sexSection.className = "tm-settings-section";
     const sexTitle = document.createElement("div");
@@ -1458,7 +1498,38 @@
       onChanged();
     });
     sexSection.appendChild(sexSelect);
-    body.appendChild(sexSection);
+    leftCol.appendChild(sexSection);
+    const scaleSection = document.createElement("div");
+    scaleSection.className = "tm-settings-section";
+    const scaleTitle = document.createElement("div");
+    scaleTitle.className = "tm-settings-section-title";
+    scaleTitle.textContent = "\u041C\u0430\u0441\u0448\u0442\u0430\u0431 \u0432\u0441\u043F\u043B\u044B\u0432\u0430\u0448\u043A\u0438";
+    scaleSection.appendChild(scaleTitle);
+    const scaleRow = document.createElement("div");
+    scaleRow.style.cssText = "display:flex;align-items:center;gap:8px;";
+    const scaleInput = document.createElement("input");
+    scaleInput.type = "number";
+    scaleInput.step = "5";
+    scaleInput.min = "10";
+    scaleInput.max = "5000";
+    scaleInput.value = loadIconScalePercent();
+    scaleInput.style.cssText = "width:75px;padding:4px 6px;border:1px solid #bbb;border-radius:4px;font:inherit;";
+    const scaleSuffix = document.createElement("span");
+    scaleSuffix.textContent = "%";
+    scaleSuffix.style.cssText = "color:#555;";
+    scaleInput.addEventListener("change", () => {
+      const val = parseInt(scaleInput.value, 10);
+      if (Number.isFinite(val) && val >= 10 && val <= 5e3) {
+        saveIconScalePercent(val);
+        scaleInput.value = val;
+      } else {
+        scaleInput.value = loadIconScalePercent();
+      }
+    });
+    scaleRow.appendChild(scaleInput);
+    scaleRow.appendChild(scaleSuffix);
+    scaleSection.appendChild(scaleRow);
+    leftCol.appendChild(scaleSection);
     const eventsSection = document.createElement("div");
     eventsSection.className = "tm-settings-section";
     const eventsTitle = document.createElement("div");
@@ -1487,7 +1558,6 @@
       span.textContent = ev.title;
       label.appendChild(cb);
       label.appendChild(span);
-      li.appendChild(label);
       const bell = document.createElement("button");
       const bellOn = ev.code in notifState.events ? notifState.events[ev.code] : !!ev.defaultNotifications;
       bell.className = "tm-ev-bell" + (bellOn ? "" : " tm-ev-bell--off");
@@ -1527,10 +1597,13 @@
         toggle();
       });
       li.appendChild(bell);
+      li.appendChild(label);
       ul.appendChild(li);
     }
     eventsSection.appendChild(ul);
-    body.appendChild(eventsSection);
+    rightCol.appendChild(eventsSection);
+    body.appendChild(leftCol);
+    body.appendChild(rightCol);
     panel.appendChild(body);
     settingsOverlay.appendChild(panel);
     document.body.appendChild(settingsOverlay);
@@ -6312,7 +6385,7 @@
     const tooltip = getTooltipContainer();
     const rect = anchorEl.getBoundingClientRect();
     const screenScale = getSystemScale2();
-    const scale = 1 / screenScale;
+    const scale = 1 / screenScale * (loadIconScalePercent() / 100);
     const tooltipLeftEdge = rect.left + 8 - TOOLTIP_WIDTH * scale;
     const showOnRight = tooltipLeftEdge < 0;
     tooltip.classList.add(TOOLTIP_VISIBLE_CLASS);

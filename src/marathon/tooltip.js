@@ -16,6 +16,7 @@ import {
     hasVisibleTooltipText,
     parseGameMarkup,
     resolveItemPlaceholders,
+    loadIconScalePercent,
 } from '../data/items.js';
 
 void ITEMS;
@@ -811,7 +812,7 @@ const positionTooltip = (anchorEl) => {
     const tooltip = getTooltipContainer();
     const rect = anchorEl.getBoundingClientRect();
     const screenScale = getSystemScale();
-    const scale = 1 / screenScale;
+    const scale = (1 / screenScale) * (loadIconScalePercent() / 100);
 
     const tooltipLeftEdge = rect.left + 8 - TOOLTIP_WIDTH * scale;
     const showOnRight = tooltipLeftEdge < 0;

@@ -10,7 +10,7 @@ import {
 } from './utils.js';
 import { EVENTS } from './data/events.js';
 import { SERVERS } from './data/servers.js';
-import { ICON_SEX_VALUES, loadIconSex, saveIconSex } from './data/items.js';
+import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent } from './data/items.js';
 
 const LS_KEYS = {
     EVENT_VISIBILITY: 'tm_aa_ev_vis',
@@ -169,8 +169,9 @@ export const injectEventsPopupStyles = () => {
                 max-width: 95vw;
             }
             .tm-popup-panel--settings {
-                width: 380px;
-                max-width: 90vw;
+                width: 680px;
+                max-width: 95vw;
+                max-height: 80vh;
             }
             .tm-popup-header {
                 display: flex;
@@ -206,7 +207,19 @@ export const injectEventsPopupStyles = () => {
                 flex: 1;
             }
             .tm-popup-body--settings {
+                display: flex;
+                gap: 24px;
                 padding: 12px 16px;
+                overflow: hidden;
+            }
+            .tm-settings-left {
+                flex: 0 0 280px;
+                min-width: 0;
+            }
+            .tm-settings-right {
+                flex: 1;
+                min-width: 0;
+                overflow-y: auto;
             }
             .tm-settings-section {
                 margin-bottom: 14px;
@@ -399,6 +412,12 @@ export const openSettingsPopup = (onChanged, {
     const body = document.createElement('div');
     body.className = 'tm-popup-body tm-popup-body--settings';
 
+    const leftCol = document.createElement('div');
+    leftCol.className = 'tm-settings-left';
+
+    const rightCol = document.createElement('div');
+    rightCol.className = 'tm-settings-right';
+
     const serverSection = document.createElement('div');
     serverSection.className = 'tm-settings-section';
 
@@ -431,7 +450,7 @@ export const openSettingsPopup = (onChanged, {
         resolveVekselUrl();
     });
     serverSection.appendChild(serverSelect);
-    body.appendChild(serverSection);
+    leftCol.appendChild(serverSection);
 
     const sexSection = document.createElement('div');
     sexSection.className = 'tm-settings-section';
@@ -458,7 +477,46 @@ export const openSettingsPopup = (onChanged, {
         onChanged();
     });
     sexSection.appendChild(sexSelect);
-    body.appendChild(sexSection);
+    leftCol.appendChild(sexSection);
+
+    const scaleSection = document.createElement('div');
+    scaleSection.className = 'tm-settings-section';
+
+    const scaleTitle = document.createElement('div');
+    scaleTitle.className = 'tm-settings-section-title';
+    scaleTitle.textContent = 'Масштаб всплывашки';
+    scaleSection.appendChild(scaleTitle);
+
+    const scaleRow = document.createElement('div');
+    scaleRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+    const scaleInput = document.createElement('input');
+    scaleInput.type = 'number';
+    scaleInput.step = '5';
+    scaleInput.min = '10';
+    scaleInput.max = '5000';
+    scaleInput.value = loadIconScalePercent();
+    scaleInput.style.cssText = 'width:75px;padding:4px 6px;border:1px solid #bbb;border-radius:4px;font:inherit;';
+
+    const scaleSuffix = document.createElement('span');
+    scaleSuffix.textContent = '%';
+    scaleSuffix.style.cssText = 'color:#555;';
+
+    scaleInput.addEventListener('change', () => {
+        const val = parseInt(scaleInput.value, 10);
+        if (Number.isFinite(val) && val >= 10 && val <= 5000) {
+            saveIconScalePercent(val);
+            scaleInput.value = val;
+        } else {
+            scaleInput.value = loadIconScalePercent();
+        }
+    });
+
+    scaleRow.appendChild(scaleInput);
+    scaleRow.appendChild(scaleSuffix);
+    scaleSection.appendChild(scaleRow);
+
+    leftCol.appendChild(scaleSection);
 
     const eventsSection = document.createElement('div');
     eventsSection.className = 'tm-settings-section';
@@ -492,7 +550,6 @@ export const openSettingsPopup = (onChanged, {
         span.textContent = ev.title;
         label.appendChild(cb);
         label.appendChild(span);
-        li.appendChild(label);
 
         // Колокольчик уведомления
         const bell = document.createElement('button');
@@ -533,13 +590,17 @@ export const openSettingsPopup = (onChanged, {
             }
             toggle();
         });
+
         li.appendChild(bell);
+        li.appendChild(label);
 
         ul.appendChild(li);
     }
 
     eventsSection.appendChild(ul);
-    body.appendChild(eventsSection);
+    rightCol.appendChild(eventsSection);
+    body.appendChild(leftCol);
+    body.appendChild(rightCol);
     panel.appendChild(body);
     settingsOverlay.appendChild(panel);
     document.body.appendChild(settingsOverlay);

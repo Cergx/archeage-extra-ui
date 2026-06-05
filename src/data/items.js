@@ -2,6 +2,7 @@
 
 export const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
 export const LS_KEY_ICON_SEX = 'tm_aa_icon_sex';
+export const LS_KEY_ICON_SCALE = 'tm_aa_icon_scale';
 export const LS_KEYS = { ICON_SEX: LS_KEY_ICON_SEX };
 
 /**
@@ -340,6 +341,28 @@ export const saveIconSex = (sex) => {
     } catch {
         // ignore
     }
+};
+
+export const loadIconScalePercent = () => {
+    try {
+        const raw = localStorage.getItem(LS_KEY_ICON_SCALE);
+        if (raw != null) {
+            const val = parseInt(raw, 10);
+            if (Number.isFinite(val) && val >= 10 && val <= 5000) return val;
+        }
+    } catch { /* ignore */ }
+    return 100;
+};
+
+export const saveIconScalePercent = (val) => {
+    try {
+        const intVal = Math.round(val);
+        if (Number.isFinite(intVal) && intVal >= 10 && intVal <= 5000) {
+            localStorage.setItem(LS_KEY_ICON_SCALE, String(intVal));
+        } else {
+            localStorage.removeItem(LS_KEY_ICON_SCALE);
+        }
+    } catch { /* ignore */ }
 };
 
 /**
