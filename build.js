@@ -22,8 +22,12 @@ const scssPlugin = {
       const result = sass.compileString(await fs.promises.readFile(args.path, 'utf8'), {
         loadPaths: [path.dirname(args.path)],
       });
+      const escaped = result.css
+        .replace(/\\/g, '\\\\')
+        .replace(/`/g, '\\`')
+        .replace(/\$/g, '\\$');
       return {
-        contents: `export default ${JSON.stringify(result.css)};`,
+        contents: `export default \`${escaped}\`;`,
         loader: 'js',
         resolveDir: path.dirname(args.path),
       };
@@ -37,6 +41,7 @@ const buildOptions = {
   format: 'iife',
   target: ['es2020'],
   platform: 'browser',
+  charset: 'utf8',
   write: false,
   minify: false,
   keepNames: true,

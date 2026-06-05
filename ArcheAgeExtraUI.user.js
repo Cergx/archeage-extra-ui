@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ArcheAgeExtraUI
 // @namespace    https://archeage.ru/
-// @version      4.10.0
+// @version      4.11.0
 // @description  Доработка страниц марафона, корзины и восстановления предметов
 // @author       Cergx
 // @match        *://archeage.ru/*
@@ -243,7 +243,7 @@
     const [h, m, s] = str.split(":").map(Number);
     return h * 3600 + m * 60 + s;
   }, "getMSKTimeOfDaySeconds");
-  let WEEKDAY_NAMES = { 1: "\u041F\u043D", 2: "\u0412\u0442", 3: "\u0421\u0440", 4: "\u0427\u0442", 5: "\u041F\u0442", 6: "\u0421\u0431", 7: "\u0412\u0441" };
+  let WEEKDAY_NAMES = { 1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс" };
   let parseTime = /* @__PURE__ */ __name((timeStr) => {
     const [h, m] = timeStr.split(":").map(Number);
     return { hours: h, minutes: m };
@@ -281,7 +281,7 @@
     }
     return minDiff === Infinity ? null : minDiff;
   }, "getSecondsUntilNextEvent");
-  let formatEventTime = /* @__PURE__ */ __name((event) => event.timeEnd ? `${event.timeStart}\u2013${event.timeEnd}` : event.timeStart, "formatEventTime");
+  let formatEventTime = /* @__PURE__ */ __name((event) => event.timeEnd ? `${event.timeStart}–${event.timeEnd}` : event.timeStart, "formatEventTime");
   let formatEventsToString = /* @__PURE__ */ __name((events) => {
     if (!events || !events.length) return "";
     const daily = [];
@@ -310,13 +310,13 @@
     const m = Math.floor(seconds % 3600 / 60);
     const s = seconds % 60;
     if (d > 0) {
-      return `${d}\u0434 ${h}\u0447`;
+      return `${d}д ${h}ч`;
     } else if (h > 0) {
-      return `${h}\u0447 ${m}\u043C`;
+      return `${h}ч ${m}м`;
     } else if (m > 0) {
-      return `${m}\u043C ${s}\u0441`;
+      return `${m}м ${s}с`;
     } else {
-      return `${s}\u0441`;
+      return `${s}с`;
     }
   }, "formatCountdown");
   let updateCountdownEl = /* @__PURE__ */ __name((el, seconds) => {
@@ -324,10 +324,10 @@
     if (seconds == null) {
       el.textContent = "";
     } else if (seconds <= 0) {
-      el.textContent = ` (\u0438\u0434\u0451\u0442, \u0435\u0449\u0451 ${formatCountdown(-seconds)})`;
+      el.textContent = ` (идёт, ещё ${formatCountdown(-seconds)})`;
       el.classList.add("tm-countdown--active");
     } else {
-      el.textContent = ` (\u0447\u0435\u0440\u0435\u0437 ${formatCountdown(seconds)})`;
+      el.textContent = ` (через ${formatCountdown(seconds)})`;
       el.classList.add("tm-countdown--waiting");
     }
   }, "updateCountdownEl");
@@ -358,11 +358,28 @@
   }, "getTodayWeekdayMonFirst");
   let formatAvailableWeekdaysStatus = /* @__PURE__ */ __name((weekdays) => {
     if (!weekdays?.length) return "";
-    return weekdays.includes(getTodayWeekdayMonFirst()) ? "\u041C\u043E\u0436\u043D\u043E \u0441\u0435\u0433\u043E\u0434\u043D\u044F \u0432\u0437\u044F\u0442\u044C" : "\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u043D\u0435\u043B\u044C\u0437\u044F \u0432\u0437\u044F\u0442\u044C";
+    return weekdays.includes(getTodayWeekdayMonFirst()) ? "Можно сегодня взять" : "Сегодня нельзя взять";
   }, "formatAvailableWeekdaysStatus");
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/gisaa/gisaa.scss
-  let gisaa_default = "td.tm-gisaa-match {\n  --bs-table-accent-bg: #005f1940;\n  background-color: rgba(0, 95, 25, 0.2509803922) !important;\n}\n\ntd.tm-gisaa-exclude {\n  --bs-table-accent-bg: #5f000040;\n  background-color: rgba(95, 0, 0, 0.2509803922) !important;\n}\n\ntd.tm-gisaa-unknown {\n  --bs-table-accent-bg: #5f5f0040;\n  background-color: rgba(95, 95, 0, 0.2509803922) !important;\n}\n\n.btn_vote.tm-gisaa-exclude {\n  opacity: 0.4;\n}";
+  let gisaa_default = `td.tm-gisaa-match {
+  --bs-table-accent-bg: #005f1940;
+  background-color: rgba(0, 95, 25, 0.2509803922) !important;
+}
+
+td.tm-gisaa-exclude {
+  --bs-table-accent-bg: #5f000040;
+  background-color: rgba(95, 0, 0, 0.2509803922) !important;
+}
+
+td.tm-gisaa-unknown {
+  --bs-table-accent-bg: #5f5f0040;
+  background-color: rgba(95, 95, 0, 0.2509803922) !important;
+}
+
+.btn_vote.tm-gisaa-exclude {
+  opacity: 0.4;
+}`;
 
   // src/gisaa/gisaa.js
   let GISAA_MATCH_CLASS = "tm-gisaa-match";
@@ -502,39 +519,66 @@
 
   // src/data/events.js
   let EVENTS = [
-    { code: "ifnir", title: "\u041E\u0431\u043E\u0440\u043E\u043D\u0430 \u0418\u0444\u043D\u0438\u0440\u0430", defaultVisible: true, defaultNotifications: true, schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }], locations: ["\u0418\u0444\u043D\u0438\u0440"], quests: [{ id: 10569, title: "\u041E\u0431\u043E\u0440\u043E\u043D\u0430 \u0418\u0444\u043D\u0438\u0440\u0430" }, { id: 10564, title: "\u041E\u0441\u0432\u043E\u0431\u043E\u0436\u0434\u0435\u043D\u043D\u044B\u0435 \u0443\u0437\u043D\u0438\u0446\u044B \u041D\u0430\u0433\u0430\u0448\u0430\u0440\u0430" }] },
-    { code: "lug_guardians", title: "\u041B\u0443\u0433 - \u0411\u0438\u0442\u0432\u0430 \u0445\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u0435\u0439", defaultVisible: true, defaultNotifications: true, schedule: [{ timeStart: "18:00", weekdays: [6, 7] }], locations: ["\u0412\u0435\u043B\u0438\u043A\u0438\u0439 \u043B\u0443\u0433"], quests: [{ id: 11132, title: "\u0411\u0438\u0442\u0432\u0430 \u0445\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u0435\u0439" }, { id: 11096, title: "\u0422\u0443\u0440\u043D\u0438\u0440 \u0432 \u0447\u0435\u0441\u0442\u044C \u041E\u0442\u0446\u0430-\u0421\u043E\u043B\u043D\u0446\u0430" }] },
-    { code: "storm_eye", title: "\u041E\u043A\u043E \u0431\u0443\u0440\u0438", schedule: [{ timeStart: "21:00", timeEnd: "22:00", weekdays: [2, 4, 6] }], locations: ["\u0410\u0440\u0445\u0438\u043F\u0435\u043B\u0430\u0433 \u043F\u043E\u0433\u0438\u0431\u0448\u0438\u0445 \u043A\u043E\u0440\u0430\u0431\u043B\u0435\u0439"], quests: [{ id: 6791, title: "\u0411\u0438\u0442\u0432\u0430 \u043D\u0430 \u041E\u043A\u0435 \u0431\u0443\u0440\u0438" }] },
-    { code: "storm_eye_sea", title: "\u0413\u0440\u043E\u0437\u0430 \u043D\u0430\u0434 \u043C\u043E\u0440\u0435\u043C", schedule: [{ timeStart: "14:00", timeEnd: "15:00" }, { timeStart: "22:00", timeEnd: "23:00" }], locations: ["\u0410\u0440\u0445\u0438\u043F\u0435\u043B\u0430\u0433 \u043F\u043E\u0433\u0438\u0431\u0448\u0438\u0445 \u043A\u043E\u0440\u0430\u0431\u043B\u0435\u0439"], quests: [{ id: 5765, title: "\u0413\u0440\u043E\u0437\u0430 \u043D\u0430\u0434 \u043C\u043E\u0440\u0435\u043C" }] },
-    { code: "carrion", title: "\u041F\u0430\u0434\u0430\u043B\u044C", defaultVisible: true, schedule: [{ timeStart: "10:00" }, { timeStart: "22:00" }] },
-    { code: "siege", title: "\u041E\u0441\u0430\u0434\u0430", schedule: [{ timeStart: "21:00", timeEnd: "22:00", weekdays: [3] }] },
-    { code: "rift_blood_antallon", title: "\u041A\u0440\u043E\u0432\u0430\u0432\u044B\u0439 (\u0434\u043D\u0435\u0432\u043D\u043E\u0439) \u0440\u0430\u0437\u043B\u043E\u043C - \u0410\u043D\u0442\u0430\u043B\u043B\u043E\u043D/\u042D\u043D\u0448\u0430\u043A\u0430", defaultVisible: true, schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }], locations: ["\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0435 \u043F\u043E\u043B\u044F"], quests: [{ id: 5885, title: "\u0421\u043E\u0432\u0435\u0442\u043D\u0438\u043A \u041A\u0438\u0440\u0438\u043E\u0441\u0430" }] },
-    { code: "rift_blood_garron", title: "\u041A\u0440\u043E\u0432\u0430\u0432\u044B\u0439 (\u0434\u043D\u0435\u0432\u043D\u043E\u0439) \u0440\u0430\u0437\u043B\u043E\u043C - \u0413\u0438\u0433\u0430\u043D\u0442\u0441\u043A\u0438\u0439 \u0433\u0430\u0440\u0440\u043E\u043D", defaultVisible: true, schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }], locations: ["\u0418\u043D\u0438\u0441\u0442\u0440\u0430", "\u041F\u043E\u043B\u0443\u043E\u0441\u0442\u0440\u043E\u0432 \u041F\u0430\u0434\u0430\u044E\u0449\u0438\u0445 \u0417\u0432\u0435\u0437\u0434"], quests: [{ id: 2943, title: "\u042D\u043B\u0438\u0442\u043D\u044B\u0435 \u0432\u043E\u0439\u0441\u043A\u0430 \u041A\u0440\u043E\u0432\u0430\u0432\u043E\u0439 \u0430\u0440\u043C\u0438\u0438" }] },
-    { code: "rift_ghost", title: "\u041F\u0440\u0438\u0437\u0440\u0430\u0447\u043D\u044B\u0439 (\u043D\u043E\u0447\u043D\u043E\u0439) \u0440\u0430\u0437\u043B\u043E\u043C - \u041F\u0440\u0438\u0437\u0440\u0430\u043A \u042D\u043D\u0448\u0430\u043A\u0438", defaultVisible: true, schedule: [{ timeStart: "02:20", duration: 15 }, { timeStart: "06:20", duration: 15 }, { timeStart: "10:20", duration: 15 }, { timeStart: "14:20", duration: 15 }, { timeStart: "18:20", duration: 15 }, { timeStart: "22:20", duration: 15 }], locations: ["\u0418\u043D\u0438\u0441\u0442\u0440\u0430", "\u041F\u043E\u043B\u0443\u043E\u0441\u0442\u0440\u043E\u0432 \u041F\u0430\u0434\u0430\u044E\u0449\u0438\u0445 \u0417\u0432\u0435\u0437\u0434"], quests: [{ id: 5144, title: "\u0420\u0430\u0437\u0433\u0440\u043E\u043C \u043F\u0440\u0438\u0437\u0440\u0430\u0447\u043D\u043E\u0433\u043E \u043B\u0435\u0433\u0438\u043E\u043D\u0430" }] },
-    { code: "rift_phantom", title: "\u0424\u0430\u043D\u0442\u043E\u043C\u044B (\u043B\u0438\u043B\u043E\u0432\u044B\u0439 \u0440\u0430\u0437\u043B\u043E\u043C)", schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }], locations: ["\u0421\u043E\u043A\u0440\u044B\u0442\u0430\u044F \u0434\u043E\u043B\u0438\u043D\u0430", "\u0418\u0440\u0430\u043C\u0438\u0439\u0441\u043A\u0438\u0439 \u0445\u0440\u0435\u0431\u0435\u0442"], quests: [{ id: 11154, title: "\u0411\u043E\u0439 \u0441 \u0442\u0435\u043D\u044C\u044E" }] },
+    { code: "ifnir", title: "Оборона Ифнира", defaultVisible: true, defaultNotifications: true, schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }], locations: ["Ифнир"], quests: [{ id: 10569, title: "Оборона Ифнира" }, { id: 10564, title: "Освобожденные узницы Нагашара" }] },
+    { code: "lug_guardians", title: "Луг - Битва хранителей", defaultVisible: true, defaultNotifications: true, schedule: [{ timeStart: "18:00", weekdays: [6, 7] }], locations: ["Великий луг"], quests: [{ id: 11132, title: "Битва хранителей" }, { id: 11096, title: "Турнир в честь Отца-Солнца" }] },
+    { code: "storm_eye", title: "Око бури", schedule: [{ timeStart: "21:00", timeEnd: "22:00", weekdays: [2, 4, 6] }], locations: ["Архипелаг погибших кораблей"], quests: [{ id: 6791, title: "Битва на Оке бури" }] },
+    { code: "storm_eye_sea", title: "Гроза над морем", schedule: [{ timeStart: "14:00", timeEnd: "15:00" }, { timeStart: "22:00", timeEnd: "23:00" }], locations: ["Архипелаг погибших кораблей"], quests: [{ id: 5765, title: "Гроза над морем" }] },
+    { code: "carrion", title: "Падаль", defaultVisible: true, schedule: [{ timeStart: "10:00" }, { timeStart: "22:00" }] },
+    { code: "siege", title: "Осада", schedule: [{ timeStart: "21:00", timeEnd: "22:00", weekdays: [3] }] },
+    { code: "rift_blood_antallon", title: "Кровавый (дневной) разлом - Анталлон/Эншака", defaultVisible: true, schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }], locations: ["Солнечные поля"], quests: [{ id: 5885, title: "Советник Кириоса" }] },
+    { code: "rift_blood_garron", title: "Кровавый (дневной) разлом - Гигантский гаррон", defaultVisible: true, schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }], locations: ["Инистра", "Полуостров Падающих Звезд"], quests: [{ id: 2943, title: "Элитные войска Кровавой армии" }] },
+    { code: "rift_ghost", title: "Призрачный (ночной) разлом - Призрак Эншаки", defaultVisible: true, schedule: [{ timeStart: "02:20", duration: 15 }, { timeStart: "06:20", duration: 15 }, { timeStart: "10:20", duration: 15 }, { timeStart: "14:20", duration: 15 }, { timeStart: "18:20", duration: 15 }, { timeStart: "22:20", duration: 15 }], locations: ["Инистра", "Полуостров Падающих Звезд"], quests: [{ id: 5144, title: "Разгром призрачного легиона" }] },
+    { code: "rift_phantom", title: "Фантомы (лиловый разлом)", schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }], locations: ["Сокрытая долина", "Ирамийский хребет"], quests: [{ id: 11154, title: "Бой с тенью" }] },
     /* Инстансы - Рейды */
-    { code: "dragon_lair", title: "\u041B\u043E\u0433\u043E\u0432\u043E \u0434\u0440\u0430\u043A\u043E\u043D\u0430", defaultVisible: true, schedule: [{ timeStart: "13:20", timeEnd: "14:00" }, { timeStart: "18:20", timeEnd: "19:00" }, { timeStart: "21:20", timeEnd: "22:00" }], locations: ["\u0418\u043D\u0441\u0442\u0430\u043D\u0441\u044B - \u0420\u0435\u0439\u0434\u044B"] },
-    { code: "gardum", title: "\u0413\u0430\u0440\u0434\u0443\u043C (\u0423\u0449\u0435\u043B\u044C\u0435 \u043A\u0440\u043E\u0432\u0430\u0432\u043E\u0439 \u0440\u043E\u0441\u044B)", defaultVisible: true, schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }], locations: ["\u0418\u043D\u0441\u0442\u0430\u043D\u0441\u044B - \u0420\u0435\u0439\u0434\u044B"], quests: [{ id: 7935, title: "\u0425\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u044C \u0417\u0432\u0435\u043D\u044F\u0449\u0435\u0433\u043E \u0443\u0449\u0435\u043B\u044C\u044F" }] },
-    { code: "iramkand", title: "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0434\u0435\u043D\u044C \u0418\u0440\u0430\u043C\u043A\u0430\u043D\u0434\u0430", schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }], locations: ["\u0418\u043D\u0441\u0442\u0430\u043D\u0441\u044B - \u0420\u0435\u0439\u0434\u044B"], quests: [{ id: 9205, title: "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0434\u0435\u043D\u044C \u0418\u0440\u0430\u043C\u043A\u0430\u043D\u0434\u0430" }] },
+    { code: "dragon_lair", title: "Логово дракона", defaultVisible: true, schedule: [{ timeStart: "13:20", timeEnd: "14:00" }, { timeStart: "18:20", timeEnd: "19:00" }, { timeStart: "21:20", timeEnd: "22:00" }], locations: ["Инстансы - Рейды"] },
+    { code: "gardum", title: "Гардум (Ущелье кровавой росы)", defaultVisible: true, schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }], locations: ["Инстансы - Рейды"], quests: [{ id: 7935, title: "Хранитель Звенящего ущелья" }] },
+    { code: "iramkand", title: "Последний день Ирамканда", schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }], locations: ["Инстансы - Рейды"], quests: [{ id: 9205, title: "Последний день Ирамканда" }] },
     /* Инстансы - Фракции */
-    { code: "daskshir", title: "\u0411\u0438\u0442\u0432\u0430 \u0437\u0430 \u0414\u0430\u0441\u043A\u0448\u0438\u0440", defaultVisible: true, schedule: [{ timeStart: "16:00", timeEnd: "17:00", weekdays: [2, 4, 6] }, { timeStart: "22:30", timeEnd: "23:59", weekdays: [2, 4, 6] }, { timeStart: "19:00", timeEnd: "20:00", weekdays: [1, 3, 5, 7] }], locations: ["\u0418\u043D\u0441\u0442\u0430\u043D\u0441\u044B - \u0424\u0440\u0430\u043A\u0446\u0438\u0438"] },
-    { code: "gorge_battle", title: "\u0411\u0438\u0442\u0432\u0430 \u0432 \u0423\u0449\u0435\u043B\u044C\u0435 \u043A\u0440\u043E\u0432\u0430\u0432\u043E\u0439 \u0440\u043E\u0441\u044B", schedule: [{ timeStart: "15:15", timeEnd: "16:00" }, { timeStart: "18:00", timeEnd: "19:00" }, { timeStart: "21:45", timeEnd: "22:30" }], locations: ["\u0418\u043D\u0441\u0442\u0430\u043D\u0441\u044B - \u0424\u0440\u0430\u043A\u0446\u0438\u0438"] },
-    { code: "enchanted_ponds", title: "\u0411\u0438\u0442\u0432\u0430 \u0437\u0430 \u0417\u0430\u0447\u0430\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0435 \u043F\u0440\u0443\u0434\u044B", defaultVisible: true, schedule: [{ timeStart: "14:30", timeEnd: "15:15" }, { timeStart: "17:00", timeEnd: "18:00" }, { timeStart: "21:00", timeEnd: "21:45" }], locations: ["\u0418\u043D\u0441\u0442\u0430\u043D\u0441\u044B - \u0424\u0440\u0430\u043A\u0446\u0438\u0438"] },
+    { code: "daskshir", title: "Битва за Даскшир", defaultVisible: true, schedule: [{ timeStart: "16:00", timeEnd: "17:00", weekdays: [2, 4, 6] }, { timeStart: "22:30", timeEnd: "23:59", weekdays: [2, 4, 6] }, { timeStart: "19:00", timeEnd: "20:00", weekdays: [1, 3, 5, 7] }], locations: ["Инстансы - Фракции"] },
+    { code: "gorge_battle", title: "Битва в Ущелье кровавой росы", schedule: [{ timeStart: "15:15", timeEnd: "16:00" }, { timeStart: "18:00", timeEnd: "19:00" }, { timeStart: "21:45", timeEnd: "22:30" }], locations: ["Инстансы - Фракции"] },
+    { code: "enchanted_ponds", title: "Битва за Зачарованные пруды", defaultVisible: true, schedule: [{ timeStart: "14:30", timeEnd: "15:15" }, { timeStart: "17:00", timeEnd: "18:00" }, { timeStart: "21:00", timeEnd: "21:45" }], locations: ["Инстансы - Фракции"] },
     /* Мировые боссы */
-    { code: "kraken", title: "\u041A\u0440\u0430\u043A\u0435\u043D", schedule: [{ timeStart: "19:30", weekdays: [1, 4, 6] }], locations: ["\u0411\u0435\u0437\u043C\u044F\u0442\u0435\u0436\u043D\u043E\u0435 \u043C\u043E\u0440\u0435"] },
-    { code: "kalidis", title: "\u041A\u0430\u043B\u0438\u0434\u0438\u0441", schedule: [{ timeStart: "20:30", weekdays: [1, 5, 6] }], locations: ["\u0422\u0443\u043C\u0430\u043D\u043D\u044B\u0439 \u043F\u0440\u043E\u043B\u0438\u0432"] },
-    { code: "leviathan", title: "\u041B\u0435\u0432\u0438\u0430\u0444\u0430\u043D", schedule: [{ timeStart: "20:30", weekdays: [2, 4, 7] }], locations: ["\u0411\u0435\u0437\u043C\u044F\u0442\u0435\u0436\u043D\u043E\u0435 \u043C\u043E\u0440\u0435"] },
-    { code: "dolphin", title: "\u041B\u0435\u0442\u0443\u0447\u0438\u0439 \u0434\u0435\u043B\u044C\u0444\u0438\u0435\u0446", schedule: [{ timeStart: "21:00", weekdays: [1, 3, 5, 7] }], locations: ["\u0417\u043E\u043B\u043E\u0442\u043E\u0435 \u043C\u043E\u0440\u0435"] },
-    { code: "ashyara_glenn_loreya", title: "\u0410\u0448\u044C\u044F\u0440\u0430/\u0413\u043B\u0435\u043D\u043D/\u041B\u043E\u0440\u0435\u044F", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }], locations: ["\u0411\u0435\u0437\u0434\u043D\u0430", "\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0435 \u043F\u043E\u043B\u044F"], quests: [{ id: 5971, title: "\u0427\u0435\u0448\u0443\u044F \u0410\u0448\u044C\u044F\u0440\u044B" }, { id: 5970, title: "\u041A\u043E\u043B\u044C\u0446\u043E \u043A\u0430\u043F\u0438\u0442\u0430\u043D\u0430 \u0413\u043B\u0435\u043D\u043D\u0430" }, { id: 5969, title: "\u041A\u043E\u043B\u044C\u0446\u043E \u041B\u043E\u0440\u0435\u0438" }] },
-    { code: "xanatos", title: "\u041A\u0441\u0430\u043D\u0430\u0442\u043E\u0441", schedule: [{ timeStart: "19:30", weekdays: [2, 5, 7] }], locations: ["\u041A\u043B\u0430\u0434\u0431\u0438\u0449\u0435 \u0434\u0440\u0430\u043A\u043E\u043D\u043E\u0432"] },
-    { code: "gardens_bosses", title: "\u042D\u043D\u0448\u0430\u043A\u0430/\u041B\u0435\u0440\u043D\u0435\u044F/\u0422\u0430\u0432\u0440\u043E\u0441/\u041C'\u0433\u0435\u0440", schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }], locations: ["\u0421\u0430\u0434\u044B \u043C\u0430\u0442\u0435\u0440\u0438"], quests: [{ id: 10056, title: "\u0421\u0430\u0434\u043E\u0432\u044B\u0435 \u0440\u0430\u0431\u043E\u0442\u044B" }] },
-    { code: "gardens_antallon", title: "\u0410\u043D\u0442\u0430\u043B\u043B\u043E\u043D \u0432 \u0441\u0430\u0434\u0430\u0445", schedule: [{ timeStart: "21:30", weekdays: [1, 5, 7] }], locations: ["\u0421\u0430\u0434\u044B \u043C\u0430\u0442\u0435\u0440\u0438"] },
-    { code: "altars", title: "\u0411\u0438\u0442\u0432\u0430 \u0437\u0430 \u0430\u043B\u0442\u0430\u0440\u0438", schedule: [{ timeStart: "16:00", timeEnd: "16:30", weekdays: [1, 3, 4, 5, 6] }, { timeStart: "20:00", timeEnd: "20:30", weekdays: [0, 2, 3, 4, 5] }], locations: ["\u041F\u0435\u043F\u0435\u043B\u044C\u043D\u044B\u0435 \u0440\u0430\u0432\u043D\u0438\u043D\u044B"] },
-    { code: "fesanix", title: "\u0424\u0435\u0441\u0430\u043D\u0438\u043A\u0441", schedule: [{ timeStart: "22:30", timeEnd: "23:30", weekdays: [2] }], locations: ["\u041F\u0435\u043F\u0435\u043B\u044C\u043D\u044B\u0435 \u0440\u0430\u0432\u043D\u0438\u043D\u044B"] }
+    { code: "kraken", title: "Кракен", schedule: [{ timeStart: "19:30", weekdays: [1, 4, 6] }], locations: ["Безмятежное море"] },
+    { code: "kalidis", title: "Калидис", schedule: [{ timeStart: "20:30", weekdays: [1, 5, 6] }], locations: ["Туманный пролив"] },
+    { code: "leviathan", title: "Левиафан", schedule: [{ timeStart: "20:30", weekdays: [2, 4, 7] }], locations: ["Безмятежное море"] },
+    { code: "dolphin", title: "Летучий дельфиец", schedule: [{ timeStart: "21:00", weekdays: [1, 3, 5, 7] }], locations: ["Золотое море"] },
+    { code: "ashyara_glenn_loreya", title: "Ашьяра/Гленн/Лорея", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }], locations: ["Бездна", "Солнечные поля"], quests: [{ id: 5971, title: "Чешуя Ашьяры" }, { id: 5970, title: "Кольцо капитана Гленна" }, { id: 5969, title: "Кольцо Лореи" }] },
+    { code: "xanatos", title: "Ксанатос", schedule: [{ timeStart: "19:30", weekdays: [2, 5, 7] }], locations: ["Кладбище драконов"] },
+    { code: "gardens_bosses", title: "Эншака/Лернея/Таврос/М'гер", schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }], locations: ["Сады матери"], quests: [{ id: 10056, title: "Садовые работы" }] },
+    { code: "gardens_antallon", title: "Анталлон в садах", schedule: [{ timeStart: "21:30", weekdays: [1, 5, 7] }], locations: ["Сады матери"] },
+    { code: "altars", title: "Битва за алтари", schedule: [{ timeStart: "16:00", timeEnd: "16:30", weekdays: [1, 3, 4, 5, 6] }, { timeStart: "20:00", timeEnd: "20:30", weekdays: [0, 2, 3, 4, 5] }], locations: ["Пепельные равнины"] },
+    { code: "fesanix", title: "Фесаникс", schedule: [{ timeStart: "22:30", timeEnd: "23:30", weekdays: [2] }], locations: ["Пепельные равнины"] }
   ];
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/serverClock/serverClock.scss
-  let serverClock_default = ".tm-server-clock {\n  position: fixed;\n  top: 50%;\n  right: 12px;\n  transform: translateY(-50%);\n  z-index: 9999;\n  padding: 6px 12px;\n  border-radius: 6px;\n  background: rgba(0, 0, 0, 0.7);\n  backdrop-filter: blur(4px);\n  font-size: 13px;\n  font-family: monospace;\n  color: rgba(255, 255, 255, 0.85);\n  max-width: 150px;\n  white-space: nowrap;\n  user-select: none;\n  line-height: 1.4;\n  text-decoration: none;\n  display: block;\n  cursor: pointer;\n}\n\n.tm-server-clock-event {\n  display: block;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  margin-top: 5px;\n}";
+  let serverClock_default = `.tm-server-clock {
+  position: fixed;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  z-index: 9999;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  font-size: 13px;
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 150px;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1.4;
+  text-decoration: none;
+  display: block;
+  cursor: pointer;
+}
+
+.tm-server-clock-event {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 5px;
+}`;
 
   // src/serverClock/serverClock.js
   let serverClockEl = null;
@@ -585,12 +629,12 @@
     const nextEv = getNextVisibleEventInfo();
     if (nextEv) {
       if (nextEv.secondsUntil < 0) {
-        eventLine = `<div class="tm-server-clock-event">${nextEv.title}</div><span style="color:#4f8">\u0435\u0449\u0451 ${formatCountdown(-nextEv.secondsUntil)}</span>`;
+        eventLine = `<div class="tm-server-clock-event">${nextEv.title}</div><span style="color:#4f8">ещё ${formatCountdown(-nextEv.secondsUntil)}</span>`;
       } else {
-        eventLine = `<div class="tm-server-clock-event">${nextEv.title}</div>\u0447\u0435\u0440\u0435\u0437 ${formatCountdown(nextEv.secondsUntil)}`;
+        eventLine = `<div class="tm-server-clock-event">${nextEv.title}</div>через ${formatCountdown(nextEv.secondsUntil)}`;
       }
     }
-    serverClockEl.innerHTML = `\u043C\u0441\u043A: ${mskTime}<br>\u0438\u0433\u0440\u043E\u0432\u043E\u0435: ${gameTime}${eventLine}`;
+    serverClockEl.innerHTML = `мск: ${mskTime}<br>игровое: ${gameTime}${eventLine}`;
   }, "updateServerClockContent");
   let initServerClock = /* @__PURE__ */ __name(async (openEventsPopup2, checkEventNotifications2) => {
     await syncServerTime();
@@ -607,35 +651,35 @@
 
   // src/data/servers.js
   let SERVERS = {
-    1: "\u041B\u0443\u0446\u0438\u0439",
-    2: "\u041A\u0438\u043F\u0440\u043E\u0437\u0430",
-    3: "\u041C\u0435\u043B\u0438\u0441\u0430\u0440\u0430",
-    24: "\u041D\u0435\u0432\u0435\u0440",
-    31: "\u0413\u0430\u0440\u0442\u0430\u0440\u0435\u0439\u043D",
-    32: "\u041B\u0435\u0432\u0438\u0430\u0444\u0430\u043D",
-    33: "\u0410\u0440\u0438\u044F",
-    34: "\u0418\u0448\u0442\u0430\u0440",
-    35: "\u0425\u0430\u0437\u0435",
-    42: "\u041A\u043E\u0440\u0432\u0443\u0441",
-    43: "\u041A\u0430\u0438\u043B\u044C",
-    44: "\u041D\u0443\u0438",
-    45: "\u0424\u0430\u043D\u0435\u043C",
-    46: "\u0428\u0430\u0435\u0434\u0430",
-    47: "\u0420\u0435\u043D\u0435\u0441\u0441\u0430\u043D\u0441",
-    48: "\u041A\u0440\u0430\u043A\u0435\u043D",
-    49: "\u0418\u0444\u043D\u0438\u0440",
-    51: "\u042D\u0440\u043D\u0430\u0440\u0434",
-    52: "\u041C\u043E\u0440\u0444\u0435\u043E\u0441",
-    53: "\u041C\u0430\u0440\u043B\u0438",
-    54: "\u0410\u0448\u044C\u044F\u0440\u0430",
-    55: "\u0413\u043B\u0435\u043D\u043D",
-    56: "\u041B\u043E\u0440\u0435\u044F",
-    61: "\u041A\u0441\u0430\u043D\u0430\u0442\u043E\u0441",
-    62: "\u0422\u0430\u0440\u043E\u043D",
-    63: "\u0420\u0435\u0439\u0432\u0435\u043D",
-    64: "\u041D\u0430\u0433\u0430\u0448\u0430\u0440",
-    65: "\u041C\u0438\u0440\u0430\u0436",
-    66: "\u0424\u0435\u0441\u0430\u043D\u0438\u043A\u0441"
+    1: "Луций",
+    2: "Кипроза",
+    3: "Мелисара",
+    24: "Невер",
+    31: "Гартарейн",
+    32: "Левиафан",
+    33: "Ария",
+    34: "Иштар",
+    35: "Хазе",
+    42: "Корвус",
+    43: "Каиль",
+    44: "Нуи",
+    45: "Фанем",
+    46: "Шаеда",
+    47: "Ренессанс",
+    48: "Кракен",
+    49: "Ифнир",
+    51: "Эрнард",
+    52: "Морфеос",
+    53: "Марли",
+    54: "Ашьяра",
+    55: "Гленн",
+    56: "Лорея",
+    61: "Ксанатос",
+    62: "Тарон",
+    63: "Рейвен",
+    64: "Нагашар",
+    65: "Мираж",
+    66: "Фесаникс"
   };
 
   // src/data/items.js
@@ -645,75 +689,75 @@
   let LS_KEY_ICON_SCALE_BROWSER_ZOOM = "tm_aa_icon_scale_browser_zoom";
   let GRADES = [
     /* 0  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade0.png`, title: "\u0411\u0435\u0441\u043F\u043E\u043B\u0435\u0437\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#949293" },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade0.png`, title: "Бесполезный предмет", color: "#949293" },
     /* 1  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade1.png`, title: "\u041E\u0431\u044B\u0447\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#ba976d", cartNamePatterns: [/^обычн(?:ый|ая|ое|ые)\s+/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade1.png`, title: "Обычный предмет", color: "#ba976d", cartNamePatterns: [/^обычн(?:ый|ая|ое|ые)\s+/] },
     /* 2  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade2.png`, title: "\u041D\u0435\u043E\u0431\u044B\u0447\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#77b064", cartNamePatterns: [/^необычн(?:ый|ая|ое|ые)\s+/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade2.png`, title: "Необычный предмет", color: "#77b064", cartNamePatterns: [/^необычн(?:ый|ая|ое|ые)\s+/] },
     /* 3  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade3.png`, title: "\u0420\u0435\u0434\u043A\u0438\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#558fd7", cartNamePatterns: [/^редк(?:ий|ая|ое|ие)\s+/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade3.png`, title: "Редкий предмет", color: "#558fd7", cartNamePatterns: [/^редк(?:ий|ая|ое|ие)\s+/] },
     /* 4  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade4.png`, title: "\u0423\u043D\u0438\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#cb72d8", cartNamePatterns: [/^уникальн(?:ый|ая|ое|ые)\s+/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade4.png`, title: "Уникальный предмет", color: "#cb72d8", cartNamePatterns: [/^уникальн(?:ый|ая|ое|ые)\s+/] },
     /* 5  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade5.png`, title: "\u042D\u043F\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#d78b06", cartNamePatterns: [/^эпическ(?:ий|ая|ое|ие)\s+/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade5.png`, title: "Эпический предмет", color: "#d78b06", cartNamePatterns: [/^эпическ(?:ий|ая|ое|ие)\s+/] },
     /* 6  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade6.png`, title: "\u041B\u0435\u0433\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#e17853", cartNamePatterns: [/^легендарн(?:ый|ая|ое|ые)\s+/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade6.png`, title: "Легендарный предмет", color: "#e17853", cartNamePatterns: [/^легендарн(?:ый|ая|ое|ые)\s+/] },
     /* 7  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade7.png`, title: "\u0420\u0435\u043B\u0438\u043A\u0432\u0438\u044F", color: "#f95252", cartNamePatterns: [/^реликвийн(?:ый|ая|ое|ые)\s+/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade7.png`, title: "Реликвия", color: "#f95252", cartNamePatterns: [/^реликвийн(?:ый|ая|ое|ые)\s+/] },
     /* 8  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade8.png`, title: "\u041F\u0440\u0435\u0434\u043C\u0435\u0442 \u044D\u043F\u043E\u0445\u0438 \u0447\u0443\u0434\u0435\u0441", color: "#cf7d5d", cartNamePatterns: [/\s+эпохи чудес$/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade8.png`, title: "Предмет эпохи чудес", color: "#cf7d5d", cartNamePatterns: [/\s+эпохи чудес$/] },
     /* 9  */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade9.png`, title: "\u041F\u0440\u0435\u0434\u043C\u0435\u0442 \u044D\u043F\u043E\u0445\u0438 \u0441\u043A\u0430\u0437\u0430\u043D\u0438\u0439", color: "#8fa5ca", cartNamePatterns: [/\s+эпохи сказаний$/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade9.png`, title: "Предмет эпохи сказаний", color: "#8fa5ca", cartNamePatterns: [/\s+эпохи сказаний$/] },
     /* 10 */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade10.png`, title: "\u041F\u0440\u0435\u0434\u043C\u0435\u0442 \u044D\u043F\u043E\u0445\u0438 \u043B\u0435\u0433\u0435\u043D\u0434", color: "#bf7900", cartNamePatterns: [/\s+эпохи легенд$/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade10.png`, title: "Предмет эпохи легенд", color: "#bf7900", cartNamePatterns: [/\s+эпохи легенд$/] },
     /* 11 */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade11.png`, title: "\u041F\u0440\u0435\u0434\u043C\u0435\u0442 \u044D\u043F\u043E\u0445\u0438 \u043C\u0438\u0444\u043E\u0432", color: "#c90b0b", cartNamePatterns: [/\s+эпохи мифов$/] },
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade11.png`, title: "Предмет эпохи мифов", color: "#c90b0b", cartNamePatterns: [/\s+эпохи мифов$/] },
     /* 12 */
-    { overlay: `${CODEX_IMAGES_BASE}icon_grade12.png`, title: "\u041F\u0440\u0435\u0434\u043C\u0435\u0442 \u044D\u043F\u043E\u0445\u0438 \u0414\u0432\u0435\u043D\u0430\u0434\u0446\u0430\u0442\u0438", color: "#ae98fe", cartNamePatterns: [/\s+эпохи двенадцати$/] }
+    { overlay: `${CODEX_IMAGES_BASE}icon_grade12.png`, title: "Предмет эпохи Двенадцати", color: "#ae98fe", cartNamePatterns: [/\s+эпохи двенадцати$/] }
   ];
   let ITEM_TYPES = {
-    "unidentified": { title: "\u041D\u0435\u043E\u043F\u043E\u0437\u043D\u0430\u043D\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442" },
-    "quest": { title: "\u0417\u0430\u0434\u0430\u043D\u0438\u0435" },
-    "magical": { title: "\u041C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442" },
-    "box": { title: "\u042F\u0449\u0438\u043A" },
-    "equipment": { title: "\u0421\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u0435" },
-    "material": { title: "\u041C\u0430\u0442\u0435\u0440\u0438\u0430\u043B" },
-    "potion": { title: "\u041C\u0438\u043A\u0441\u0442\u0443\u0440\u0430" },
-    "other": { title: "\u041F\u0440\u043E\u0447\u0435\u0435" },
-    "rareMaterial": { title: "\u0420\u0435\u0434\u043A\u0438\u0439 \u043C\u0430\u0442\u0435\u0440\u0438\u0430\u043B" },
-    "mount": { title: "\u0415\u0437\u0434\u043E\u0432\u043E\u0439 \u043F\u0438\u0442\u043E\u043C\u0435\u0446" },
-    "battlePet": { title: "\u0411\u043E\u0435\u0432\u043E\u0439 \u043F\u0438\u0442\u043E\u043C\u0435\u0446" },
-    "lightArmor": { title: "\u041B\u0435\u0433\u043A\u0438\u0439 \u0434\u043E\u0441\u043F\u0435\u0445" },
-    "furniture": { title: "\u041F\u0440\u0435\u0434\u043C\u0435\u0442 \u0438\u043D\u0442\u0435\u0440\u044C\u0435\u0440\u0430" },
-    "craftItem": { title: "\u0420\u0435\u043C\u0435\u0441\u043B\u0435\u043D\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442" }
+    "unidentified": { title: "Неопознанный предмет" },
+    "quest": { title: "Задание" },
+    "magical": { title: "Магический предмет" },
+    "box": { title: "Ящик" },
+    "equipment": { title: "Снаряжение" },
+    "material": { title: "Материал" },
+    "potion": { title: "Микстура" },
+    "other": { title: "Прочее" },
+    "rareMaterial": { title: "Редкий материал" },
+    "mount": { title: "Ездовой питомец" },
+    "battlePet": { title: "Боевой питомец" },
+    "lightArmor": { title: "Легкий доспех" },
+    "furniture": { title: "Предмет интерьера" },
+    "craftItem": { title: "Ремесленный предмет" }
   };
   let ITEM_SUB_TYPES = {
-    "ingot": { title: "\u0421\u043B\u0438\u0442\u043E\u043A \u043C\u0435\u0442\u0430\u043B\u043B\u0430" },
-    "leather": { title: "\u041A\u043E\u0436\u0430" },
-    "cloth": { title: "\u0422\u043A\u0430\u043D\u044C" },
-    "lumber": { title: "\u0414\u0440\u0435\u0432\u0435\u0441\u0438\u043D\u0430" },
-    "costume": { title: "\u041A\u043E\u0441\u0442\u044E\u043C" },
-    "cloak": { title: "\u041F\u043B\u0430\u0449" },
-    "windInstrument": { title: "\u0414\u0443\u0445\u043E\u0432\u043E\u0439 \u0438\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442" }
+    "ingot": { title: "Слиток металла" },
+    "leather": { title: "Кожа" },
+    "cloth": { title: "Ткань" },
+    "lumber": { title: "Древесина" },
+    "costume": { title: "Костюм" },
+    "cloak": { title: "Плащ" },
+    "windInstrument": { title: "Духовой инструмент" }
   };
   let EQUIPMENT_SUB_TYPES = {
-    "helmet": { title: "\u0428\u043B\u0435\u043C" },
-    "armor": { title: "\u041D\u0430\u0433\u0440\u0443\u0434\u043D\u0438\u043A" },
-    "belt": { title: "\u041F\u043E\u044F\u0441" },
-    "bracer": { title: "\u041D\u0430\u0440\u0443\u0447\u0438" },
-    "gloves": { title: "\u041F\u0435\u0440\u0447\u0430\u0442\u043A\u0438" },
-    "cloak": { title: "\u041F\u043B\u0430\u0449" },
-    "pants": { title: "\u041F\u043E\u043D\u043E\u0436\u0438" },
-    "boots": { title: "\u041E\u0431\u0443\u0432\u044C" },
-    "underwear": { title: "\u041D\u0438\u0436\u043D\u0435\u0435 \u0431\u0435\u043B\u044C\u0451" },
-    "necklace": { title: "\u041E\u0436\u0435\u0440\u0435\u043B\u044C\u0435" },
-    "earrings": { title: "\u0421\u0435\u0440\u044C\u0433\u0430" },
-    "ring": { title: "\u041A\u043E\u043B\u044C\u0446\u043E" },
-    "two_handed_weapon": { title: "\u0414\u0432\u0443\u0440\u0443\u0447\u043D\u043E\u0435 \u043E\u0440\u0443\u0436\u0438\u0435" },
-    "ranged weapon": { title: "\u041E\u0440\u0443\u0436\u0438\u0435 \u0434\u0430\u043B\u044C\u043D\u0435\u0433\u043E \u0431\u043E\u044F" },
-    "instrument": { title: "\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442" },
-    "weight": { title: "\u0413\u0440\u0443\u0437" },
-    "costume": { title: "\u041A\u043E\u0441\u0442\u044E\u043C" }
+    "helmet": { title: "Шлем" },
+    "armor": { title: "Нагрудник" },
+    "belt": { title: "Пояс" },
+    "bracer": { title: "Наручи" },
+    "gloves": { title: "Перчатки" },
+    "cloak": { title: "Плащ" },
+    "pants": { title: "Поножи" },
+    "boots": { title: "Обувь" },
+    "underwear": { title: "Нижнее бельё" },
+    "necklace": { title: "Ожерелье" },
+    "earrings": { title: "Серьга" },
+    "ring": { title: "Кольцо" },
+    "two_handed_weapon": { title: "Двуручное оружие" },
+    "ranged weapon": { title: "Оружие дальнего боя" },
+    "instrument": { title: "Инструмент" },
+    "weight": { title: "Груз" },
+    "costume": { title: "Костюм" }
   };
   let ICON_OVERLAY = {
     "unconfirmed": { icon: "https://archeagecodex.com/items/top_unconfirmed.png" },
@@ -736,10 +780,10 @@
     const minutes = Math.floor(totalSeconds % 3600 / 60);
     const seconds = totalSeconds % 60;
     const parts = [];
-    if (hours) parts.push(`${hours} \u0447.`);
-    if (minutes) parts.push(`${minutes} \u043C.`);
-    if (seconds) parts.push(`${seconds} \u0441.`);
-    return parts.join(" ") || "0 \u0441.";
+    if (hours) parts.push(`${hours} ч.`);
+    if (minutes) parts.push(`${minutes} м.`);
+    if (seconds) parts.push(`${seconds} с.`);
+    return parts.join(" ") || "0 с.";
   }, "formatDurationValue");
   let ITEM_PLACEHOLDER_FORMATTERS = {
     buffDuration: /* @__PURE__ */ __name((value) => formatDurationValue(value), "buffDuration")
@@ -795,8 +839,8 @@
   let CODEX_ITEM_URL = "https://archeagecodex.com/ru/item/";
   let GMRU_CDN_ICONS = "https://aa.cdn.gmru.net/ms/data/game-icons/";
   let ICON_SEX_VALUES = {
-    m: { title: "\u041C\u0443\u0436\u0441\u043A\u043E\u0439", field: "iconM" },
-    f: { title: "\u0416\u0435\u043D\u0441\u043A\u0438\u0439", field: "iconF" }
+    m: { title: "Мужской", field: "iconM" },
+    f: { title: "Женский", field: "iconF" }
   };
   let loadIconSex = /* @__PURE__ */ __name(() => {
     try {
@@ -859,202 +903,477 @@
   }, "getItemIconUrlFromParts");
   let getItemIconUrl = /* @__PURE__ */ __name((item) => getItemIconUrlFromParts(item?.icon || "", item?.iconM || "", item?.iconF || ""), "getItemIconUrl");
   let ITEMS = Object.fromEntries([
-    { id: 8256, type: "material", subType: "cloth", icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "\u0422\u043A\u0430\u043D\u044C" },
+    { id: 8256, type: "material", subType: "cloth", icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Ткань" },
     // icon_item_0356.png
-    { id: 8318, type: "material", subType: "ingot", icon: `${GMRU_CDN_ICONS}9d60cae3016a14b2cfc17a90de8e5f5b.png`, grade: 1, name: "\u0421\u043B\u0438\u0442\u043E\u043A \u0436\u0435\u043B\u0435\u0437\u0430" },
+    { id: 8318, type: "material", subType: "ingot", icon: `${GMRU_CDN_ICONS}9d60cae3016a14b2cfc17a90de8e5f5b.png`, grade: 1, name: "Слиток железа" },
     // icon_item_quest053.png
-    { id: 8337, type: "material", subType: "lumber", icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, name: "\u0423\u043F\u0430\u043A\u043E\u0432\u043A\u0430 \u0441\u0442\u0440\u043E\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0439 \u0434\u0440\u0435\u0432\u0435\u0441\u0438\u043D\u044B", vekselName: "\u0421\u0442\u0440\u043E\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F \u0434\u0440\u0435\u0432\u0435\u0441\u0438\u043D\u0430" },
+    { id: 8337, type: "material", subType: "lumber", icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, name: "Упаковка строительной древесины", vekselName: "Строительная древесина" },
     // icon_item_0041.png
-    { id: 16327, type: "material", subType: "leather", icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, name: "\u0421\u044B\u0440\u043E\u043C\u044F\u0442\u043D\u0430\u044F \u043A\u043E\u0436\u0430" },
+    { id: 16327, type: "material", subType: "leather", icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, name: "Сыромятная кожа" },
     // icon_item_0352.png
-    { id: 35461, type: "unidentified", overlay: "unconfirmed", vekselType: "sack", icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, name: "\u041F\u043E\u043B\u043D\u043E\u0432\u0435\u0441\u043D\u044B\u0439 \u043C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u0441\u0435\u0440\u0435\u0431\u0440\u043E\u043C" },
+    { id: 35461, type: "unidentified", overlay: "unconfirmed", vekselType: "sack", icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, name: "Полновесный мешочек с серебром" },
     // icon_item_1839.png
-    { id: 40928, type: "unidentified", overlay: "unconfirmed", vekselType: "sack", icon: `${GMRU_CDN_ICONS}d9df620283926e6f4a9ab47ebacf499c.png`, grade: 1, name: "\u0420\u0430\u0441\u0448\u0438\u0442\u044B\u0439 \u0436\u0435\u043C\u0447\u0443\u0433\u043E\u043C \u043A\u043E\u0448\u0435\u043B\u0451\u043A" },
+    { id: 40928, type: "unidentified", overlay: "unconfirmed", vekselType: "sack", icon: `${GMRU_CDN_ICONS}d9df620283926e6f4a9ab47ebacf499c.png`, grade: 1, name: "Расшитый жемчугом кошелёк" },
     // icon_item_3101.png
-    { id: 42076, type: "unidentified", overlay: "unconfirmed", vekselType: "archive", icon: `${GMRU_CDN_ICONS}66ed119fca00abf78ddf2602ed55e659.png`, grade: 1, name: "\u0420\u0435\u0437\u043D\u043E\u0439 \u0441\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439" },
+    { id: 42076, type: "unidentified", overlay: "unconfirmed", vekselType: "archive", icon: `${GMRU_CDN_ICONS}66ed119fca00abf78ddf2602ed55e659.png`, grade: 1, name: "Резной сундучок со всякой всячиной" },
     // icon_item_3619.png
-    { id: 42077, type: "unidentified", overlay: "unconfirmed", vekselType: "archive", icon: `${GMRU_CDN_ICONS}1ddc9b8c6e0d41d83f2d3f9536eb29a4.png`, grade: 1, name: "\u0424\u0435\u0440\u043C\u0435\u0440\u0441\u043A\u0438\u0439 \u0441\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439" },
+    { id: 42077, type: "unidentified", overlay: "unconfirmed", vekselType: "archive", icon: `${GMRU_CDN_ICONS}1ddc9b8c6e0d41d83f2d3f9536eb29a4.png`, grade: 1, name: "Фермерский сундучок со всякой всячиной" },
     // icon_item_3620.png
-    { id: 43176, type: "unidentified", overlay: "unconfirmed", vekselType: "sack", icon: `${GMRU_CDN_ICONS}b41e79b64ae0b578499ac6301325f631.png`, grade: 1, name: "\u041A\u043E\u0442\u043E\u043C\u043A\u0430 \u044D\u0444\u0435\u043D\u0441\u043A\u043E\u0433\u043E \u0441\u0442\u0440\u0430\u043D\u043D\u0438\u043A\u0430" },
+    { id: 43176, type: "unidentified", overlay: "unconfirmed", vekselType: "sack", icon: `${GMRU_CDN_ICONS}b41e79b64ae0b578499ac6301325f631.png`, grade: 1, name: "Котомка эфенского странника" },
     // icon_item_3906.png
-    { id: 43177, type: "unidentified", overlay: "unconfirmed", vekselType: "archive", icon: `${GMRU_CDN_ICONS}f2d17e3b4d030e91c38e68cd60c0ee69.png`, grade: 1, name: "\u042D\u0444\u0435\u043D\u0441\u043A\u0438\u0439 \u0441\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439" },
+    { id: 43177, type: "unidentified", overlay: "unconfirmed", vekselType: "archive", icon: `${GMRU_CDN_ICONS}f2d17e3b4d030e91c38e68cd60c0ee69.png`, grade: 1, name: "Эфенский сундучок со всякой всячиной" },
     // icon_item_3907.png
-    { id: 8000749, type: "quest", overlay: "quest_y", icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 3, name: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u043D\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E: \u0411\u0430\u0440\u0440\u0430\u0433\u0430 \u0411\u0435\u0437\u0443\u043C\u043D\u044B\u0439", description: "\u041F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0437\u0430\u0434\u0430\u043D\u0438\u0435." },
+    { id: 8000749, type: "quest", overlay: "quest_y", icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 3, name: "Лицензия на убийство: Баррага Безумный", description: "Позволяет получить задание." },
     // icon_item_2762.png
-    { id: 8000751, type: "quest", overlay: "quest_y", icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 5, name: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u043D\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E: \u0438\u0444\u0435\u0440\u0438\u0439\u0446\u044B", description: "\u041F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0437\u0430\u0434\u0430\u043D\u0438\u0435." },
-    { id: 8000752, type: "quest", overlay: "quest_y", icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, name: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u043D\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E: \u0418\u0448\u0442\u0430\u0440" },
-    { id: 8000753, type: "quest", overlay: "quest_y", icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, name: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u043D\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E: \u043F\u043E\u0432\u0435\u043B\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u0434\u0437\u0435\u043C\u0435\u043B\u044C\u044F" },
-    { id: 48894, type: "magical", icon: "https://archeagecodex.com/items/icon_item_4820.png", grade: 10, name: "\u0414\u0440\u0430\u0433\u043E\u0446\u0435\u043D\u043D\u0430\u044F \u044D\u0444\u0435\u043D\u0441\u043A\u0430\u044F \u0441\u0444\u0435\u0440\u0430 \u0431\u0440\u043E\u043D\u043D\u0438\u043A\u0430", description: "\u041F\u0440\u0435\u0434\u043E\u0442\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u043E\u043D\u0438\u0436\u0435\u043D\u0438\u0435 \u0443\u0440\u043E\u0432\u043D\u044F \u044D\u0444\u0444\u0435\u043A\u0442\u0430 \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0445 \u043A\u0443\u0431\u043E\u0432, \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u044E\u0449\u0435\u0433\u043E \u043D\u0430 \u043F\u0440\u0435\u0434\u043C\u0435\u0442. \u041F\u043E\u0432\u044B\u0448\u0430\u0435\u0442 \u0432\u0435\u0440\u043E\u044F\u0442\u043D\u043E\u0441\u0442\u044C \u0443\u0441\u043F\u0435\u0445\u0430 \u043F\u0440\u0438 \u043F\u043E\u043F\u044B\u0442\u043A\u0435 \u0443\u043B\u0443\u0447\u0448\u0438\u0442\u044C \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u0435 \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0445 \u043A\u0443\u0431\u043E\u0432 \u0432 |nc;2|r \u0440\u0430\u0437\u0430.\n\n\u041C\u043E\u0436\u043D\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u0438 \u0443\u0440\u043E\u0432\u043D\u0435 \u0443\u0441\u0438\u043B\u0435\u043D\u0438\u044F |nc;18 \u0438 \u0432\u044B\u0448\u0435|r." },
-    { id: 54915, type: "magical", icon: "https://archeagecodex.com/items/icon_item_1695.png", grade: 1, name: "\u0421\u0432\u0438\u0442\u043E\u043A \u0447\u0430\u0440 \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F" },
-    { id: 45508, icon: "https://archeagecodex.com/items/icon_item_4212.png", grade: 2, name: "\u0421\u0444\u0435\u0440\u0430 \u0430\u043D\u0438\u043C\u0430\u0433\u0430" },
-    { id: 8001565, icon: "https://archeagecodex.com/items/icon_item_3628.png", grade: 1, name: "\u041D\u043E\u0432\u0435\u043D\u044C\u043A\u0430\u044F \u043A\u0438\u0440\u043A\u0430" },
-    { id: 8002452, overlay: "unconfirmed", icon: "https://archeagecodex.com/items/icon_item_3349.png", grade: 1, name: "\u0423\u043D\u0438\u0432\u0435\u0440\u0441\u0430\u043B\u044C\u043D\u044B\u0439 \u0430\u043B\u0445\u0438\u043C\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u043A\u0440\u0438\u0441\u0442\u0430\u043B\u043B" },
-    { id: 8002449, icon: "https://archeagecodex.com/items/charge_wider.png", grade: 1, name: "\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F \u0441\u0443\u043C\u043A\u0430" },
-    { id: 47943, type: "potion", icon: "https://archeagecodex.com/items/icon_item_4710.png", grade: 1, name: "\u041D\u0430\u0441\u0442\u043E\u0439\u043A\u0430 \u0443\u0441\u0435\u0440\u0434\u043D\u043E\u0433\u043E \u0440\u0435\u043C\u0435\u0441\u043B\u0435\u043D\u043D\u0438\u043A\u0430" },
-    { id: 39424, type: "magical", icon: "https://archeagecodex.com/items/icon_item_3017.png", grade: 1, name: "\u0418\u0440\u0430\u043C\u0438\u0439\u0441\u043A\u0430\u044F \u0433\u0430\u0434\u0430\u043B\u044C\u043D\u0430\u044F \u0440\u0443\u043D\u0430", description: "\u041F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u0437\u0430\u043C\u0435\u043D\u0438\u0442\u044C \u043E\u0434\u0438\u043D \u0438\u0437 |nc;\u044D\u0444\u0444\u0435\u043A\u0442\u043E\u0432 \u0441\u0438\u043D\u0442\u0435\u0437\u0430 \u043A\u043E\u0441\u0442\u044E\u043C\u0430, \u044D\u0444\u0435\u043D\u0441\u043A\u043E\u0433\u043E \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u044F, \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u043E\u0433\u043E \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u044F \u0438\u043B\u0438 \u0442\u0440\u043E\u0444\u0435\u0439\u043D\u043E\u0433\u043E \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u044F \u043C\u0438\u0444\u0438\u0447\u0435\u0441\u043A\u0438\u0445 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u043E\u0432|r \u0434\u0440\u0443\u0433\u0438\u043C, \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u043C \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u043C \u043E\u0431\u0440\u0430\u0437\u043E\u043C.", useDescription: "\u0420\u0430\u0441\u043F\u0430\u043A\u043E\u0432\u0430\u0442\u044C.\n\u0423\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u044F Shift, \u0449\u0435\u043B\u043A\u043D\u0438\u0442\u0435 \u043B\u0435\u0432\u043E\u0439 \u043A\u043D\u043E\u043F\u043A\u043E\u0439 \u043C\u044B\u0448\u0438, \u0447\u0442\u043E\u0431\u044B \u0440\u0430\u0441\u043F\u0430\u043A\u043E\u0432\u0430\u0442\u044C \u0432\u0441\u0435 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u044B \u044D\u0442\u043E\u0433\u043E \u0442\u0438\u043F\u0430, \u043D\u0430\u0445\u043E\u0434\u044F\u0449\u0438\u0435\u0441\u044F \u0432 \u0440\u044E\u043A\u0437\u0430\u043A\u0435." },
-    { id: 46180, icon: "https://archeagecodex.com/items/icon_item_1395.png", grade: 3, name: "\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0439 \u043D\u0430\u0441\u0442\u043E\u0439" },
-    { id: 47130, type: "unidentified", overlay: "unconfirmed", icon: "https://archeagecodex.com/items/icon_item_2679.png", grade: 6, name: "\u0425\u0440\u0443\u0441\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0440\u0443\u043D\u0430", description: "|nd;\u041C\u043E\u0436\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u043E\u0434\u043D\u0443 \u0438\u0437 \u0445\u0440\u0443\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445 \u0440\u0443\u043D \u043D\u0430 \u0432\u044B\u0431\u043E\u0440:|r\n- \u0445\u0440\u0443\u0441\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0440\u0443\u043D\u0430 \u0431\u0430\u0433\u0440\u043E\u0432\u043E\u0439 \u043B\u0443\u043D\u044B,\n- \u0445\u0440\u0443\u0441\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0440\u0443\u043D\u0430 \u043E\u0441\u0435\u043D\u043D\u0435\u0439 \u043B\u0443\u043D\u044B,\n- \u0445\u0440\u0443\u0441\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0440\u0443\u043D\u0430 \u043C\u043E\u043B\u043E\u0434\u043E\u0439 \u043B\u0443\u043D\u044B,\n- \u0445\u0440\u0443\u0441\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0440\u0443\u043D\u0430 \u0431\u0435\u0437\u043C\u043E\u043B\u0432\u043D\u043E\u0439 \u043B\u0443\u043D\u044B,\n- \u0445\u0440\u0443\u0441\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0440\u0443\u043D\u0430 \u043A\u043E\u043B\u0434\u043E\u0432\u0441\u043A\u043E\u0439 \u043B\u0443\u043D\u044B." },
-    { id: 47104, icon: "https://archeagecodex.com/items/icon_item_4570.png", grade: 2, name: "\u041F\u0430\u0440\u043D\u0438\u043A\u043E\u0432\u044B\u0439 \u043A\u0443\u043F\u043E\u043B" },
-    { id: 48903, type: "box", icon: "https://archeagecodex.com/items/icon_item_3282.png", grade: 1, name: "\u041D\u0430\u0431\u043E\u0440 \u0441\u0432\u0435\u0440\u043A\u0430\u044E\u0449\u0438\u0445 \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0445 \u0441\u0444\u0435\u0440" },
-    { id: 48474, type: "box", icon: "https://archeagecodex.com/items/icon_item_3275.png", grade: 11, name: "\u0411\u043E\u043B\u044C\u0448\u043E\u0439 \u043D\u0430\u0431\u043E\u0440 \u043C\u0438\u0444\u0438\u0447\u0435\u0441\u043A\u0438\u0445 \u044D\u0441\u0441\u0435\u043D\u0446\u0438\u0439" },
-    { id: 8002297, type: "unidentified", overlay: "seal", icon: "https://archeagecodex.com/items/icon_item_2267.png", grade: 3, name: "\u041A\u043E\u0440\u043E\u043B\u0435\u0432\u0441\u043A\u0438\u0439 \u043B\u0443\u043D\u043D\u044B\u0439 \u0438\u0437\u0443\u043C\u0440\u0443\u0434" },
-    { id: 35727, icon: "https://archeagecodex.com/items/icon_item_1982.png", grade: 2, name: "\u0411\u0443\u0440\u043E\u0432\u0430\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0430" },
-    { id: 47082, icon: "https://archeagecodex.com/items/icon_item_3369.png", grade: 1, name: "\u041F\u0430\u0442\u0435\u043D\u0442 \u043D\u0430 \u0442\u0440\u0430\u043D\u0441\u043F\u043E\u0440\u0442\u043D\u043E\u0435 \u0441\u0440\u0435\u0434\u0441\u0442\u0432\u043E" },
-    { id: 31892, icon: "https://archeagecodex.com/items/icon_item_1733.png", grade: 1, name: "\u0417\u0435\u043C\u0435\u043B\u044C\u043D\u044B\u0439 \u0432\u0435\u043A\u0441\u0435\u043B\u044C" },
-    { id: 55722, icon: "https://archeagecodex.com/items/icon_item_5864.png", grade: 4, name: "\u0418\u0441\u043A\u0443\u0441\u043D\u0430\u044F \u0446\u0438\u0442\u0440\u0438\u043D\u043E\u0432\u0430\u044F \u0433\u0440\u0430\u0432\u0438\u0440\u043E\u0432\u043A\u0430" },
-    { id: 48886, icon: "https://archeagecodex.com/items/icon_item_4818.png", grade: 8, name: "\u0421\u0432\u0435\u0440\u043A\u0430\u044E\u0449\u0430\u044F \u044D\u0444\u0435\u043D\u0441\u043A\u0430\u044F \u0441\u0444\u0435\u0440\u0430 \u0431\u0440\u043E\u043D\u043D\u0438\u043A\u0430", description: "\u041F\u0440\u0435\u0434\u043E\u0442\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u043E\u043D\u0438\u0436\u0435\u043D\u0438\u0435 \u0443\u0440\u043E\u0432\u043D\u044F \u044D\u0444\u0444\u0435\u043A\u0442\u0430 \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0445 \u043A\u0443\u0431\u043E\u0432, \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u044E\u0449\u0435\u0433\u043E \u043D\u0430 \u043F\u0440\u0435\u0434\u043C\u0435\u0442.\n\n\u041C\u043E\u0436\u043D\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u0438 \u0443\u0440\u043E\u0432\u043D\u0435 \u0443\u0441\u0438\u043B\u0435\u043D\u0438\u044F |nc;18 \u0438 \u0432\u044B\u0448\u0435|r." },
-    { id: 55723, icon: "https://archeagecodex.com/items/icon_item_5865.png", grade: 4, name: "\u0418\u0441\u043A\u0443\u0441\u043D\u0430\u044F \u0430\u043A\u0432\u0430\u043C\u0430\u0440\u0438\u043D\u043E\u0432\u0430\u044F \u0433\u0440\u0430\u0432\u0438\u0440\u043E\u0432\u043A\u0430" },
-    { id: 45747, type: "potion", icon: "https://archeagecodex.com/items/icon_item_4385.png", grade: 5, name: "\u0414\u0440\u0430\u0433\u043E\u0446\u0435\u043D\u043D\u044B\u0439 \u0444\u043B\u0430\u043A\u043E\u043D \u0441 \u0437\u0435\u043B\u044C\u0435\u043C \u043E\u0445\u043E\u0442\u043D\u0438\u043A\u0430" },
-    { id: 49270, type: "box", icon: "https://archeagecodex.com/items/icon_item_2273.png", grade: 5, name: "\u041D\u0430\u0431\u043E\u0440 \u0431\u043E\u043B\u044C\u0448\u0438\u0445 \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0445 \u043A\u0443\u0431\u043E\u0432" },
-    { id: 45160, type: "potion", icon: "https://archeagecodex.com/items/icon_item_2376.png", grade: 4, name: "\u041D\u0430\u0441\u0442\u043E\u0439\u043A\u0430 \u0441\u043F\u043E\u0440\u044B\u043D\u044C\u0438" },
-    { id: 46623, type: "potion", icon: "https://archeagecodex.com/items/icon_item_0986.png", grade: 4, name: "\u041D\u0430\u0441\u0442\u043E\u0439\u043A\u0430 \u043E\u0441\u0442\u0440\u043E\u043B\u0438\u0441\u0442\u0430", buff: { duration: 1800 } },
-    { id: 8001268, type: "magical", icon: "https://archeagecodex.com/items/icon_item_1986.png", grade: 1, name: "\u0421\u0432\u0438\u0442\u043E\u043A \u0434\u0435\u043B\u044C\u0444\u0438\u0439\u0441\u043A\u043E\u0439 \u0431\u0438\u0431\u043B\u0438\u043E\u0442\u0435\u043A\u0438", buff: { duration: 3600 } },
-    { id: 8001169, type: "magical", icon: "https://archeagecodex.com/items/icon_item_1986.png", grade: 1, name: "\u0421\u0432\u0438\u0442\u043E\u043A \u043E\u043F\u044B\u0442\u0430 V", buff: { duration: 3600 }, isPersonal: true },
-    { id: 8001172, type: "magical", icon: "https://archeagecodex.com/items/icon_item_1986.png", grade: 1, name: "\u0421\u0432\u0438\u0442\u043E\u043A \u043E\u043F\u044B\u0442\u0430 VIII", buff: { duration: 3600 }, isPersonal: true },
-    { id: 46181, icon: "https://archeagecodex.com/items/icon_item_1396.png", grade: 3, name: "\u041B\u0443\u043D\u043D\u044B\u0439 \u043D\u0430\u0441\u0442\u043E\u0439" },
-    { id: 48546, icon: "https://archeagecodex.com/items/icon_item_3595.png", grade: 1, name: "\u041F\u0438\u0441\u044C\u043C\u0435\u043D\u0430 \u0432\u043E\u0439\u043D\u044B" },
-    { id: 47655, icon: "https://archeagecodex.com/items/icon_item_4709.png", grade: 4, name: "\u0424\u0438\u043E\u043D\u0430 \u0420\u043E\u0437\u043E\u0432\u044B\u0439 \u041B\u0435\u043F\u0435\u0441\u0442\u043E\u043A" },
-    { id: 47581, icon: "https://archeagecodex.com/items/icon_item_4211.png", grade: 3, name: "\u041B\u0438\u043B\u043E\u0432\u043E\u0435 \u044D\u043C\u0430\u043B\u0435\u0432\u043E\u0435 \u0441\u0442\u0435\u043A\u043B\u043E" },
-    { id: 47479, icon: "https://archeagecodex.com/items/icon_item_3519.png", grade: 1, name: "\u0418\u043D\u043A\u0440\u0443\u0441\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0444\u043B\u0430\u043A\u043E\u043D \u0441 \u0446\u0435\u043B\u0435\u0431\u043D\u044B\u043C \u044D\u043B\u0438\u043A\u0441\u0438\u0440\u043E\u043C" },
-    { id: 47480, icon: "https://archeagecodex.com/items/icon_item_3520.png", grade: 1, name: "\u0418\u043D\u043A\u0440\u0443\u0441\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0444\u043B\u0430\u043A\u043E\u043D \u0441 \u044D\u043B\u0438\u043A\u0441\u0438\u0440\u043E\u043C \u043C\u0430\u043D\u044B" },
-    { id: 8002996, icon: "https://archeagecodex.com/items/icon_item_6002.png", grade: 1, name: "\u041E\u0441\u043A\u043E\u043B\u043E\u043A \u043F\u0440\u0435\u0434\u0435\u043B\u0430", description: "\u042D\u0442\u043E\u0442 \u043E\u0441\u043A\u043E\u043B\u043E\u043A \u2013 \u0444\u0440\u0430\u0433\u043C\u0435\u043D\u0442 \u043E\u0442\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0431\u043E\u0436\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0445 \u0441\u0438\u043B \u0432 \u043C\u0430\u0442\u0435\u0440\u0438\u0430\u043B\u044C\u043D\u043E\u043C \u043C\u0438\u0440\u0435. \u041D\u0430 |ni;\u0441\u0442\u0430\u043D\u043A\u0435 \u0434\u043B\u044F \u0430\u043A\u0445\u0438\u0443\u043C\u0430|r \u0438\u0437 \u0442\u0430\u043A\u0438\u0445 \u0447\u0430\u0441\u0442\u0438\u0446 \u043C\u043E\u0436\u043D\u043E \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u043D\u0443\u043C\u0435\u043D\u044B.", price: 100 },
-    { id: 8003072, icon: "https://archeagecodex.com/items/icon_item_6002.png", grade: 1, name: "\u041E\u0441\u043A\u043E\u043B\u043E\u043A \u043F\u0440\u0435\u0434\u0435\u043B\u0430" },
-    { id: 8001288, icon: "https://archeagecodex.com/items/icon_item_0966.png", grade: 1, name: "\u0426\u0438\u0442\u0440\u0443\u0441\u043E\u0432\u0430\u044F \u043A\u0430\u0440\u0430\u043C\u0435\u043B\u044C\u043A\u0430", buff: { duration: 3600 } },
-    { id: 8002649, type: "box", icon: "https://archeagecodex.com/items/icon_item_3259.png", grade: 4, name: "\u041D\u0430\u0431\u043E\u0440 \u043D\u0435\u0432\u0435\u0440\u0438\u043D\u0441\u043A\u0438\u0445 \u0444\u0435\u0439\u0435\u0440\u0432\u0435\u0440\u043A\u043E\u0432" },
-    { id: 8000540, icon: "https://archeagecodex.com/items/icon_item_3207.png", grade: 1, name: "\u041F\u0443\u0448\u0438\u0441\u0442\u0430\u044F \u043D\u0435\u0432\u0435\u0440\u0438\u043D\u0441\u043A\u0430\u044F \u0435\u043B\u043E\u0447\u043A\u0430" },
-    { id: 49769, icon: "https://archeagecodex.com/items/icon_item_4950.png", grade: 6, name: "\u0417\u0430\u0447\u0430\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0441\u0432\u0438\u0442\u043E\u043A \u043F\u0440\u043E\u0431\u0443\u0436\u0434\u0435\u043D\u0438\u044F \u0445\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u044F \u0437\u043D\u0430\u043D\u0438\u0439" },
-    { id: 54653, type: "box", icon: "https://archeagecodex.com/items/icon_item_5043.png", grade: 12, name: "\u0421\u0443\u043D\u0434\u0443\u043A \u0441 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044B\u043C \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u0438\u043C \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u0435\u043C" },
-    { id: 53515, type: "magical", icon: "https://archeagecodex.com/items/icon_item_5266.png", grade: 2, isPersonal: true, price: 0, reqLevel: 1, name: "\u0417\u0430\u0433\u043E\u0432\u043E\u0440\u0435\u043D\u043D\u0430\u044F \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u0430\u044F \u0440\u0443\u043D\u0430", description: "\u041F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u0437\u0430\u043C\u0435\u043D\u0438\u0442\u044C \u043E\u0434\u0438\u043D \u0438\u0437 \u044D\u0444\u0444\u0435\u043A\u0442\u043E\u0432 \u0441\u0438\u043D\u0442\u0435\u0437\u0430 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u0430 \u0434\u0440\u0443\u0433\u0438\u043C, \u0432\u044B\u0431\u0440\u0430\u0432 \u043D\u0443\u0436\u043D\u044B\u0439 \u044D\u0444\u0444\u0435\u043A\u0442.\n\n|ni;\u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u0434\u043B\u044F \u043F\u0440\u043E\u043A\u043B\u044F\u0442\u043E\u0433\u043E, \u0438\u0437\u043D\u0430\u0447\u0430\u043B\u044C\u043D\u043E\u0433\u043E, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u043E\u0433\u043E \u0438 \u0441\u043E\u0432\u0435\u0440\u0448\u0435\u043D\u043D\u043E\u0433\u043E \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u043E\u0433\u043E \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u044F.|r", useDescription: "\u041F\u0440\u0438\u0441\u0442\u0443\u043F\u0438\u0442\u044C \u043A \u0437\u0430\u043C\u0435\u043D\u0435 \u044D\u0444\u0444\u0435\u043A\u0442\u0430.\n\u0420\u0430\u0441\u0445\u043E\u0434 \u043E\u0447\u043A\u043E\u0432 \u0440\u0430\u0431\u043E\u0442\u044B: |nc;50|r." },
-    { id: 52207, icon: "https://archeagecodex.com/items/icon_item_3022.png", grade: 1, name: "\u041C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u043C\u0438\u043A\u0441\u0442\u0443\u0440\u0430\u043C\u0438", description: "\u0421\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435:\n- \u0438\u043D\u043A\u0440\u0443\u0441\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0444\u043B\u0430\u043A\u043E\u043D \u0441 \u044D\u043B\u0438\u043A\u0441\u0438\u0440\u043E\u043C \u043C\u0430\u043D\u044B (300 \u0448\u0442.),\n- \u0438\u043D\u043A\u0440\u0443\u0441\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0444\u043B\u0430\u043A\u043E\u043D \u0441 \u0446\u0435\u043B\u0435\u0431\u043D\u044B\u043C \u044D\u043B\u0438\u043A\u0441\u0438\u0440\u043E\u043C (300 \u0448\u0442.),\n- \u0441\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0439 \u043D\u0430\u0441\u0442\u043E\u0439 (30 \u0448\u0442.),\n- \u043B\u0443\u043D\u043D\u044B\u0439 \u043D\u0430\u0441\u0442\u043E\u0439 (30 \u0448\u0442.)" },
-    { id: 51239, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 11, name: "\u0421\u0443\u043D\u0434\u0443\u043A \u0441 \u0438\u0437\u043D\u0430\u0447\u0430\u043B\u044C\u043D\u044B\u043C \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u0438\u043C \u043E\u0440\u0443\u0436\u0438\u0435\u043C \u044D\u043F\u043E\u0445\u0438 \u043C\u0438\u0444\u043E\u0432" },
-    { id: 51240, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 12, name: "\u0421\u0443\u043D\u0434\u0443\u043A \u0441 \u0438\u0437\u043D\u0430\u0447\u0430\u043B\u044C\u043D\u044B\u043C \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u0438\u043C \u043E\u0440\u0443\u0436\u0438\u0435\u043C \u044D\u043F\u043E\u0445\u0438 \u0414\u0432\u0435\u043D\u0430\u0434\u0446\u0430\u0442\u0438" },
-    { id: 54654, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 12, name: "\u0421\u0443\u043D\u0434\u0443\u043A \u0441 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044B\u043C \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u0438\u043C \u043E\u0440\u0443\u0436\u0438\u0435\u043C \u044D\u043F\u043E\u0445\u0438 \u0414\u0432\u0435\u043D\u0430\u0434\u0446\u0430\u0442\u0438" },
-    { id: 54655, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 11, name: "\u0421\u0443\u043D\u0434\u0443\u043A \u0441 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043D\u044B\u043C\u0438 \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u0438\u043C\u0438 \u0434\u043E\u0441\u043F\u0435\u0445\u0430\u043C\u0438 \u044D\u043F\u043E\u0445\u0438 \u043C\u0438\u0444\u043E\u0432" },
-    { id: 47941, type: "box", icon: "https://archeagecodex.com/items/x_mas_gift.png", grade: 10, name: "\u0421\u0443\u043D\u0434\u0443\u043A \u0441 \u043E\u0440\u0443\u0436\u0438\u0435\u043C \u0411\u0438\u0431\u043B\u0438\u043E\u0442\u0435\u043A\u0438 \u042D\u0440\u043D\u0430\u0440\u0434\u0430 \u044D\u043F\u043E\u0445\u0438 \u043B\u0435\u0433\u0435\u043D\u0434" },
-    { id: 51243, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 12, name: "\u0421\u0443\u043D\u0434\u0443\u043A \u0441 \u043C\u0430\u0433\u0438\u0441\u0442\u0435\u0440\u0441\u043A\u0438\u043C \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u0438\u043C \u043E\u0440\u0443\u0436\u0438\u0435\u043C \u044D\u043F\u043E\u0445\u0438 \u0414\u0432\u0435\u043D\u0430\u0434\u0446\u0430\u0442\u0438" },
-    { id: 55501, type: "box", icon: "https://archeagecodex.com/items/icon_item_5850.png", grade: 6, name: "\u0421\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441 \u043B\u0435\u0433\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u043C \u0443\u043A\u0440\u0430\u0448\u0435\u043D\u0438\u0435\u043C \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F", description: "\u041E\u0442\u043A\u0440\u044B\u0432 \u044D\u0442\u043E\u0442 \u0441\u0443\u043D\u0434\u0443\u0447\u043E\u043A, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u043E\u0434\u0438\u043D \u0438\u0437 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432:\n- \u043B\u0435\u0433\u0435\u043D\u0434\u0430\u0440\u043D\u0430\u044F \u0441\u0435\u0440\u044C\u0433\u0430 \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F,\n- \u043B\u0435\u0433\u0435\u043D\u0434\u0430\u0440\u043D\u043E\u0435 \u043A\u043E\u043B\u044C\u0446\u043E \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F." },
-    { id: 51940, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 8, name: "\u0421\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441 \u0446\u0435\u043D\u043D\u044B\u043C \u0443\u043A\u0440\u0430\u0448\u0435\u043D\u0438\u0435\u043C \u044D\u043F\u043E\u0445\u0438 \u0447\u0443\u0434\u0435\u0441" },
-    { id: 51236, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 11, name: "\u0421\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441 \u0434\u0440\u0430\u0433\u043E\u0446\u0435\u043D\u043D\u044B\u043C \u0443\u043A\u0440\u0430\u0448\u0435\u043D\u0438\u0435\u043C \u044D\u043F\u043E\u0445\u0438 \u043C\u0438\u0444\u043E\u0432", description: "\u041E\u0442\u043A\u0440\u044B\u0432 \u044D\u0442\u043E\u0442 \u0441\u0443\u043D\u0434\u0443\u0447\u043E\u043A, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u043E\u0434\u0438\u043D \u0438\u0437 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432 \u043A\u0430\u0447\u0435\u0441\u0442\u0432\u0430 \u044D\u043F\u043E\u0445\u0438 \u043C\u0438\u0444\u043E\u0432:\n- \u043F\u0435\u0440\u0441\u0442\u0435\u043D\u044C \u0447\u0435\u043C\u043F\u0438\u043E\u043D\u0430 \u0414\u043E\u043C\u0430 \u041D\u043E\u0440\u044C\u0435\u0442\u0442,\n- \u0441\u0435\u0440\u044C\u0433\u0430 \u0447\u0435\u043C\u043F\u0438\u043E\u043D\u0430 \u0414\u043E\u043C\u0430 \u041D\u043E\u0440\u044C\u0435\u0442\u0442,\n- \u043E\u0436\u0435\u0440\u0435\u043B\u044C\u0435 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u0433\u043E \u0440\u0443\u0431\u0435\u0436\u0430,\n- \u043E\u0436\u0435\u0440\u0435\u043B\u044C\u0435 \u0434\u043E\u0431\u043B\u0435\u0441\u0442\u0438 \u0432\u043E\u0438\u043D\u0430 XIII \u0440\u0430\u043D\u0433\u0430,\n- \u043E\u0436\u0435\u0440\u0435\u043B\u044C\u0435 \u0434\u043E\u0431\u043B\u0435\u0441\u0442\u0438 \u0446\u0435\u043B\u0438\u0442\u0435\u043B\u044F XIII \u0440\u0430\u043D\u0433\u0430." },
-    { id: 55783, type: "box", icon: "https://archeagecodex.com/items/icon_item_2992.png", grade: 5, name: "\u0421\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441 \u0437\u0430\u0447\u0430\u0440\u043E\u0432\u0430\u043D\u043D\u043E\u0439 \u0433\u0440\u0430\u0432\u0438\u0440\u043E\u0432\u043A\u043E\u0439 \u0434\u043B\u044F \u0443\u043A\u0440\u0430\u0448\u0435\u043D\u0438\u0439" },
-    { id: 50924, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png", grade: 2, name: "\u0414\u0438\u0437\u0430\u0439\u043D \u0448\u0438\u0440\u043E\u043A\u043E\u043F\u043E\u043B\u043E\u0439 \u0448\u043B\u044F\u043F\u044B \u0441\u0442\u0440\u0435\u043B\u043A\u0430" },
-    { id: 50925, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth519.png", grade: 2, name: "\u0414\u0438\u0437\u0430\u0439\u043D \u0441\u043E\u043B\u043E\u043C\u0435\u043D\u043D\u043E\u0439 \u0448\u043B\u044F\u043F\u044B" },
-    { id: 8002486, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_set/nu_{sex}_sk_korean006.png", grade: 1, name: "\u0414\u0438\u0437\u0430\u0439\u043D \u043A\u043E\u0441\u0442\u044E\u043C\u0430 \u0445\u043E\u0443\u0440\u0438 \u044D\u043F\u043E\u0445\u0438 \u0424\u0430\u0440\u0432\u0430\u0442\u0438" },
-    { id: 51092, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_set/nu_{sex}_sk_uniform004.png", grade: 2, name: "\u0414\u0438\u0437\u0430\u0439\u043D \u043E\u0434\u0435\u044F\u043D\u0438\u044F \u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044F \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0433\u043E \u041C\u0435\u0439\u0440\u0430" },
-    { id: 129, type: "magical", icon: `${GMRU_CDN_ICONS}3afe6571286a8a3f3cfab503f4bb8b00.png`, grade: 1, name: "\u0414\u0435\u043B\u044C\u0444\u0438\u0439\u0441\u043A\u0430\u044F \u0440\u0443\u043D\u0430", description: "\u041D\u0435\u043A\u0430\u0437\u0438\u0441\u0442\u0430\u044F \u0440\u0443\u043D\u0430 \u0438\u0437 \u0441\u0432\u0435\u0442\u043B\u043E\u0433\u043E \u043F\u0435\u0441\u0447\u0430\u043D\u0438\u043A\u0430.", useDescription: "\u041F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u043C\u0433\u043D\u043E\u0432\u0435\u043D\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C 200.000 \u043E\u0447\u043A\u043E\u0432 \u043E\u043F\u044B\u0442\u0430.", reqLevel: 50 },
-    { id: 8003128, type: "magical", icon: `${GMRU_CDN_ICONS}3afe6571286a8a3f3cfab503f4bb8b00.png`, grade: 10, name: "\u0414\u0435\u043B\u044C\u0444\u0438\u0439\u0441\u043A\u0430\u044F \u0440\u0443\u043D\u0430 \u044D\u043F\u043E\u0445\u0438 \u043B\u0435\u0433\u0435\u043D\u0434", description: "\u0414\u0440\u0435\u0432\u043D\u044F\u044F \u0440\u0443\u043D\u0430, \u043D\u0430\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u0430\u044F \u043D\u0435\u0432\u0435\u0440\u043E\u044F\u0442\u043D\u043E\u0439 \u043C\u0430\u0433\u0438\u0447\u0435\u0441\u043A\u043E\u0439 \u0441\u0438\u043B\u043E\u0439.", useDescription: "\u041F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u043C\u0433\u043D\u043E\u0432\u0435\u043D\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C 125,000,000 \u043E\u0447\u043A\u043E\u0432 \u043E\u043F\u044B\u0442\u0430.", reqLevel: 91 },
-    { id: 55280, type: "box", icon: "https://archeagecodex.com/items/icon_item_2812.png", grade: 6, name: "\u041B\u0435\u0433\u0435\u043D\u0434\u0430\u0440\u043D\u0430\u044F \u0440\u0443\u043D\u0430 \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F" },
-    { id: 55683, type: "box", icon: "https://archeagecodex.com/items/icon_item_4527.png", grade: 1, name: "\u041C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u043C\u0430\u0433\u0438\u0441\u0442\u0435\u0440\u0438\u044F\u043C\u0438 \u0434\u043B\u044F \u0443\u043A\u0440\u0430\u0448\u0435\u043D\u0438\u0439" },
-    { id: 50536, type: "box", icon: "https://archeagecodex.com/items/icon_item_4527.png", grade: 1, name: "\u041C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u043C\u0430\u0433\u0438\u0441\u0442\u0435\u0440\u0438\u044F\u043C\u0438", description: "\u041E\u0442\u043A\u0440\u044B\u0432 \u043C\u0435\u0448\u043E\u0447\u0435\u043A, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u043E\u0434\u0438\u043D \u0438\u0437 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432:\n- \u043C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u0440\u0443\u0431\u0438\u043D\u043E\u0432\u044B\u043C\u0438 \u043C\u0430\u0433\u0438\u0441\u0442\u0435\u0440\u0438\u044F\u043C\u0438,\n- \u043C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u043A\u0432\u0430\u0440\u0446\u0435\u0432\u044B\u043C\u0438 \u043C\u0430\u0433\u0438\u0441\u0442\u0435\u0440\u0438\u044F\u043C\u0438,\n- \u043C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u0441\u0430\u043F\u0444\u0438\u0440\u043E\u0432\u044B\u043C\u0438 \u043C\u0430\u0433\u0438\u0441\u0442\u0435\u0440\u0438\u044F\u043C\u0438,\n- \u043C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u0438\u0437\u0443\u043C\u0440\u0443\u0434\u043D\u044B\u043C\u0438 \u043C\u0430\u0433\u0438\u0441\u0442\u0435\u0440\u0438\u044F\u043C\u0438,\n- \u043C\u0435\u0448\u043E\u0447\u0435\u043A \u0441 \u044F\u043D\u0442\u0430\u0440\u043D\u044B\u043C\u0438 \u043C\u0430\u0433\u0438\u0441\u0442\u0435\u0440\u0438\u044F\u043C\u0438." },
-    { id: 8001148, icon: "https://archeagecodex.com/items/icon_item_3807.png", grade: 2, name: "\u0421\u0442\u0430\u0442\u0443\u044F \xAB\u041E\u0440\u0445\u0438\u0434\u043D\u0430 \u043D\u0430 \u0442\u0440\u043E\u043D\u0435\xBB" },
-    { id: 8001203, icon: "https://archeagecodex.com/items/icon_item_3277.png", grade: 1, name: "\u0421\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441 \u0444\u0430\u043C\u0438\u043B\u044C\u043D\u044B\u043C\u0438 \u0446\u0435\u043D\u043D\u043E\u0441\u0442\u044F\u043C\u0438" },
-    { id: 54933, icon: "https://archeagecodex.com/items/icon_item_5809.png", grade: 2, name: "\u0417\u0430\u043C\u0435\u0440\u0437\u0448\u0438\u0439 \u043F\u0440\u0443\u0434" },
-    { id: 48860, type: "magical", icon: "https://archeagecodex.com/items/icon_item_4002.png", grade: 6, name: "\u0411\u043E\u043B\u044C\u0448\u0430\u044F \u044D\u0444\u0435\u043D\u0441\u043A\u0430\u044F \u0441\u0444\u0435\u0440\u0430 \u043E\u0440\u0443\u0436\u0435\u0439\u043D\u0438\u043A\u0430", description: "\u041F\u043E\u0432\u044B\u0448\u0430\u0435\u0442 \u0432\u0435\u0440\u043E\u044F\u0442\u043D\u043E\u0441\u0442\u044C \u0443\u0441\u043F\u0435\u0445\u0430 \u043F\u0440\u0438 \u043F\u043E\u043F\u044B\u0442\u043A\u0435 \u0443\u043B\u0443\u0447\u0448\u0438\u0442\u044C \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u0435 \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0445 \u043A\u0443\u0431\u043E\u0432 \u0432 |nc;2|r \u0440\u0430\u0437\u0430." },
-    { id: 48861, type: "magical", icon: "https://archeagecodex.com/items/icon_item_4816.png", grade: 6, name: "\u0411\u043E\u043B\u044C\u0448\u0430\u044F \u044D\u0444\u0435\u043D\u0441\u043A\u0430\u044F \u0441\u0444\u0435\u0440\u0430 \u0431\u0440\u043E\u043D\u043D\u0438\u043A\u0430", description: "\u041F\u043E\u0432\u044B\u0448\u0430\u0435\u0442 \u0432\u0435\u0440\u043E\u044F\u0442\u043D\u043E\u0441\u0442\u044C \u0443\u0441\u043F\u0435\u0445\u0430 \u043F\u0440\u0438 \u043F\u043E\u043F\u044B\u0442\u043A\u0435 \u0443\u043B\u0443\u0447\u0448\u0438\u0442\u044C \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u0435 \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0445 \u043A\u0443\u0431\u043E\u0432 \u0432 |nc;2|r \u0440\u0430\u0437\u0430." },
-    { id: 44359, type: "potion", icon: "https://archeagecodex.com/items/icon_item_3559.png", grade: 1, name: "\u041F\u043E\u0445\u043E\u0434\u043D\u044B\u0439 \u0444\u0438\u0430\u043B \u0441\u043B\u0430\u0432\u044B" },
-    { id: 55800, type: "box", icon: "https://archeagecodex.com/items/icon_item_5486.png", grade: 4, name: "\u0421\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441 \u0444\u0440\u0430\u0433\u043C\u0435\u043D\u0442\u0430\u043C\u0438 \u0441\u0443\u0434\u044C\u0431\u044B", description: "\u041E\u0442\u043A\u0440\u044B\u0432 \u044D\u0442\u043E\u0442 \u0441\u0443\u043D\u0434\u0443\u0447\u043E\u043A, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u043E\u0434\u0438\u043D \u0438\u0437 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432:\n- \u043F\u044B\u043B\u044C \u0441\u0443\u0434\u044C\u0431\u044B (25 \u0448\u0442.),\n- \u0441\u043B\u0438\u0442\u043E\u043A \u0441\u0443\u0434\u044C\u0431\u044B (5 \u0448\u0442.),\n- \u043F\u0440\u0438\u0437\u043C\u0430 \u0441\u0443\u0434\u044C\u0431\u044B." },
-    { id: 8002772, type: "box", icon: "https://archeagecodex.com/items/icon_item_5043.png", grade: 5, name: "\u041E\u043A\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0441\u0442\u0430\u043B\u044C\u044E \u044F\u0449\u0438\u043A \u0441 \u0431\u043E\u0435\u0432\u044B\u043C \u043F\u0438\u0442\u043E\u043C\u0446\u0435\u043C", description: "\u0421\u043D\u044F\u0432 \u043F\u0435\u0447\u0430\u0442\u044C, \u0432\u044B \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u0435 \u041A\u0432\u0430\u0434\u0440\u0443\u043C\u0430, \u041C\u0438\u0441\u0442\u0435\u0440\u0438\u043E\u043D\u0430 \u0438\u043B\u0438 \u041C\u0438\u0441\u0442\u0435\u0440\u0438\u043E\u043D\u0430, \u0423\u0436\u0430\u0441\u0430 \u041D\u043E\u0447\u0438 (\u043D\u0430 \u0432\u044B\u0431\u043E\u0440)." },
-    { id: 50635, type: "magical", icon: "https://archeagecodex.com/items/icon_item_5058.png", grade: 2, isPersonal: true, name: "\u0417\u0430\u0433\u043E\u0432\u043E\u0440\u0435\u043D\u043D\u0430\u044F \u0433\u0430\u0434\u0430\u043B\u044C\u043D\u0430\u044F \u0440\u0443\u043D\u0430", description: "\u041F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u0437\u0430\u043C\u0435\u043D\u0438\u0442\u044C \u043E\u0434\u0438\u043D \u0438\u0437 \u044D\u0444\u0444\u0435\u043A\u0442\u043E\u0432 \u0441\u0438\u043D\u0442\u0435\u0437\u0430 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u0430 \u0434\u0440\u0443\u0433\u0438\u043C, \u0432\u044B\u0431\u0440\u0430\u0432 \u043D\u0443\u0436\u043D\u044B\u0439 \u044D\u0444\u0444\u0435\u043A\u0442.\n\n|ni;\u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u0434\u043B\u044F \u044D\u0444\u0435\u043D\u0441\u043A\u043E\u0433\u043E \u0438 \u0440\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u043E\u0433\u043E \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u044F; \u0442\u0440\u043E\u0444\u0435\u0435\u0432, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043D\u044B\u0445 \u0437\u0430 \u043F\u043E\u0431\u0435\u0434\u0443 \u043D\u0430\u0434 \u043C\u0438\u0444\u0438\u0447\u0435\u0441\u043A\u0438\u043C\u0438 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430\u043C\u0438; \u043E\u0436\u0435\u0440\u0435\u043B\u0438\u0439, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043D\u044B\u0445 \u043D\u0430 \u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u043C \u0440\u0443\u0431\u0435\u0436\u0435; \u043F\u0435\u0440\u0441\u0442\u043D\u0435\u0439 \u0433\u043E\u0432\u043E\u0440\u044F\u0449\u0435\u0433\u043E \u0441 \u0434\u0443\u0445\u0430\u043C\u0438; \u0430 \u0442\u0430\u043A\u0436\u0435 \u0434\u043B\u044F \u043A\u043E\u0441\u0442\u044E\u043C\u043E\u0432, \u043F\u043B\u0430\u0449\u0435\u0439 \u0438 \u0443\u043A\u0440\u0430\u0448\u0435\u043D\u0438\u0439 \u0447\u0435\u043C\u043F\u0438\u043E\u043D\u043E\u0432 \u041F\u043E\u0440\u0442-\u0410\u0440\u0433\u0435\u043D\u0442\u043E.|r", useDescription: '\u041F\u0440\u0438\u0441\u0442\u0443\u043F\u0438\u0442\u044C \u043A \u0437\u0430\u043C\u0435\u043D\u0435 \u044D\u0444\u0444\u0435\u043A\u0442\u0430.<br>\u0420\u0430\u0441\u0445\u043E\u0434 \u043E\u0447\u043A\u043E\u0432 \u0440\u0430\u0431\u043E\u0442\u044B: <span class="orange_text">50</span>.' },
-    { id: 8002769, icon: "https://archeagecodex.com/items/quest/icon_item_quest217.png", grade: 3, isPersonal: true, name: "\u0417\u043D\u0430\u043A \xAB\u041A\u043B\u044E\u0447\u0435\u0432\u0430\u044F \u0444\u0438\u0433\u0443\u0440\u0430\xBB", description: "\u041F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0442\u0438\u0442\u0443\u043B \xAB\u041A\u043B\u044E\u0447\u0435\u0432\u0430\u044F \u0444\u0438\u0433\u0443\u0440\u0430\xBB.", useDescription: "\u041F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0442\u0438\u0442\u0443\u043B." },
-    { id: 30604, icon: "https://archeagecodex.com/items/icon_item_1643.png", grade: 5, name: "\u041C\u043E\u043D\u0435\u0442\u044B \u0434\u0430\u0440\u0443 x100" },
-    { id: 28814, icon: "https://archeagecodex.com/items/icon_item_1643.png", grade: 5, name: "\u041C\u043E\u043D\u0435\u0442\u044B \u0434\u0430\u0440\u0443 x180" },
-    { id: 55450, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 7, name: "\u0420\u0435\u043B\u0438\u043A\u0432\u0438\u0439\u043D\u043E\u0435 \u043A\u043E\u043B\u044C\u0446\u043E \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F" },
-    { id: 8002410, type: "equipment", subType: "cloak", icon: "https://archeagecodex.com/items/icon_item_0936.png", grade: 5, name: "\u0410\u043B\u044B\u0439 \u0448\u0430\u0440\u0444", description: "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E, \u0432 \u0447\u0435\u043C \u043F\u0440\u0438\u0447\u0438\u043D\u0430, \u043D\u043E \u043A \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 \u0432 \u0442\u0430\u043A\u043E\u043C \u0448\u0430\u0440\u0444\u0435 \u043E\u043A\u0440\u0443\u0436\u0430\u044E\u0449\u0438\u0435 \u043F\u043E\u0447\u0435\u043C\u0443-\u0442\u043E \u043E\u0442\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u0441 \u043E\u0441\u043E\u0431\u0435\u043D\u043D\u044B\u043C \u0443\u0432\u0430\u0436\u0435\u043D\u0438\u0435\u043C (\u0438 \u0434\u0430\u0436\u0435 \u0441 \u043D\u0435\u043A\u043E\u0442\u043E\u0440\u043E\u0439 \u043E\u043F\u0430\u0441\u043A\u043E\u0439).\n\n|nc;\u0423\u0441\u0438\u043B\u0438\u0432\u0430\u044E\u0449\u0438\u0435 \u044D\u0444\u0444\u0435\u043A\u0442\u044B \u043A\u043E\u0441\u0442\u044E\u043C\u0430 \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u044E\u0442 30 \u0434\u043D\u0435\u0439. \u0427\u0442\u043E\u0431\u044B \u0430\u043A\u0442\u0438\u0432\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0438\u0445 \u0437\u0430\u043D\u043E\u0432\u043E, \u043A\u043E\u0441\u0442\u044E\u043C \u043D\u0443\u0436\u043D\u043E \u043F\u043E\u0441\u0442\u0438\u0440\u0430\u0442\u044C.|r", equipDescription: "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u043F\u0435\u0440\u0435\u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F +|nc;3|r%\n\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u043F\u043B\u0430\u0432\u0430\u043D\u0438\u044F +|nc;3|r%\n\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u0437\u0430\u043D\u044F\u0442\u0438\u044F \u0440\u0435\u043C\u0435\u0441\u043B\u043E\u043C |nc;+10%|r\n\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u0437\u0430\u043D\u044F\u0442\u0438\u044F \u0436\u0438\u0432\u043E\u0442\u043D\u043E\u0432\u043E\u0434\u0441\u0442\u0432\u043E\u043C |nc;+10%|r\n\u041E\u043F\u044B\u0442 \u043F\u0440\u0438 \u0437\u0430\u043D\u044F\u0442\u0438\u0438 \u0440\u0435\u043C\u0435\u0441\u043B\u043E\u043C |nc;+10|r%", isEquipDescriptionTemporary: true },
-    { id: 34684, type: "equipment", subType: "windInstrument", icon: "https://archeagecodex.com/items/icon_item_ins_s_0051.png", name: "\u0423\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u043D\u0430\u044F \u0430\u0440\u0433\u0435\u043D\u0438\u0442\u043E\u0432\u0430\u044F \u043B\u044E\u0442\u043D\u044F" },
-    { id: 34685, type: "equipment", subType: "windInstrument", icon: "https://archeagecodex.com/items/icon_item_ins_w_0025.png", name: "\u0423\u043A\u0440\u0435\u043F\u043B\u0435\u043D\u043D\u044B\u0439 \u0430\u0440\u0433\u0435\u043D\u0438\u0442\u043E\u0432\u044B\u0439 \u043A\u043B\u0430\u0440\u043D\u0435\u0442" },
-    { id: 417, icon: "https://archeagecodex.com/items/icon_item_0418.png", grade: 1, name: "\u0420\u0435\u0434\u043A\u0438\u0439 \u043A\u0430\u043C\u0435\u043D\u044C \u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u0438\u0439", isPersonal: true, description: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C \u0434\u043B\u044F \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0435\u043D\u0438\u044F \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E \u043A\u043D\u0438\u0433\u0438 \u043F\u043E\u0440\u0442\u0430\u043B\u043E\u0432.", price: 0, reqLevel: 1 },
-    { id: 52701, icon: "https://archeagecodex.com/items/icon_item_5282.png", grade: 1, name: "\u041A\u0440\u0438\u0441\u0442\u0430\u043B\u043B \u0438\u0437\u043D\u0430\u0447\u0430\u043B\u044C\u043D\u043E\u0433\u043E \u0430\u043D\u0430\u0434\u0438\u044F", description: "\u042D\u0442\u0438 \u043B\u0438\u043B\u043E\u0432\u044B\u0435 \u043A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u044B \u2013 \u0434\u043E\u0441\u0442\u043E\u0439\u043D\u043E\u0435 \u043F\u043E\u0434\u043D\u043E\u0448\u0435\u043D\u0438\u0435 \u0434\u0443\u0445\u0430\u043C-\u0445\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u044F\u043C.\n\u041E\u0434\u043D\u043E\u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u0432 \u0440\u044E\u043A\u0437\u0430\u043A\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043D\u0435 \u0431\u043E\u043B\u0435\u0435 \u043F\u044F\u0442\u0438 \u043A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u043E\u0432. \u041A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u044B \u0438\u0441\u0447\u0435\u0437\u043D\u0443\u0442 \u0447\u0435\u0440\u0435\u0437 \u043E\u0434\u0438\u043D \u0447\u0430\u0441.", useDescription: "\u041F\u043E\u0434\u043D\u0435\u0441\u0442\u0438 \u043A\u0440\u0438\u0441\u0442\u0430\u043B\u043B \u0434\u0443\u0445\u0430\u043C-\u0445\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u044F\u043C \u0443 \u0434\u0440\u0435\u0432\u043D\u0435\u0433\u043E \u0442\u043E\u0442\u0435\u043C\u0430 \u0438\u043B\u0438 \u0443\u0441\u0438\u043B\u0438\u0442\u044C \u043F\u0440\u0438\u0437\u0432\u0430\u043D\u043D\u043E\u0433\u043E \u0434\u0443\u0445\u0430-\u0445\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u044F.", price: 0 },
-    { id: 40491, icon: "https://archeagecodex.com/items/icon_item_3090.png", grade: 2, name: "\u0417\u043D\u0430\u043A \u043E\u0442\u0432\u0430\u0433\u0438" },
-    { id: 46695, icon: "https://archeagecodex.com/items/icon_item_4557.png", grade: 3, name: "\u0411\u0435\u043B\u043E\u0441\u043D\u0435\u0436\u043D\u044B\u0439 \u043E\u043B\u0435\u043D\u0435\u043D\u043E\u043A" },
-    { id: 48521, type: "magical", icon: "https://archeagecodex.com/items/icon_item_2070.png", grade: 5, name: "\u0411\u043E\u043B\u044C\u0448\u043E\u0439 \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0439 \u043A\u0443\u0431 \u043E\u0440\u0443\u0436\u0435\u0439\u043D\u0438\u043A\u0430" },
-    { id: 48522, type: "magical", icon: "https://archeagecodex.com/items/icon_item_2069.png", grade: 5, name: "\u0411\u043E\u043B\u044C\u0448\u043E\u0439 \u044D\u0444\u0435\u043D\u0441\u043A\u0438\u0439 \u043A\u0443\u0431 \u0431\u0440\u043E\u043D\u043D\u0438\u043A\u0430" },
-    { id: 8002273, type: "box", icon: "https://archeagecodex.com/items/icon_item_1668.png", grade: 1, name: "\u041D\u0430\u0431\u043E\u0440 \u0430\u043D\u0438\u043C\u0430\u0433\u0430" },
-    { id: 8002483, type: "box", icon: "https://archeagecodex.com/items/icon_item_3261.png", grade: 1, name: "\u041A\u043E\u0440\u043E\u0431\u043A\u0430 \u0441 \u0431\u0435\u043B\u044C\u0435\u043C \xAB\u041D\u043E\u0447\u0438 \u0410\u043B\u044C-\u0425\u0430\u0440\u0431\u044B\xBB" },
-    { id: 45409, type: "unidentified", overlay: "unconfirmed", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth292.png", grade: 2, name: "\u0420\u0430\u043C\u0438\u0430\u043D\u0441\u043A\u043E\u0435 \u043C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u043E\u0435 \u0441\u043D\u0430\u0440\u044F\u0436\u0435\u043D\u0438\u0435" },
-    { id: 53586, type: "unidentified", icon: "https://archeagecodex.com/items/icon_item_5144.png", grade: 4, name: "\u0417\u043E\u043B\u043E\u0442\u043E\u0439 \u0441\u0443\u043D\u0434\u0443\u0447\u043E\u043A \u0441\u043E \u0437\u043D\u0430\u043A\u0430\u043C\u0438 \u043A\u0443\u043B\u044C\u0442\u0438\u0441\u0442\u043E\u0432" },
-    { id: 46151, type: "magical", icon: "https://archeagecodex.com/items/icon_item_4467.png", grade: 3, name: "\u0417\u0430\u0433\u043E\u0442\u043E\u0432\u043A\u0430 \u043E\u0433\u0440\u0430\u043D\u0449\u0438\u043A\u0430", isPersonal: true },
-    { id: 49252, type: "quest", icon: "https://archeagecodex.com/items/icon_item_4878.png", grade: 2, name: "\u041E\u0431\u0440\u0430\u0437\u0446\u044B \u0444\u043B\u043E\u0440\u044B \u0421\u0430\u0434\u0430", isPersonal: true, price: 0, description: "\u041F\u0430\u043A\u0435\u0442\u0438\u043A \u0441 \u043E\u0431\u0440\u0430\u0437\u0446\u0430\u043C\u0438 \u0444\u043B\u043E\u0440\u044B \u0421\u0430\u0434\u0430 \u041C\u0430\u0442\u0435\u0440\u0438." },
-    { id: 31151, type: "other", icon: "https://archeagecodex.com/items/x_mas_gift.png", grade: 1, name: "\u041F\u0435\u0440\u0435\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0439 \u043B\u0435\u043D\u0442\u043E\u0447\u043A\u043E\u0439 \u043F\u043E\u0434\u0430\u0440\u043E\u043A", description: "\u041F\u043E\u0445\u043E\u0436\u0435, \u043E\u0434\u0438\u043D \u0438\u0437 \u0441\u043D\u0435\u0433\u043E\u0432\u0438\u043A\u043E\u0432 \u0432\u043C\u0435\u0441\u0442\u0435 \u0441 \u0443\u043A\u0440\u0430\u0448\u0435\u043D\u0438\u044F\u043C\u0438 \u043F\u0440\u0438\u0445\u0432\u0430\u0442\u0438\u043B \u043F\u043E\u0434\u0430\u0440\u043E\u043A \u0438\u0437 \u0442\u0435\u0445, \u0447\u0442\u043E \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u043B \u0440\u0430\u0437\u0434\u0430\u0432\u0430\u0442\u044C \u043D\u0430 \u0443\u043B\u0438\u0446\u0430\u0445 \u0433\u043E\u0440\u043E\u0434\u0430.", useDescription: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043F\u043E\u0434\u0430\u0440\u043E\u043A.\n\u0423\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u044F Shift, \u0449\u0435\u043B\u043A\u043D\u0438\u0442\u0435 \u043F\u0440\u0430\u0432\u043E\u0439 \u043A\u043D\u043E\u043F\u043A\u043E\u0439 \u043C\u044B\u0448\u0438, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0432\u0441\u0435 \u043F\u043E\u0434\u0430\u0440\u043A\u0438 \u044D\u0442\u043E\u0433\u043E \u0432\u0438\u0434\u0430 \u043E\u0434\u0438\u043D \u0437\u0430 \u0434\u0440\u0443\u0433\u0438\u043C.", isPersonal: true, price: 0 },
-    { id: 28188, type: "rareMaterial", icon: `${GMRU_CDN_ICONS}d2f377e3c3118826089a2caf9e794a50.png`, grade: 3, name: "\u0421\u043F\u043B\u0430\u0432 \u0441\u0442\u0438\u0445\u0438\u0439", description: "\u041C\u043E\u0436\u043D\u043E \u0438\u0437\u0433\u043E\u0442\u043E\u0432\u0438\u0442\u044C \u0441 \u043F\u043E\u043C\u043E\u0449\u044C\u044E |ni;\u0442\u0438\u0433\u043B\u044F \u0441\u0442\u0438\u0445\u0438\u0439|r.\n\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u0432 \u0440\u0435\u043C\u0435\u0441\u043B\u0435.", isPersonal: true, price: 360 },
-    { id: 55516, type: "box", icon: "https://archeagecodex.com/items/icon_item_2812.png", grade: 5, name: "\u042D\u043F\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0440\u0443\u043D\u0430 \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F", isPersonal: true },
-    { id: 55490, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 8, name: "\u0421\u0435\u0440\u044C\u0433\u0430 \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F \u044D\u043F\u043E\u0445\u0438 \u0447\u0443\u0434\u0435\u0441", isPersonal: true },
-    { id: 55255, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 7, name: "\u0420\u0435\u043B\u0438\u043A\u0432\u0438\u0439\u043D\u0430\u044F \u0441\u0435\u0440\u044C\u0433\u0430 \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F", isPersonal: true },
-    { id: 52808, type: "unidentified", overlay: "unconfirmed", icon: "https://archeagecodex.com/items/icon_item_teleport.png", grade: 1, name: "\u041A\u043D\u0438\u0433\u0430 \u043F\u043E\u0440\u0442\u0430\u043B\u043E\u0432 (7 \u0434.)", isPersonal: true },
-    { id: 34702, type: "equipment", subType: "windInstrument", icon: "https://archeagecodex.com/items/icon_item_ins_w_0049.png", name: "\u0417\u0435\u0440\u043A\u0430\u043B\u044C\u043D\u044B\u0439 \u0430\u0440\u0433\u0435\u043D\u0438\u0442\u043E\u0432\u044B\u0439 \u043A\u043B\u0430\u0440\u043D\u0435\u0442", buff: { avgRestoreMana: 16 } },
-    { id: 51723, type: "mount", icon: "https://archeagecodex.com/items/icon_item_5149.png", grade: 4, name: "\u042F\u0449\u0438\u043A \u0441 \u041C\u0430\u0440\u0443, \u043F\u043E\u043A\u043E\u0440\u0438\u0442\u0435\u043B\u0435\u043C \u043F\u0440\u043E\u0441\u0442\u043E\u0440\u043E\u0432", isPersonal: true },
-    { id: 8002771, type: "box", icon: "https://archeagecodex.com/items/icon_item_5043.png", grade: 5, name: "\u041E\u043A\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0441\u0442\u0430\u043B\u044C\u044E \u044F\u0449\u0438\u043A \u0441 \u0433\u043B\u0430\u0439\u0434\u0435\u0440\u043E\u043C", isPersonal: true },
-    { id: 39363, type: "battlePet", icon: "https://archeagecodex.com/items/icon_item_2275.png", grade: 1, name: "\u041E\u0441\u0435\u043D\u043D\u0438\u0439 \u041B\u043E\u0441\u043A\u0443\u0442\u0438\u043A" },
-    { id: 34972, icon: "https://archeagecodex.com/items/doll_pet_hm_001.png", grade: 1, name: "\u041A\u0440\u0430\u0441\u043D\u044B\u0435 \u043E\u0447\u043A\u0438-\u0441\u0435\u0440\u0434\u0435\u0447\u043A\u0438" },
-    { id: 34975, icon: "https://archeagecodex.com/items/doll_pet_bo_001.png", grade: 1, name: "\u041A\u0443\u043B\u0438\u043D\u0430\u0440\u043D\u044B\u0435 \u043F\u0435\u0440\u0447\u0430\u0442\u043A\u0438 \u0432 \u043A\u0440\u0430\u0441\u043D\u044B\u0439 \u0433\u043E\u0440\u043E\u0448\u0435\u043A" },
-    { id: 36183, icon: "https://archeagecodex.com/items/doll_pet_ar_007.png", grade: 1, name: "\u041A\u0440\u0430\u0441\u043D\u044B\u0439 \u0437\u0430\u0432\u043E\u0434\u043D\u043E\u0439 \u043A\u043B\u044E\u0447\u0438\u043A" },
-    { id: 34981, type: "battlePet", icon: "https://archeagecodex.com/items/icon_item_2720.png", grade: 1, name: "\u0414\u0435\u0442\u0435\u043D\u044B\u0448 \u0413\u0430\u0440\u0442\u0430\u0440\u0435\u0439\u043D" },
-    { id: 37018, type: "lightArmor", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth560.png", grade: 3, name: "\u0412\u044F\u0437\u0430\u043D\u0430\u044F \u0448\u0430\u043F\u043E\u0447\u043A\u0430" },
-    { id: 49630, type: "furniture", icon: "https://archeagecodex.com/items/icon_item_4862.png", grade: 5, name: "\u0421\u0442\u0430\u0442\u0443\u044D\u0442\u043A\u0430 \xAB\u0410\u0440\u0430\u043D\u0437\u0435\u0431\xBB" },
-    { id: 31787, type: "lightArmor", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth550.png", grade: 3, name: "\u041E\u0431\u043E\u0434\u043E\u043A \u0441\u043E \u0441\u043D\u0435\u0433\u043E\u0432\u0438\u0447\u043A\u0430\u043C\u0438" },
-    { id: 28242, type: "craftItem", icon: "https://archeagecodex.com/items/icon_item_1243.png", grade: 1, name: "\u041C\u044B\u043B\u043E" },
-    { id: 43298, type: "craftItem", icon: "https://archeagecodex.com/items/icon_item_3952.png", grade: 1, name: "\u0422\u0435\u043D\u0435\u0432\u043E\u0439 \u0434\u0435\u043B\u0435\u0446" },
-    { id: 8002004, type: "mount", icon: "https://archeagecodex.com/items/icon_item_2774.png", grade: 1, name: "\u041F\u0440\u0438\u0437\u0440\u0430\u0447\u043D\u044B\u0439 \u043A\u043E\u043D\u044C (30 \u0434.)" },
-    { id: 8000315, type: "lightArmor", icon: "https://archeagecodex.com/items/costume_cp/nu_f_cp_leather002.png", grade: 1, name: "\u041D\u0430\u043A\u0438\u0434\u043A\u0430 \u0438\u0437 \u0433\u0440\u0438\u0444\u043E\u043D\u044C\u0438\u0445 \u043F\u0435\u0440\u044C\u0435\u0432" },
-    { id: 8000127, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_set/nu_f_sk_party001.png", grade: 2, name: "\u0411\u0430\u043B\u044C\u043D\u044B\u0439 \u043D\u0430\u0440\u044F\u0434 \u0414\u0432\u0443\u0445 \u041A\u043E\u0440\u043E\u043D" },
-    { id: 55495, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 9, name: "\u041A\u043E\u043B\u044C\u0446\u043E \u0438\u0444\u043D\u0438\u0440\u0441\u043A\u043E\u0433\u043E \u0433\u0435\u0440\u043E\u044F \u044D\u043F\u043E\u0445\u0438 \u0441\u043A\u0430\u0437\u0430\u043D\u0438\u0439" },
-    { id: 33156, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth554.png", name: "\u0412\u0438\u0448\u043D\u0435\u0432\u0430\u044F \u0448\u043B\u044F\u043F\u0430-\u0442\u043E\u0440\u0442" },
-    { id: 45373, type: "furniture", icon: "https://archeagecodex.com/items/icon_item_4353.png", grade: 2, name: "\u0424\u043E\u043D\u0442\u0430\u043D \xAB\u041B\u0435\u0441\u043D\u0430\u044F \u0433\u0430\u0440\u043C\u043E\u043D\u0438\u044F\xBB" },
-    { id: 8000346, icon: "https://archeagecodex.com/items/icon_item_1360.png", grade: 2, name: "\u0411\u0435\u043B\u0430\u044F \u0441\u0443\u0431\u043C\u0430\u0440\u0438\u043D\u0430 (30 \u0434.)" },
-    { id: 8000309, type: "mount", icon: "https://archeagecodex.com/items/icon_item_1502.png", grade: 3, name: "\u0426\u0438\u0440\u043A\u043E\u0432\u043E\u0439 \u043C\u0435\u0434\u0432\u0435\u0434\u044C (\u043D\u0430 30 \u0434\u043D\u0435\u0439)" },
-    { id: 31878, type: "furniture", icon: "https://archeagecodex.com/items/icon_item_1670.png", grade: 2, name: "\u041D\u0435\u0432\u0435\u0440\u0438\u043D\u0441\u043A\u0438\u0439 \u043F\u0430\u0442\u0435\u0444\u043E\u043D" },
-    { id: 8002069, icon: "https://archeagecodex.com/items/icon_item_moonstone05.png", grade: 1, name: "\u0414\u0430\u0440 \u0436\u0440\u0438\u0446\u044B \u041D\u0443\u0438" },
-    { id: 39551, type: "furniture", icon: "https://archeagecodex.com/items/icon_item_2847.png", grade: 2, name: "\u041F\u0435\u0441\u0447\u0430\u043D\u0430\u044F \u0441\u043A\u0443\u043B\u044C\u043F\u0442\u0443\u0440\u0430 \u041F\u043E\u0431\u0435\u0434\u044B" },
-    { id: 8000310, icon: "https://archeagecodex.com/items/icon_item_2979.png", grade: 1, name: "\u0416\u0435\u0442\u043E\u043D \u043D\u0430 \u043F\u043E\u043A\u0443\u043F\u043A\u0443 \u043E\u0440\u0443\u0436\u0438\u044F" },
-    { id: 8000311, icon: "https://archeagecodex.com/items/icon_item_2980.png", grade: 1, name: "\u0416\u0435\u0442\u043E\u043D \u043D\u0430 \u043F\u043E\u043A\u0443\u043F\u043A\u0443 \u0434\u043E\u0441\u043F\u0435\u0445\u043E\u0432" },
-    { id: 8000441, icon: "https://archeagecodex.com/items/icon_item_2993.png", grade: 1, name: "\u0418\u0444\u0435\u0440\u0438\u0439\u0441\u043A\u0430\u044F \u043C\u043E\u043D\u0435\u0442\u043A\u0430" },
-    { id: 8000442, icon: "https://archeagecodex.com/items/icon_item_2982.png", grade: 1, name: "\u0417\u0430\u043A\u043E\u043B\u0434\u043E\u0432\u0430\u043D\u043D\u0430\u044F \u043C\u043E\u043D\u0435\u0442\u043A\u0430" },
-    { id: 45880, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png", name: "\u0414\u0438\u0430\u0434\u0435\u043C\u0430 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u043C\u043D\u0435\u043C\u043E\u043D\u0438\u043A\u0430", isPersonal: true },
-    { id: 45881, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0439 \u043A\u0430\u043C\u0437\u043E\u043B \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u043C\u043D\u0435\u043C\u043E\u043D\u0438\u043A\u0430", isPersonal: true },
-    { id: 45882, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0435 \u043F\u043E\u043D\u043E\u0436\u0438 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u043C\u043D\u0435\u043C\u043E\u043D\u0438\u043A\u0430", isPersonal: true },
-    { id: 45883, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0435 \u043F\u0435\u0440\u0447\u0430\u0442\u043A\u0438 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u043C\u043D\u0435\u043C\u043E\u043D\u0438\u043A\u0430", isPersonal: true },
-    { id: 45884, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0435 \u0441\u0430\u043F\u043E\u0433\u0438 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u043C\u043D\u0435\u043C\u043E\u043D\u0438\u043A\u0430", isPersonal: true },
-    { id: 45885, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_cloth_0020.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0435 \u043D\u0430\u0440\u0443\u0447\u0438 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u043C\u043D\u0435\u043C\u043E\u043D\u0438\u043A\u0430", isPersonal: true },
-    { id: 45886, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_cloth_0021.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0439 \u043F\u043E\u044F\u0441 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u043C\u043D\u0435\u043C\u043E\u043D\u0438\u043A\u0430", isPersonal: true },
-    { id: 45991, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png", name: "\u0414\u0438\u0430\u0434\u0435\u043C\u0430 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435\u043B\u044F \u0442\u0430\u0439\u043D\u044B\u0445 \u0430\u0440\u0445\u0438\u0432\u043E\u0432", isPersonal: true },
-    { id: 45990, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0439 \u043A\u0430\u043C\u0437\u043E\u043B \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435\u043B\u044F \u0442\u0430\u0439\u043D\u044B\u0445 \u0430\u0440\u0445\u0438\u0432\u043E\u0432", isPersonal: true },
-    { id: 45989, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0435 \u043F\u043E\u043D\u043E\u0436\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435\u043B\u044F \u0442\u0430\u0439\u043D\u044B\u0445 \u0430\u0440\u0445\u0438\u0432\u043E\u0432", isPersonal: true },
-    { id: 45988, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0435 \u043F\u0435\u0440\u0447\u0430\u0442\u043A\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435\u043B\u044F \u0442\u0430\u0439\u043D\u044B\u0445 \u0430\u0440\u0445\u0438\u0432\u043E\u0432", isPersonal: true },
-    { id: 45987, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0435 \u0441\u0430\u043F\u043E\u0433\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435\u043B\u044F \u0442\u0430\u0439\u043D\u044B\u0445 \u0430\u0440\u0445\u0438\u0432\u043E\u0432", isPersonal: true },
-    { id: 45986, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_cloth_0020.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0435 \u043D\u0430\u0440\u0443\u0447\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435\u043B\u044F \u0442\u0430\u0439\u043D\u044B\u0445 \u0430\u0440\u0445\u0438\u0432\u043E\u0432", isPersonal: true },
-    { id: 45985, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_cloth_0021.png", name: "\u041C\u0430\u0442\u0435\u0440\u0447\u0430\u0442\u044B\u0439 \u043F\u043E\u044F\u0441 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435\u043B\u044F \u0442\u0430\u0439\u043D\u044B\u0445 \u0430\u0440\u0445\u0438\u0432\u043E\u0432", isPersonal: true },
-    { id: 45887, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png", name: "\u0424\u0438\u0431\u0443\u043B\u0430 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 45888, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png", name: "\u041A\u043E\u0436\u0430\u043D\u0430\u044F \u043A\u0443\u0440\u0442\u043A\u0430 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 45889, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0435 \u043F\u043E\u043D\u043E\u0436\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 45890, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0435 \u043F\u0435\u0440\u0447\u0430\u0442\u043A\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 47047, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0435 \u0441\u0430\u043F\u043E\u0433\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 47048, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_leather_0020.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0435 \u043D\u0430\u0440\u0443\u0447\u0438 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 47049, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_leather_0021.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0439 \u043F\u043E\u044F\u0441 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 47043, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png", name: "\u0424\u0438\u0431\u0443\u043B\u0430 \u0443\u043A\u0440\u043E\u0442\u0438\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 47044, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png", name: "\u041A\u043E\u0436\u0430\u043D\u0430\u044F \u043A\u0443\u0440\u0442\u043A\u0430 \u0443\u043A\u0440\u043E\u0442\u0438\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 47045, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0435 \u043F\u043E\u043D\u043E\u0436\u0438 \u0443\u043A\u0440\u043E\u0442\u0438\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 47046, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0435 \u043F\u0435\u0440\u0447\u0430\u0442\u043A\u0438 \u0443\u043A\u0440\u043E\u0442\u0438\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 45891, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0435 \u0441\u0430\u043F\u043E\u0433\u0438 \u0443\u043A\u0440\u043E\u0442\u0438\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 45892, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_leather_0020.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0435 \u043D\u0430\u0440\u0443\u0447\u0438 \u0443\u043A\u0440\u043E\u0442\u0438\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 45893, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_leather_0021.png", name: "\u041A\u043E\u0436\u0430\u043D\u044B\u0439 \u043F\u043E\u044F\u0441 \u0443\u043A\u0440\u043E\u0442\u0438\u0442\u0435\u043B\u044F \u0433\u0440\u0438\u043C\u0443\u0430\u0440\u043E\u0432", isPersonal: true },
-    { id: 45894, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_metal295.png", name: "\u041B\u0430\u0442\u043D\u044B\u0439 \u0448\u043B\u0435\u043C \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u0430\u0440\u0445\u0438\u0432\u0430\u0440\u0438\u0443\u0441\u0430", isPersonal: true },
-    { id: 45895, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_metal295.png", name: "\u041B\u0430\u0442\u043D\u044B\u0439 \u043D\u0430\u0433\u0440\u0443\u0434\u043D\u0438\u043A \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u0430\u0440\u0445\u0438\u0432\u0430\u0440\u0438\u0443\u0441\u0430", isPersonal: true },
-    { id: 45896, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_metal295.png", name: "\u041B\u0430\u0442\u043D\u044B\u0435 \u043F\u043E\u043D\u043E\u0436\u0438 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u0430\u0440\u0445\u0438\u0432\u0430\u0440\u0438\u0443\u0441\u0430", isPersonal: true },
-    { id: 45897, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_metal295.png", name: "\u041B\u0430\u0442\u043D\u044B\u0435 \u043F\u0435\u0440\u0447\u0430\u0442\u043A\u0438 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u0430\u0440\u0445\u0438\u0432\u0430\u0440\u0438\u0443\u0441\u0430", isPersonal: true },
-    { id: 45898, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_metal295.png", name: "\u041B\u0430\u0442\u043D\u044B\u0435 \u0441\u0430\u043F\u043E\u0433\u0438 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u0430\u0440\u0445\u0438\u0432\u0430\u0440\u0438\u0443\u0441\u0430", isPersonal: true },
-    { id: 45899, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_metal_0020.png", name: "\u041B\u0430\u0442\u043D\u044B\u0435 \u043D\u0430\u0440\u0443\u0447\u0438 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u0430\u0440\u0445\u0438\u0432\u0430\u0440\u0438\u0443\u0441\u0430", isPersonal: true },
-    { id: 45900, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_metal_0021.png", name: "\u041B\u0430\u0442\u043D\u044B\u0439 \u043F\u043E\u044F\u0441 \u044D\u0440\u043D\u0430\u0440\u0434\u0441\u043A\u043E\u0433\u043E \u0430\u0440\u0445\u0438\u0432\u0430\u0440\u0438\u0443\u0441\u0430", isPersonal: true },
-    { id: 53522, type: "other", icon: "https://archeagecodex.com/items/quest/icon_item_quest169.png", grade: 2, name: "\u0411\u043E\u043B\u044C\u0448\u043E\u0439 \u0441\u0443\u043D\u0434\u0443\u043A \u041A\u0438\u0440\u0438\u043E\u0441\u0430", description: "\u0421\u0443\u043D\u0434\u0443\u043A \u0441 \u043C\u0435\u0434\u043D\u044B\u043C\u0438 \u0434\u0440\u0430\u043A\u043E\u043D\u0430\u043C\u0438.\n\u0412\u043D\u0443\u0442\u0440\u0438:\n\n- 60-100 \u043C\u0435\u0434\u043D\u044B\u0445 \u0434\u0440\u0430\u043A\u043E\u043D\u043E\u0432.", isPersonal: true },
-    { id: 55367, type: "box", icon: "https://archeagecodex.com/items/icon_item_1482.png", grade: 9, name: "\u041B\u0430\u0440\u0435\u0446 \u0441\u043E \u0441\u0432\u0438\u0442\u043A\u0430\u043C\u0438 \u043F\u0440\u043E\u0431\u0443\u0436\u0434\u0435\u043D\u0438\u044F 3 \u0440\u0430\u043D\u0433\u0430" },
-    { id: 8000926, type: "other", icon: "https://archeagecodex.com/items/icon_item_3368.png", grade: 1, name: "[1 \u0434\u0435\u043D\u044C] \u041F\u043E\u043A\u0440\u043E\u0432\u0438\u0442\u0435\u043B\u044C\u0441\u0442\u0432\u043E \u0421\u0438\u043E\u043B\u044C" },
-    { id: 51922, type: "box", icon: "https://archeagecodex.com/items/icon_item_4413.png", grade: 2, name: "\u041A\u043E\u0440\u0437\u0438\u043D\u043A\u0430 \u0441 \u0436\u0435\u0442\u043E\u043D\u043E\u043C" },
-    { id: 33382, type: "potion", icon: "https://archeagecodex.com/items/icon_item_0843.png", grade: 1, name: "\u0411\u0443\u0442\u044B\u043B\u044C \u0441 \u0438\u043C\u0431\u0438\u0440\u043D\u044B\u043C \u043D\u0430\u043F\u0438\u0442\u043A\u043E\u043C" },
-    { id: 8003057, type: "magical", icon: "https://archeagecodex.com/items/icon_item_6009.png", grade: 2, name: "\u041C\u0438\u043C\u043E\u043B\u0435\u0442\u043D\u043E\u0435 \u0431\u043B\u0430\u0433\u043E\u0441\u043B\u043E\u0432\u0435\u043D\u0438\u0435 \u043F\u0440\u0435\u0434\u0435\u043B\u0430" },
-    { id: 56010, name: "\u0411\u0435\u043D\u0435\u0434\u0438\u043A\u0442", icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyJpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoV2luZG93cykiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OTdFODYzN0UzRTU2MTFGMTg0NDU4NjRGMEZDN0I0MjYiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OTdFODYzN0YzRTU2MTFGMTg0NDU4NjRGMEZDN0I0MjYiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo5N0U4NjM3QzNFNTYxMUYxODQ0NTg2NEYwRkM3QjQyNiIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo5N0U4NjM3RDNFNTYxMUYxODQ0NTg2NEYwRkM3QjQyNiIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PjAKMw0AABTfSURBVHjaNFlpjBzH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" },
+    { id: 8000751, type: "quest", overlay: "quest_y", icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 5, name: "Лицензия на убийство: иферийцы", description: "Позволяет получить задание." },
+    { id: 8000752, type: "quest", overlay: "quest_y", icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 6, name: "Лицензия на убийство: Иштар" },
+    { id: 8000753, type: "quest", overlay: "quest_y", icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, name: "Лицензия на убийство: повелитель подземелья" },
+    { id: 48894, type: "magical", icon: "https://archeagecodex.com/items/icon_item_4820.png", grade: 10, name: "Драгоценная эфенская сфера бронника", description: "Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет. Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r." },
+    { id: 54915, type: "magical", icon: "https://archeagecodex.com/items/icon_item_1695.png", grade: 1, name: "Свиток чар ифнирского героя" },
+    { id: 45508, icon: "https://archeagecodex.com/items/icon_item_4212.png", grade: 2, name: "Сфера анимага" },
+    { id: 8001565, icon: "https://archeagecodex.com/items/icon_item_3628.png", grade: 1, name: "Новенькая кирка" },
+    { id: 8002452, overlay: "unconfirmed", icon: "https://archeagecodex.com/items/icon_item_3349.png", grade: 1, name: "Универсальный алхимический кристалл" },
+    { id: 8002449, icon: "https://archeagecodex.com/items/charge_wider.png", grade: 1, name: "Дополнительная сумка" },
+    { id: 47943, type: "potion", icon: "https://archeagecodex.com/items/icon_item_4710.png", grade: 1, name: "Настойка усердного ремесленника" },
+    { id: 39424, type: "magical", icon: "https://archeagecodex.com/items/icon_item_3017.png", grade: 1, name: "Ирамийская гадальная руна", description: "Позволяет заменить один из |nc;эффектов синтеза костюма, эфенского снаряжения, рамианского снаряжения или трофейного снаряжения мифических противников|r другим, выбранным случайным образом.", useDescription: "Распаковать.\nУдерживая Shift, щелкните левой кнопкой мыши, чтобы распаковать все предметы этого типа, находящиеся в рюкзаке." },
+    { id: 46180, icon: "https://archeagecodex.com/items/icon_item_1395.png", grade: 3, name: "Солнечный настой" },
+    { id: 47130, type: "unidentified", overlay: "unconfirmed", icon: "https://archeagecodex.com/items/icon_item_2679.png", grade: 6, name: "Хрустальная руна", description: "|nd;Можно получить одну из хрустальных рун на выбор:|r\n- хрустальная руна багровой луны,\n- хрустальная руна осенней луны,\n- хрустальная руна молодой луны,\n- хрустальная руна безмолвной луны,\n- хрустальная руна колдовской луны." },
+    { id: 47104, icon: "https://archeagecodex.com/items/icon_item_4570.png", grade: 2, name: "Парниковый купол" },
+    { id: 48903, type: "box", icon: "https://archeagecodex.com/items/icon_item_3282.png", grade: 1, name: "Набор сверкающих эфенских сфер" },
+    { id: 48474, type: "box", icon: "https://archeagecodex.com/items/icon_item_3275.png", grade: 11, name: "Большой набор мифических эссенций" },
+    { id: 8002297, type: "unidentified", overlay: "seal", icon: "https://archeagecodex.com/items/icon_item_2267.png", grade: 3, name: "Королевский лунный изумруд" },
+    { id: 35727, icon: "https://archeagecodex.com/items/icon_item_1982.png", grade: 2, name: "Буровая установка" },
+    { id: 47082, icon: "https://archeagecodex.com/items/icon_item_3369.png", grade: 1, name: "Патент на транспортное средство" },
+    { id: 31892, icon: "https://archeagecodex.com/items/icon_item_1733.png", grade: 1, name: "Земельный вексель" },
+    { id: 55722, icon: "https://archeagecodex.com/items/icon_item_5864.png", grade: 4, name: "Искусная цитриновая гравировка" },
+    { id: 48886, icon: "https://archeagecodex.com/items/icon_item_4818.png", grade: 8, name: "Сверкающая эфенская сфера бронника", description: "Предотвращает понижение уровня эффекта эфенских кубов, действующего на предмет.\n\nМожно использовать только при уровне усиления |nc;18 и выше|r." },
+    { id: 55723, icon: "https://archeagecodex.com/items/icon_item_5865.png", grade: 4, name: "Искусная аквамариновая гравировка" },
+    { id: 45747, type: "potion", icon: "https://archeagecodex.com/items/icon_item_4385.png", grade: 5, name: "Драгоценный флакон с зельем охотника" },
+    { id: 49270, type: "box", icon: "https://archeagecodex.com/items/icon_item_2273.png", grade: 5, name: "Набор больших эфенских кубов" },
+    { id: 45160, type: "potion", icon: "https://archeagecodex.com/items/icon_item_2376.png", grade: 4, name: "Настойка спорыньи" },
+    { id: 46623, type: "potion", icon: "https://archeagecodex.com/items/icon_item_0986.png", grade: 4, name: "Настойка остролиста", buff: { duration: 1800 } },
+    { id: 8001268, type: "magical", icon: "https://archeagecodex.com/items/icon_item_1986.png", grade: 1, name: "Свиток дельфийской библиотеки", buff: { duration: 3600 } },
+    { id: 8001169, type: "magical", icon: "https://archeagecodex.com/items/icon_item_1986.png", grade: 1, name: "Свиток опыта V", buff: { duration: 3600 }, isPersonal: true },
+    { id: 8001172, type: "magical", icon: "https://archeagecodex.com/items/icon_item_1986.png", grade: 1, name: "Свиток опыта VIII", buff: { duration: 3600 }, isPersonal: true },
+    { id: 46181, icon: "https://archeagecodex.com/items/icon_item_1396.png", grade: 3, name: "Лунный настой" },
+    { id: 48546, icon: "https://archeagecodex.com/items/icon_item_3595.png", grade: 1, name: "Письмена войны" },
+    { id: 47655, icon: "https://archeagecodex.com/items/icon_item_4709.png", grade: 4, name: "Фиона Розовый Лепесток" },
+    { id: 47581, icon: "https://archeagecodex.com/items/icon_item_4211.png", grade: 3, name: "Лиловое эмалевое стекло" },
+    { id: 47479, icon: "https://archeagecodex.com/items/icon_item_3519.png", grade: 1, name: "Инкрустированный флакон с целебным эликсиром" },
+    { id: 47480, icon: "https://archeagecodex.com/items/icon_item_3520.png", grade: 1, name: "Инкрустированный флакон с эликсиром маны" },
+    { id: 8002996, icon: "https://archeagecodex.com/items/icon_item_6002.png", grade: 1, name: "Осколок предела", description: "Этот осколок – фрагмент отражения божественных сил в материальном мире. На |ni;станке для акхиума|r из таких частиц можно создать нумены.", price: 100 },
+    { id: 8003072, icon: "https://archeagecodex.com/items/icon_item_6002.png", grade: 1, name: "Осколок предела" },
+    { id: 8001288, icon: "https://archeagecodex.com/items/icon_item_0966.png", grade: 1, name: "Цитрусовая карамелька", buff: { duration: 3600 } },
+    { id: 8002649, type: "box", icon: "https://archeagecodex.com/items/icon_item_3259.png", grade: 4, name: "Набор неверинских фейерверков" },
+    { id: 8000540, icon: "https://archeagecodex.com/items/icon_item_3207.png", grade: 1, name: "Пушистая неверинская елочка" },
+    { id: 49769, icon: "https://archeagecodex.com/items/icon_item_4950.png", grade: 6, name: "Зачарованный свиток пробуждения хранителя знаний" },
+    { id: 54653, type: "box", icon: "https://archeagecodex.com/items/icon_item_5043.png", grade: 12, name: "Сундук с обновленным рамианским снаряжением" },
+    { id: 53515, type: "magical", icon: "https://archeagecodex.com/items/icon_item_5266.png", grade: 2, isPersonal: true, price: 0, reqLevel: 1, name: "Заговоренная рамианская руна", description: "Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для проклятого, изначального, обновленного и совершенного рамианского снаряжения.|r", useDescription: "Приступить к замене эффекта.\nРасход очков работы: |nc;50|r." },
+    { id: 52207, icon: "https://archeagecodex.com/items/icon_item_3022.png", grade: 1, name: "Мешочек с микстурами", description: "Содержимое:\n- инкрустированный флакон с эликсиром маны (300 шт.),\n- инкрустированный флакон с целебным эликсиром (300 шт.),\n- солнечный настой (30 шт.),\n- лунный настой (30 шт.)" },
+    { id: 51239, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 11, name: "Сундук с изначальным рамианским оружием эпохи мифов" },
+    { id: 51240, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 12, name: "Сундук с изначальным рамианским оружием эпохи Двенадцати" },
+    { id: 54654, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 12, name: "Сундук с обновленным рамианским оружием эпохи Двенадцати" },
+    { id: 54655, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 11, name: "Сундук с обновленными рамианскими доспехами эпохи мифов" },
+    { id: 47941, type: "box", icon: "https://archeagecodex.com/items/x_mas_gift.png", grade: 10, name: "Сундук с оружием Библиотеки Эрнарда эпохи легенд" },
+    { id: 51243, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 12, name: "Сундук с магистерским эрнардским оружием эпохи Двенадцати" },
+    { id: 55501, type: "box", icon: "https://archeagecodex.com/items/icon_item_5850.png", grade: 6, name: "Сундучок с легендарным украшением ифнирского героя", description: "Открыв этот сундучок, вы сможете выбрать один из следующих предметов:\n- легендарная серьга ифнирского героя,\n- легендарное кольцо ифнирского героя." },
+    { id: 51940, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 8, name: "Сундучок с ценным украшением эпохи чудес" },
+    { id: 51236, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 11, name: "Сундучок с драгоценным украшением эпохи мифов", description: "Открыв этот сундучок, вы сможете выбрать один из следующих предметов качества эпохи мифов:\n- перстень чемпиона Дома Норьетт,\n- серьга чемпиона Дома Норьетт,\n- ожерелье последнего рубежа,\n- ожерелье доблести воина XIII ранга,\n- ожерелье доблести целителя XIII ранга." },
+    { id: 55783, type: "box", icon: "https://archeagecodex.com/items/icon_item_2992.png", grade: 5, name: "Сундучок с зачарованной гравировкой для украшений" },
+    { id: 50924, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth248.png", grade: 2, name: "Дизайн широкополой шляпы стрелка" },
+    { id: 50925, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth519.png", grade: 2, name: "Дизайн соломенной шляпы" },
+    { id: 8002486, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_set/nu_{sex}_sk_korean006.png", grade: 1, name: "Дизайн костюма хоури эпохи Фарвати" },
+    { id: 51092, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_set/nu_{sex}_sk_uniform004.png", grade: 2, name: "Дизайн одеяния правителя северного Мейра" },
+    { id: 129, type: "magical", icon: `${GMRU_CDN_ICONS}3afe6571286a8a3f3cfab503f4bb8b00.png`, grade: 1, name: "Дельфийская руна", description: "Неказистая руна из светлого песчаника.", useDescription: "Позволяет мгновенно получить 200.000 очков опыта.", reqLevel: 50 },
+    { id: 8003128, type: "magical", icon: `${GMRU_CDN_ICONS}3afe6571286a8a3f3cfab503f4bb8b00.png`, grade: 10, name: "Дельфийская руна эпохи легенд", description: "Древняя руна, наполненная невероятной магической силой.", useDescription: "Позволяет мгновенно получить 125,000,000 очков опыта.", reqLevel: 91 },
+    { id: 55280, type: "box", icon: "https://archeagecodex.com/items/icon_item_2812.png", grade: 6, name: "Легендарная руна ифнирского героя" },
+    { id: 55683, type: "box", icon: "https://archeagecodex.com/items/icon_item_4527.png", grade: 1, name: "Мешочек с магистериями для украшений" },
+    { id: 50536, type: "box", icon: "https://archeagecodex.com/items/icon_item_4527.png", grade: 1, name: "Мешочек с магистериями", description: "Открыв мешочек, вы сможете выбрать один из следующих предметов:\n- мешочек с рубиновыми магистериями,\n- мешочек с кварцевыми магистериями,\n- мешочек с сапфировыми магистериями,\n- мешочек с изумрудными магистериями,\n- мешочек с янтарными магистериями." },
+    { id: 8001148, icon: "https://archeagecodex.com/items/icon_item_3807.png", grade: 2, name: "Статуя «Орхидна на троне»" },
+    { id: 8001203, icon: "https://archeagecodex.com/items/icon_item_3277.png", grade: 1, name: "Сундучок с фамильными ценностями" },
+    { id: 54933, icon: "https://archeagecodex.com/items/icon_item_5809.png", grade: 2, name: "Замерзший пруд" },
+    { id: 48860, type: "magical", icon: "https://archeagecodex.com/items/icon_item_4002.png", grade: 6, name: "Большая эфенская сфера оружейника", description: "Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза." },
+    { id: 48861, type: "magical", icon: "https://archeagecodex.com/items/icon_item_4816.png", grade: 6, name: "Большая эфенская сфера бронника", description: "Повышает вероятность успеха при попытке улучшить снаряжение с помощью эфенских кубов в |nc;2|r раза." },
+    { id: 44359, type: "potion", icon: "https://archeagecodex.com/items/icon_item_3559.png", grade: 1, name: "Походный фиал славы" },
+    { id: 55800, type: "box", icon: "https://archeagecodex.com/items/icon_item_5486.png", grade: 4, name: "Сундучок с фрагментами судьбы", description: "Открыв этот сундучок, вы сможете выбрать один из следующих предметов:\n- пыль судьбы (25 шт.),\n- слиток судьбы (5 шт.),\n- призма судьбы." },
+    { id: 8002772, type: "box", icon: "https://archeagecodex.com/items/icon_item_5043.png", grade: 5, name: "Окованный сталью ящик с боевым питомцем", description: "Сняв печать, вы получите Квадрума, Мистериона или Мистериона, Ужаса Ночи (на выбор)." },
+    { id: 50635, type: "magical", icon: "https://archeagecodex.com/items/icon_item_5058.png", grade: 2, isPersonal: true, name: "Заговоренная гадальная руна", description: "Позволяет заменить один из эффектов синтеза предмета другим, выбрав нужный эффект.\n\n|ni;Подходит для эфенского и рамианского снаряжения; трофеев, полученных за победу над мифическими противниками; ожерелий, полученных на Последнем рубеже; перстней говорящего с духами; а также для костюмов, плащей и украшений чемпионов Порт-Аргенто.|r", useDescription: 'Приступить к замене эффекта.<br>Расход очков работы: <span class="orange_text">50</span>.' },
+    { id: 8002769, icon: "https://archeagecodex.com/items/quest/icon_item_quest217.png", grade: 3, isPersonal: true, name: "Знак «Ключевая фигура»", description: "Позволяет получить титул «Ключевая фигура».", useDescription: "Получить титул." },
+    { id: 30604, icon: "https://archeagecodex.com/items/icon_item_1643.png", grade: 5, name: "Монеты дару x100" },
+    { id: 28814, icon: "https://archeagecodex.com/items/icon_item_1643.png", grade: 5, name: "Монеты дару x180" },
+    { id: 55450, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 7, name: "Реликвийное кольцо ифнирского героя" },
+    { id: 8002410, type: "equipment", subType: "cloak", icon: "https://archeagecodex.com/items/icon_item_0936.png", grade: 5, name: "Алый шарф", description: "Неизвестно, в чем причина, но к человеку в таком шарфе окружающие почему-то относятся с особенным уважением (и даже с некоторой опаской).\n\n|nc;Усиливающие эффекты костюма действуют 30 дней. Чтобы активировать их заново, костюм нужно постирать.|r", equipDescription: "Скорость передвижения +|nc;3|r%\nСкорость плавания +|nc;3|r%\nСкорость занятия ремеслом |nc;+10%|r\nСкорость занятия животноводством |nc;+10%|r\nОпыт при занятии ремеслом |nc;+10|r%", isEquipDescriptionTemporary: true },
+    { id: 34684, type: "equipment", subType: "windInstrument", icon: "https://archeagecodex.com/items/icon_item_ins_s_0051.png", name: "Укрепленная аргенитовая лютня" },
+    { id: 34685, type: "equipment", subType: "windInstrument", icon: "https://archeagecodex.com/items/icon_item_ins_w_0025.png", name: "Укрепленный аргенитовый кларнет" },
+    { id: 417, icon: "https://archeagecodex.com/items/icon_item_0418.png", grade: 1, name: "Редкий камень странствий", isPersonal: true, description: "Необходим для перемещения с помощью книги порталов.", price: 0, reqLevel: 1 },
+    { id: 52701, icon: "https://archeagecodex.com/items/icon_item_5282.png", grade: 1, name: "Кристалл изначального анадия", description: "Эти лиловые кристаллы – достойное подношение духам-хранителям.\nОдновременно в рюкзаке может быть не более пяти кристаллов. Кристаллы исчезнут через один час.", useDescription: "Поднести кристалл духам-хранителям у древнего тотема или усилить призванного духа-хранителя.", price: 0 },
+    { id: 40491, icon: "https://archeagecodex.com/items/icon_item_3090.png", grade: 2, name: "Знак отваги" },
+    { id: 46695, icon: "https://archeagecodex.com/items/icon_item_4557.png", grade: 3, name: "Белоснежный олененок" },
+    { id: 48521, type: "magical", icon: "https://archeagecodex.com/items/icon_item_2070.png", grade: 5, name: "Большой эфенский куб оружейника" },
+    { id: 48522, type: "magical", icon: "https://archeagecodex.com/items/icon_item_2069.png", grade: 5, name: "Большой эфенский куб бронника" },
+    { id: 8002273, type: "box", icon: "https://archeagecodex.com/items/icon_item_1668.png", grade: 1, name: "Набор анимага" },
+    { id: 8002483, type: "box", icon: "https://archeagecodex.com/items/icon_item_3261.png", grade: 1, name: "Коробка с бельем «Ночи Аль-Харбы»" },
+    { id: 45409, type: "unidentified", overlay: "unconfirmed", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth292.png", grade: 2, name: "Рамианское матерчатое снаряжение" },
+    { id: 53586, type: "unidentified", icon: "https://archeagecodex.com/items/icon_item_5144.png", grade: 4, name: "Золотой сундучок со знаками культистов" },
+    { id: 46151, type: "magical", icon: "https://archeagecodex.com/items/icon_item_4467.png", grade: 3, name: "Заготовка огранщика", isPersonal: true },
+    { id: 49252, type: "quest", icon: "https://archeagecodex.com/items/icon_item_4878.png", grade: 2, name: "Образцы флоры Сада", isPersonal: true, price: 0, description: "Пакетик с образцами флоры Сада Матери." },
+    { id: 31151, type: "other", icon: "https://archeagecodex.com/items/x_mas_gift.png", grade: 1, name: "Перевязанный ленточкой подарок", description: "Похоже, один из снеговиков вместе с украшениями прихватил подарок из тех, что должен был раздавать на улицах города.", useDescription: "Открыть подарок.\nУдерживая Shift, щелкните правой кнопкой мыши, чтобы открыть все подарки этого вида один за другим.", isPersonal: true, price: 0 },
+    { id: 28188, type: "rareMaterial", icon: `${GMRU_CDN_ICONS}d2f377e3c3118826089a2caf9e794a50.png`, grade: 3, name: "Сплав стихий", description: "Можно изготовить с помощью |ni;тигля стихий|r.\nИспользуется в ремесле.", isPersonal: true, price: 360 },
+    { id: 55516, type: "box", icon: "https://archeagecodex.com/items/icon_item_2812.png", grade: 5, name: "Эпическая руна ифнирского героя", isPersonal: true },
+    { id: 55490, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 8, name: "Серьга ифнирского героя эпохи чудес", isPersonal: true },
+    { id: 55255, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 7, name: "Реликвийная серьга ифнирского героя", isPersonal: true },
+    { id: 52808, type: "unidentified", overlay: "unconfirmed", icon: "https://archeagecodex.com/items/icon_item_teleport.png", grade: 1, name: "Книга порталов (7 д.)", isPersonal: true },
+    { id: 34702, type: "equipment", subType: "windInstrument", icon: "https://archeagecodex.com/items/icon_item_ins_w_0049.png", name: "Зеркальный аргенитовый кларнет", buff: { avgRestoreMana: 16 } },
+    { id: 51723, type: "mount", icon: "https://archeagecodex.com/items/icon_item_5149.png", grade: 4, name: "Ящик с Мару, покорителем просторов", isPersonal: true },
+    { id: 8002771, type: "box", icon: "https://archeagecodex.com/items/icon_item_5043.png", grade: 5, name: "Окованный сталью ящик с глайдером", isPersonal: true },
+    { id: 39363, type: "battlePet", icon: "https://archeagecodex.com/items/icon_item_2275.png", grade: 1, name: "Осенний Лоскутик" },
+    { id: 34972, icon: "https://archeagecodex.com/items/doll_pet_hm_001.png", grade: 1, name: "Красные очки-сердечки" },
+    { id: 34975, icon: "https://archeagecodex.com/items/doll_pet_bo_001.png", grade: 1, name: "Кулинарные перчатки в красный горошек" },
+    { id: 36183, icon: "https://archeagecodex.com/items/doll_pet_ar_007.png", grade: 1, name: "Красный заводной ключик" },
+    { id: 34981, type: "battlePet", icon: "https://archeagecodex.com/items/icon_item_2720.png", grade: 1, name: "Детеныш Гартарейн" },
+    { id: 37018, type: "lightArmor", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth560.png", grade: 3, name: "Вязаная шапочка" },
+    { id: 49630, type: "furniture", icon: "https://archeagecodex.com/items/icon_item_4862.png", grade: 5, name: "Статуэтка «Аранзеб»" },
+    { id: 31787, type: "lightArmor", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth550.png", grade: 3, name: "Ободок со снеговичками" },
+    { id: 28242, type: "craftItem", icon: "https://archeagecodex.com/items/icon_item_1243.png", grade: 1, name: "Мыло" },
+    { id: 43298, type: "craftItem", icon: "https://archeagecodex.com/items/icon_item_3952.png", grade: 1, name: "Теневой делец" },
+    { id: 8002004, type: "mount", icon: "https://archeagecodex.com/items/icon_item_2774.png", grade: 1, name: "Призрачный конь (30 д.)" },
+    { id: 8000315, type: "lightArmor", icon: "https://archeagecodex.com/items/costume_cp/nu_f_cp_leather002.png", grade: 1, name: "Накидка из грифоньих перьев" },
+    { id: 8000127, type: "equipment", subType: "costume", icon: "https://archeagecodex.com/items/costume_set/nu_f_sk_party001.png", grade: 2, name: "Бальный наряд Двух Корон" },
+    { id: 55495, type: "box", icon: "https://archeagecodex.com/items/icon_item_2375.png", grade: 9, name: "Кольцо ифнирского героя эпохи сказаний" },
+    { id: 33156, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth554.png", name: "Вишневая шляпа-торт" },
+    { id: 45373, type: "furniture", icon: "https://archeagecodex.com/items/icon_item_4353.png", grade: 2, name: "Фонтан «Лесная гармония»" },
+    { id: 8000346, icon: "https://archeagecodex.com/items/icon_item_1360.png", grade: 2, name: "Белая субмарина (30 д.)" },
+    { id: 8000309, type: "mount", icon: "https://archeagecodex.com/items/icon_item_1502.png", grade: 3, name: "Цирковой медведь (на 30 дней)" },
+    { id: 31878, type: "furniture", icon: "https://archeagecodex.com/items/icon_item_1670.png", grade: 2, name: "Неверинский патефон" },
+    { id: 8002069, icon: "https://archeagecodex.com/items/icon_item_moonstone05.png", grade: 1, name: "Дар жрицы Нуи" },
+    { id: 39551, type: "furniture", icon: "https://archeagecodex.com/items/icon_item_2847.png", grade: 2, name: "Песчаная скульптура Победы" },
+    { id: 8000310, icon: "https://archeagecodex.com/items/icon_item_2979.png", grade: 1, name: "Жетон на покупку оружия" },
+    { id: 8000311, icon: "https://archeagecodex.com/items/icon_item_2980.png", grade: 1, name: "Жетон на покупку доспехов" },
+    { id: 8000441, icon: "https://archeagecodex.com/items/icon_item_2993.png", grade: 1, name: "Иферийская монетка" },
+    { id: 8000442, icon: "https://archeagecodex.com/items/icon_item_2982.png", grade: 1, name: "Заколдованная монетка" },
+    { id: 45880, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png", name: "Диадема эрнардского мнемоника", isPersonal: true },
+    { id: 45881, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png", name: "Матерчатый камзол эрнардского мнемоника", isPersonal: true },
+    { id: 45882, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png", name: "Матерчатые поножи эрнардского мнемоника", isPersonal: true },
+    { id: 45883, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png", name: "Матерчатые перчатки эрнардского мнемоника", isPersonal: true },
+    { id: 45884, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png", name: "Матерчатые сапоги эрнардского мнемоника", isPersonal: true },
+    { id: 45885, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_cloth_0020.png", name: "Матерчатые наручи эрнардского мнемоника", isPersonal: true },
+    { id: 45886, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_cloth_0021.png", name: "Матерчатый пояс эрнардского мнемоника", isPersonal: true },
+    { id: 45991, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png", name: "Диадема смотрителя тайных архивов", isPersonal: true },
+    { id: 45990, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png", name: "Матерчатый камзол смотрителя тайных архивов", isPersonal: true },
+    { id: 45989, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png", name: "Матерчатые поножи смотрителя тайных архивов", isPersonal: true },
+    { id: 45988, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png", name: "Матерчатые перчатки смотрителя тайных архивов", isPersonal: true },
+    { id: 45987, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png", name: "Матерчатые сапоги смотрителя тайных архивов", isPersonal: true },
+    { id: 45986, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_cloth_0020.png", name: "Матерчатые наручи смотрителя тайных архивов", isPersonal: true },
+    { id: 45985, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_cloth_0021.png", name: "Матерчатый пояс смотрителя тайных архивов", isPersonal: true },
+    { id: 45887, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png", name: "Фибула заклинателя гримуаров", isPersonal: true },
+    { id: 45888, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png", name: "Кожаная куртка заклинателя гримуаров", isPersonal: true },
+    { id: 45889, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png", name: "Кожаные поножи заклинателя гримуаров", isPersonal: true },
+    { id: 45890, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png", name: "Кожаные перчатки заклинателя гримуаров", isPersonal: true },
+    { id: 47047, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png", name: "Кожаные сапоги заклинателя гримуаров", isPersonal: true },
+    { id: 47048, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_leather_0020.png", name: "Кожаные наручи заклинателя гримуаров", isPersonal: true },
+    { id: 47049, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_leather_0021.png", name: "Кожаный пояс заклинателя гримуаров", isPersonal: true },
+    { id: 47043, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png", name: "Фибула укротителя гримуаров", isPersonal: true },
+    { id: 47044, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png", name: "Кожаная куртка укротителя гримуаров", isPersonal: true },
+    { id: 47045, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png", name: "Кожаные поножи укротителя гримуаров", isPersonal: true },
+    { id: 47046, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png", name: "Кожаные перчатки укротителя гримуаров", isPersonal: true },
+    { id: 45891, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png", name: "Кожаные сапоги укротителя гримуаров", isPersonal: true },
+    { id: 45892, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_leather_0020.png", name: "Кожаные наручи укротителя гримуаров", isPersonal: true },
+    { id: 45893, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_leather_0021.png", name: "Кожаный пояс укротителя гримуаров", isPersonal: true },
+    { id: 45894, type: "equipment", equipmentSubType: "helmet", icon: "https://archeagecodex.com/items/costume_hm/nu_m_hm_metal295.png", name: "Латный шлем эрнардского архивариуса", isPersonal: true },
+    { id: 45895, type: "equipment", equipmentSubType: "armor", icon: "https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_metal295.png", name: "Латный нагрудник эрнардского архивариуса", isPersonal: true },
+    { id: 45896, type: "equipment", equipmentSubType: "pants", icon: "https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_metal295.png", name: "Латные поножи эрнардского архивариуса", isPersonal: true },
+    { id: 45897, type: "equipment", equipmentSubType: "gloves", icon: "https://archeagecodex.com/items/costume_gv/nu_m_gv_metal295.png", name: "Латные перчатки эрнардского архивариуса", isPersonal: true },
+    { id: 45898, type: "equipment", equipmentSubType: "boots", icon: "https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_metal295.png", name: "Латные сапоги эрнардского архивариуса", isPersonal: true },
+    { id: 45899, type: "equipment", equipmentSubType: "bracer", icon: "https://archeagecodex.com/items/icon_item_arm_metal_0020.png", name: "Латные наручи эрнардского архивариуса", isPersonal: true },
+    { id: 45900, type: "equipment", equipmentSubType: "belt", icon: "https://archeagecodex.com/items/icon_item_belt_metal_0021.png", name: "Латный пояс эрнардского архивариуса", isPersonal: true },
+    { id: 53522, type: "other", icon: "https://archeagecodex.com/items/quest/icon_item_quest169.png", grade: 2, name: "Большой сундук Кириоса", description: "Сундук с медными драконами.\nВнутри:\n\n- 60-100 медных драконов.", isPersonal: true },
+    { id: 55367, type: "box", icon: "https://archeagecodex.com/items/icon_item_1482.png", grade: 9, name: "Ларец со свитками пробуждения 3 ранга" },
+    { id: 8000926, type: "other", icon: "https://archeagecodex.com/items/icon_item_3368.png", grade: 1, name: "[1 день] Покровительство Сиоль" },
+    { id: 51922, type: "box", icon: "https://archeagecodex.com/items/icon_item_4413.png", grade: 2, name: "Корзинка с жетоном" },
+    { id: 33382, type: "potion", icon: "https://archeagecodex.com/items/icon_item_0843.png", grade: 1, name: "Бутыль с имбирным напитком" },
+    { id: 8003057, type: "magical", icon: "https://archeagecodex.com/items/icon_item_6009.png", grade: 2, name: "Мимолетное благословение предела" },
+    { id: 56010, name: "Бенедикт", icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyJpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoV2luZG93cykiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OTdFODYzN0UzRTU2MTFGMTg0NDU4NjRGMEZDN0I0MjYiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OTdFODYzN0YzRTU2MTFGMTg0NDU4NjRGMEZDN0I0MjYiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo5N0U4NjM3QzNFNTYxMUYxODQ0NTg2NEYwRkM3QjQyNiIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo5N0U4NjM3RDNFNTYxMUYxODQ0NTg2NEYwRkM3QjQyNiIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PjAKMw0AABTfSURBVHjaNFlpjBzH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" },
     { id: 1, type: "", icon: "", grade: 1, name: "" }
   ].map((i) => [i.id, i]));
   let getItemCodexUrl = /* @__PURE__ */ __name((item) => `${CODEX_ITEM_URL}${item.id}/${item.isGradeInferred ? `?grade=${item.grade}` : ""}`, "getItemCodexUrl");
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/events/events.scss
-  let events_default = '.tm-popup-overlay {\n  position: fixed;\n  inset: 0;\n  z-index: 10001;\n  background: rgba(0, 0, 0, 0.45);\n  color: #2D364E;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n\n.tm-popup-panel {\n  background: #fff;\n  border-radius: 8px;\n  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);\n  max-height: 85vh;\n  display: flex;\n  flex-direction: column;\n  font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;\n}\n\n.tm-popup-panel--events {\n  width: 1000px;\n  max-width: 95vw;\n}\n\n.tm-popup-panel--settings {\n  width: 680px;\n  max-width: 95vw;\n  max-height: 80vh;\n}\n\n.tm-popup-header {\n  display: flex;\n  align-items: center;\n  padding: 12px 16px;\n  border-bottom: 1px solid #ddd;\n  gap: 8px;\n  flex-shrink: 0;\n}\n\n.tm-popup-title {\n  flex: 1;\n  font-size: 18px;\n  font-weight: bold;\n  margin: 0;\n}\n\n.tm-popup-btn {\n  background: none;\n  border: none;\n  cursor: pointer;\n  font-size: 20px;\n  padding: 2px 6px;\n  border-radius: 4px;\n  color: #555;\n  line-height: 1;\n}\n\n.tm-popup-btn:hover {\n  background: #eee;\n  color: #000;\n}\n\n.tm-popup-body {\n  overflow-y: auto;\n  padding: 0;\n  flex: 1;\n}\n\n.tm-popup-body--settings {\n  display: flex;\n  gap: 24px;\n  padding: 12px 16px;\n  overflow: hidden;\n}\n\n.tm-settings-left {\n  flex: 0 0 280px;\n  min-width: 0;\n}\n\n.tm-settings-right {\n  flex: 1;\n  min-width: 0;\n  overflow-y: auto;\n}\n\n.tm-settings-section {\n  margin-bottom: 14px;\n}\n\n.tm-settings-section:last-child {\n  margin-bottom: 0;\n}\n\n.tm-settings-section-title {\n  font-weight: bold;\n  margin-bottom: 8px;\n}\n\n.tm-settings-server-select {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 5px 6px;\n  border: 1px solid #bbb;\n  border-radius: 4px;\n  background: #fff;\n  color: #2D364E;\n  font: inherit;\n}\n\n/* Events table */\n.tm-events-table {\n  width: 100%;\n  border-collapse: collapse;\n}\n\n.tm-events-table th {\n  background: #3d2a5a;\n  color: #fff;\n  padding: 8px 12px;\n  text-align: left;\n  font-weight: normal;\n  position: sticky;\n  top: 0;\n  z-index: 1;\n  border-bottom: none;\n}\n\n.tm-events-table td {\n  padding: 6px 12px;\n  border-bottom: 1px solid #ddd;\n  vertical-align: top;\n}\n\n.tm-events-table tr:nth-child(even) td {\n  background: #f5f5f5;\n}\n\n.tm-events-table tr.tm-event-active td {\n  background: #d4edda;\n}\n\n.tm-events-table tr.tm-event-beyond td {\n  opacity: 0.6;\n}\n\n.tm-events-table .tm-event-time {\n  white-space: nowrap;\n  font-family: monospace;\n  font-size: 13px;\n}\n\n.tm-event-time details {\n  cursor: pointer;\n}\n\n.tm-event-time summary {\n  display: list-item;\n}\n\n.tm-event-time summary::marker {\n  font-size: 10px;\n}\n\n.tm-event-time .tm-schedule-detail {\n  margin-top: 4px;\n  padding-left: 18px;\n  font-size: 12px;\n  color: #555;\n  white-space: normal;\n}\n\n.tm-event-time--active summary {\n  color: #155724;\n  font-weight: bold;\n}\n\n.tm-event-time--waiting summary {\n  color: #856404;\n}\n\n.tm-events-table a {\n  color: #2a6496;\n  text-decoration: none;\n}\n\n.tm-events-table a:hover {\n  text-decoration: underline;\n}\n\n/* Settings checkboxes */\n.tm-ev-settings-list {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.tm-ev-settings-list li {\n  padding: 4px 0;\n  display: flex;\n  align-items: center;\n  gap: 4px;\n}\n\n.tm-ev-settings-list label {\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex: 1;\n}\n\n.tm-ev-settings-list input[type=checkbox] {\n  width: 16px;\n  height: 16px;\n  flex-shrink: 0;\n}\n\n.tm-popup-btn--bell {\n  font-size: 16px;\n}\n\n.tm-popup-btn--bell-off {\n  opacity: 0.4;\n}\n\n.tm-ev-bell {\n  cursor: pointer;\n  font-size: 14px;\n  padding: 0 4px;\n  user-select: none;\n  border: none;\n  background: none;\n  vertical-align: middle;\n}\n\n.tm-ev-bell--off {\n  opacity: 0.25;\n}\n\n.tm-scale-row {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.tm-scale-input {\n  width: 75px;\n  padding: 4px 6px;\n  border: 1px solid #bbb;\n  border-radius: 4px;\n  font: inherit;\n}\n\n.tm-scale-suffix {\n  color: #555;\n}\n\n.tm-zoom-row {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  margin-top: 4px;\n}\n\n.tm-zoom-cb:disabled + .tm-zoom-label {\n  opacity: 0.5;\n}\n\n.tm-zoom-label {\n  cursor: pointer;\n  user-select: none;\n  font-size: 13px;\n}';
+  let events_default = `.tm-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.45);
+  color: #2D364E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tm-popup-panel {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;
+}
+
+.tm-popup-panel--events {
+  width: 1000px;
+  max-width: 95vw;
+}
+
+.tm-popup-panel--settings {
+  width: 680px;
+  max-width: 95vw;
+  max-height: 80vh;
+}
+
+.tm-popup-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ddd;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tm-popup-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.tm-popup-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #555;
+  line-height: 1;
+}
+
+.tm-popup-btn:hover {
+  background: #eee;
+  color: #000;
+}
+
+.tm-popup-body {
+  overflow-y: auto;
+  padding: 0;
+  flex: 1;
+}
+
+.tm-popup-body--settings {
+  display: flex;
+  gap: 24px;
+  padding: 12px 16px;
+  overflow: hidden;
+}
+
+.tm-settings-left {
+  flex: 0 0 280px;
+  min-width: 0;
+}
+
+.tm-settings-right {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.tm-settings-section {
+  margin-bottom: 14px;
+}
+
+.tm-settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.tm-settings-section-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.tm-settings-server-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 6px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+  color: #2D364E;
+  font: inherit;
+}
+
+/* Events table */
+.tm-events-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tm-events-table th {
+  background: #3d2a5a;
+  color: #fff;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: normal;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: none;
+}
+
+.tm-events-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid #ddd;
+  vertical-align: top;
+}
+
+.tm-events-table tr:nth-child(even) td {
+  background: #f5f5f5;
+}
+
+.tm-events-table tr.tm-event-active td {
+  background: #d4edda;
+}
+
+.tm-events-table tr.tm-event-beyond td {
+  opacity: 0.6;
+}
+
+.tm-events-table .tm-event-time {
+  white-space: nowrap;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.tm-event-time details {
+  cursor: pointer;
+}
+
+.tm-event-time summary {
+  display: list-item;
+}
+
+.tm-event-time summary::marker {
+  font-size: 10px;
+}
+
+.tm-event-time .tm-schedule-detail {
+  margin-top: 4px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #555;
+  white-space: normal;
+}
+
+.tm-event-time--active summary {
+  color: #155724;
+  font-weight: bold;
+}
+
+.tm-event-time--waiting summary {
+  color: #856404;
+}
+
+.tm-events-table a {
+  color: #2a6496;
+  text-decoration: none;
+}
+
+.tm-events-table a:hover {
+  text-decoration: underline;
+}
+
+/* Settings checkboxes */
+.tm-ev-settings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tm-ev-settings-list li {
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tm-ev-settings-list label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.tm-ev-settings-list input[type=checkbox] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.tm-popup-btn--bell {
+  font-size: 16px;
+}
+
+.tm-popup-btn--bell-off {
+  opacity: 0.4;
+}
+
+.tm-ev-bell {
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  user-select: none;
+  border: none;
+  background: none;
+  vertical-align: middle;
+}
+
+.tm-ev-bell--off {
+  opacity: 0.25;
+}
+
+.tm-scale-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tm-scale-input {
+  width: 75px;
+  padding: 4px 6px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.tm-scale-suffix {
+  color: #555;
+}
+
+.tm-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tm-zoom-cb:disabled + .tm-zoom-label {
+  opacity: 0.5;
+}
+
+.tm-zoom-label {
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+}`;
 
   // src/events/events.js
   let LS_KEYS = {
@@ -1122,9 +1441,9 @@
     if (changed) saveNotificationState(state);
   }, "cleanOldNotifiedKeys");
   let showEventNotification = /* @__PURE__ */ __name((ev, entry) => {
-    const timeLabel = entry.timeEnd ? `${entry.timeStart}\u2013${entry.timeEnd}` : entry.timeStart;
+    const timeLabel = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
     const location2 = ev.locations?.length ? ev.locations.join(", ") : "";
-    const body = location2 ? `${timeLabel} \u2014 ${location2}` : timeLabel;
+    const body = location2 ? `${timeLabel} — ${location2}` : timeLabel;
     try {
       new Notification(ev.title, { body, icon: "https://aa.cdn.gmru.net/ms/data/old/9d56835cb7de079738b7e95471186c09.png", tag: `aa-ev-${ev.title}-${entry.timeStart}` });
     } catch {
@@ -1219,11 +1538,11 @@
     header.className = "tm-popup-header";
     const title = document.createElement("div");
     title.className = "tm-popup-title";
-    title.textContent = "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438";
+    title.textContent = "Настройки";
     header.appendChild(title);
     const closeBtn = document.createElement("button");
     closeBtn.className = "tm-popup-btn";
-    closeBtn.textContent = "\xD7";
+    closeBtn.textContent = "×";
     closeBtn.addEventListener("click", closeSettingsPopup);
     header.appendChild(closeBtn);
     panel.appendChild(header);
@@ -1237,7 +1556,7 @@
     serverSection.className = "tm-settings-section";
     const serverTitle = document.createElement("div");
     serverTitle.className = "tm-settings-section-title";
-    serverTitle.textContent = "\u041E\u0441\u043D\u043E\u0432\u043D\u043E\u0439 \u0441\u0435\u0440\u0432\u0435\u0440";
+    serverTitle.textContent = "Основной сервер";
     serverSection.appendChild(serverTitle);
     const serverSelect = document.createElement("select");
     serverSelect.className = "tm-settings-server-select";
@@ -1263,7 +1582,7 @@
     sexSection.className = "tm-settings-section";
     const sexTitle = document.createElement("div");
     sexTitle.className = "tm-settings-section-title";
-    sexTitle.textContent = "\u041F\u043E\u043B";
+    sexTitle.textContent = "Пол";
     sexSection.appendChild(sexTitle);
     const sexSelect = document.createElement("select");
     sexSelect.className = "tm-settings-server-select";
@@ -1285,7 +1604,7 @@
     scaleSection.className = "tm-settings-section";
     const scaleTitle = document.createElement("div");
     scaleTitle.className = "tm-settings-section-title";
-    scaleTitle.textContent = "\u041C\u0430\u0441\u0448\u0442\u0430\u0431 \u0432\u0441\u043F\u043B\u044B\u0432\u0430\u0448\u043A\u0438";
+    scaleTitle.textContent = "Масштаб всплывашки";
     scaleSection.appendChild(scaleTitle);
     const scaleRow = document.createElement("div");
     scaleRow.className = "tm-scale-row";
@@ -1321,7 +1640,7 @@
     const zoomLabel = document.createElement("label");
     zoomLabel.className = "tm-zoom-label";
     zoomLabel.htmlFor = "tm-scale-browser-zoom";
-    zoomLabel.textContent = "\u041C\u0430\u0441\u0448\u0442\u0430\u0431 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430";
+    zoomLabel.textContent = "Масштаб браузера";
     const zoomRow = document.createElement("div");
     zoomRow.className = "tm-zoom-row";
     zoomRow.appendChild(zoomCb);
@@ -1332,7 +1651,7 @@
     eventsSection.className = "tm-settings-section";
     const eventsTitle = document.createElement("div");
     eventsTitle.className = "tm-settings-section-title";
-    eventsTitle.textContent = "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0430\u0435\u043C\u044B\u0435 \u0441\u043E\u0431\u044B\u0442\u0438\u044F";
+    eventsTitle.textContent = "Отображаемые события";
     eventsSection.appendChild(eventsTitle);
     const ul = document.createElement("ul");
     ul.className = "tm-ev-settings-list";
@@ -1359,11 +1678,11 @@
       const bell = document.createElement("button");
       const bellOn = ev.code in notifState.events ? notifState.events[ev.code] : !!ev.defaultNotifications;
       bell.className = "tm-ev-bell" + (bellOn ? "" : " tm-ev-bell--off");
-      bell.textContent = "\u{1F514}";
-      bell.title = "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435 \u0437\u0430 5 \u043C\u0438\u043D";
+      bell.textContent = "🔔";
+      bell.title = "Уведомление за 5 мин";
       bell.addEventListener("click", () => {
         if (typeof Notification === "undefined") {
-          alert("\u0412\u0430\u0448 \u0431\u0440\u0430\u0443\u0437\u0435\u0440 \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F.");
+          alert("Ваш браузер не поддерживает уведомления.");
           return;
         }
         const toggle = /* @__PURE__ */ __name(() => {
@@ -1384,12 +1703,12 @@
         if (Notification.permission === "default") {
           Notification.requestPermission().then((perm) => {
             if (perm === "granted") toggle();
-            else alert("\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.\n\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0430 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.");
+            else alert("Уведомления заблокированы в настройках браузера.\nРазрешите уведомления для этого сайта и попробуйте снова.");
           });
           return;
         }
         if (Notification.permission === "denied") {
-          alert("\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.\n\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0430 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.");
+          alert("Уведомления заблокированы в настройках браузера.\nРазрешите уведомления для этого сайта и попробуйте снова.");
           return;
         }
         toggle();
@@ -1434,12 +1753,12 @@
     header.className = "tm-popup-header";
     const title = document.createElement("div");
     title.className = "tm-popup-title";
-    title.textContent = "\u0420\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u0441\u043E\u0431\u044B\u0442\u0438\u0439";
+    title.textContent = "Расписание событий";
     header.appendChild(title);
     const gearBtn = document.createElement("button");
     gearBtn.className = "tm-popup-btn";
-    gearBtn.textContent = "\u2699";
-    gearBtn.title = "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F";
+    gearBtn.textContent = "⚙";
+    gearBtn.title = "Настройки отображения";
     gearBtn.addEventListener("click", () => openSettingsPopup(renderTable, {
       loadVekselServerIdOverride: loadVekselServerIdOverride2,
       saveVekselServerIdOverride: saveVekselServerIdOverride2,
@@ -1452,8 +1771,8 @@
     header.appendChild(gearBtn);
     const bellBtn = document.createElement("button");
     bellBtn.className = "tm-popup-btn tm-popup-btn--bell";
-    bellBtn.textContent = "\u{1F514}";
-    bellBtn.title = "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0437\u0430 5 \u043C\u0438\u043D\u0443\u0442 \u0434\u043E \u0441\u043E\u0431\u044B\u0442\u0438\u0439";
+    bellBtn.textContent = "🔔";
+    bellBtn.title = "Уведомления за 5 минут до событий";
     const updateBellStyle = /* @__PURE__ */ __name(() => {
       const s = loadNotificationState2();
       bellBtn.classList.toggle("tm-popup-btn--bell-off", !s.enabled);
@@ -1461,14 +1780,14 @@
     updateBellStyle();
     bellBtn.addEventListener("click", async () => {
       if (typeof Notification === "undefined") {
-        alert("\u0412\u0430\u0448 \u0431\u0440\u0430\u0443\u0437\u0435\u0440 \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F.");
+        alert("Ваш браузер не поддерживает уведомления.");
         return;
       }
       if (Notification.permission === "default") {
         await Notification.requestPermission();
       }
       if (Notification.permission === "denied") {
-        alert("\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0437\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.\n\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0441\u0430\u0439\u0442\u0430 \u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430.");
+        alert("Уведомления заблокированы в настройках браузера.\nРазрешите уведомления для этого сайта и попробуйте снова.");
         return;
       }
       const state = loadNotificationState2();
@@ -1479,7 +1798,7 @@
     header.appendChild(bellBtn);
     const closeBtn = document.createElement("button");
     closeBtn.className = "tm-popup-btn";
-    closeBtn.textContent = "\xD7";
+    closeBtn.textContent = "×";
     closeBtn.addEventListener("click", closeEventsPopup);
     header.appendChild(closeBtn);
     panel.appendChild(header);
@@ -1489,7 +1808,7 @@
     table.className = "tm-events-table";
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
-    for (const col of ["\u0412\u0440\u0435\u043C\u044F", "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", "\u041B\u043E\u043A\u0430\u0446\u0438\u0438"]) {
+    for (const col of ["Время", "Название", "Локации"]) {
       const th = document.createElement("th");
       th.textContent = col;
       headerRow.appendChild(th);
@@ -1517,7 +1836,7 @@
         for (const entry of ev.schedule) {
           const { hours, minutes } = parseTime(entry.timeStart);
           const startSec = hours * 3600 + minutes * 60;
-          const timeStr = entry.timeEnd ? `${entry.timeStart}\u2013${entry.timeEnd}` : entry.timeStart;
+          const timeStr = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
           if (entry.timeEnd) {
             const end = parseTime(entry.timeEnd);
             const endSec = end.hours * 3600 + end.minutes * 60;
@@ -1576,7 +1895,7 @@
     const buildScheduleLines = /* @__PURE__ */ __name((schedule) => {
       const lines = [];
       for (const entry of schedule) {
-        const time = entry.timeEnd ? `${entry.timeStart}\u2013${entry.timeEnd}` : entry.timeStart;
+        const time = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
         if (entry.weekdays?.length) {
           const days = entry.weekdays.map((d) => WEEKDAY_NAMES[d]).join(", ");
           lines.push(`${days} ${time}`);
@@ -1588,11 +1907,11 @@
     }, "buildScheduleLines");
     const summaryText = /* @__PURE__ */ __name((occ) => {
       if (occ.isActive && occ.secondsUntil < 0) {
-        return `${occ.label} \u2014 \u0435\u0449\u0451 ${formatCountdown(-occ.secondsUntil)}`;
+        return `${occ.label} — ещё ${formatCountdown(-occ.secondsUntil)}`;
       } else if (occ.isActive) {
         return occ.label;
       } else {
-        return `${occ.label} \u2014 \u0447\u0435\u0440\u0435\u0437 ${formatCountdown(occ.secondsUntil)}`;
+        return `${occ.label} — через ${formatCountdown(occ.secondsUntil)}`;
       }
     }, "summaryText");
     const structureKey = /* @__PURE__ */ __name((occs) => occs.map(
@@ -1635,7 +1954,7 @@
         timeTd.appendChild(details);
         tr.appendChild(timeTd);
         const nameTd = document.createElement("td");
-        nameTd.textContent = occ.ev.title || "\u2014";
+        nameTd.textContent = occ.ev.title || "—";
         if (occ.ev.quests?.length) {
           for (const q of occ.ev.quests) {
             const a = document.createElement("a");
@@ -1731,7 +2050,38 @@
   }, "renderSelectedItems");
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/reloadBtn/reloadBtn.scss
-  let reloadBtn_default = ".guild_header2.tm-has-reload {\n  display: flex;\n  align-items: center;\n}\n\n.tm-reload-btn {\n  width: 22px;\n  height: 22px;\n  margin-left: 8px;\n  padding: 0;\n  border: none;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.15);\n  color: rgba(255, 255, 255, 0.75);\n  font-size: 15px;\n  line-height: 1;\n  cursor: pointer;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  transition: background 150ms ease, color 150ms ease;\n  flex-shrink: 0;\n}\n\n.tm-reload-btn:hover {\n  background: rgba(255, 255, 255, 0.25);\n  color: #fff;\n}\n\n.tm-reload-btn:active {\n  transform: scale(0.92);\n}";
+  let reloadBtn_default = `.guild_header2.tm-has-reload {
+  display: flex;
+  align-items: center;
+}
+
+.tm-reload-btn {
+  width: 22px;
+  height: 22px;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms ease, color 150ms ease;
+  flex-shrink: 0;
+}
+
+.tm-reload-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.tm-reload-btn:active {
+  transform: scale(0.92);
+}`;
 
   // src/reloadBtn/reloadBtn.js
   let reloadBtnStylesInjected = false;
@@ -1748,14 +2098,14 @@
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "tm-reload-btn";
-    btn.title = "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0443";
+    btn.title = "Обновить страницу";
     btn.innerHTML = "&#x21bb;";
     btn.addEventListener("click", () => location.reload());
     header.appendChild(btn);
   }, "appendReloadBtn");
 
   // src/cart/cart.js
-  let normalizeCartItemName = /* @__PURE__ */ __name((itemName) => (itemName || "").trim().replace(/\*$/, "").trim().toLowerCase().replace(/\bc\b/g, "\u0441").replace(/\s+/g, " "), "normalizeCartItemName");
+  let normalizeCartItemName = /* @__PURE__ */ __name((itemName) => (itemName || "").trim().replace(/\*$/, "").trim().toLowerCase().replace(/\bc\b/g, "с").replace(/\s+/g, " "), "normalizeCartItemName");
   let inferGradeFromCartItemName = /* @__PURE__ */ __name((itemName) => {
     const normalized = normalizeCartItemName(itemName);
     if (!normalized) return null;
@@ -1809,13 +2159,13 @@
         45900
         // эрнардский архивариус
       ],
-      campaign: "\u041C\u0430\u0440\u0430\u0444\u043E\u043D \u0433\u0435\u0440\u043E\u0435\u0432, \u0440\u0443\u0440\u0443",
+      campaign: "Марафон героев, руру",
       grade: 12
     },
     {
       itemId: [34684, 34685],
       // укрепленный аргенитовый кларнет/лютня
-      campaign: "\u041D\u0435\u0432\u0435\u0440\u0438\u043D\u0441\u043A\u0438\u0439 \u043C\u0430\u0440\u0430\u0444\u043E\u043D \u0433\u0435\u0440\u043E\u0435\u0432",
+      campaign: "Неверинский марафон героев",
       grade: 8
     }
   ];
@@ -1885,7 +2235,7 @@
           if (node === checkbox) continue;
           const t = (node.textContent || "").trim();
           if (!t) continue;
-          if (t.startsWith("(") && t.includes("\u043C\u0438\u043D.")) {
+          if (t.startsWith("(") && t.includes("мин.")) {
             timerText = t;
           } else {
             campaign = t;
@@ -1917,17 +2267,17 @@
     tr.className = "item";
     if (cartItem.disabled) tr.classList.add("disabled");
     const tdDate = pageDocument.createElement("td");
-    tdDate.className = "g\u0441_1";
+    tdDate.className = "gс_1";
     const d = cartItem.date;
     const pad = /* @__PURE__ */ __name((n) => n < 10 ? "0" + n : "" + n, "pad");
     tdDate.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
     tr.appendChild(tdDate);
     const tdCount = pageDocument.createElement("td");
-    tdCount.className = "g\u0441_4";
-    tdCount.textContent = cartItem.count > 1 ? `${cartItem.count}\xD7` : "";
+    tdCount.className = "gс_4";
+    tdCount.textContent = cartItem.count > 1 ? `${cartItem.count}×` : "";
     tr.appendChild(tdCount);
     const tdName = pageDocument.createElement("td");
-    tdName.className = "g\u0441_2";
+    tdName.className = "gс_2";
     const nameContainer = pageDocument.createElement("div");
     nameContainer.className = "tm-cart-item-name";
     const itemData = findItemByName(cartItem.title, cartItem.campaign);
@@ -1943,7 +2293,7 @@
     tdName.appendChild(nameContainer);
     tr.appendChild(tdName);
     const tdCampaign = pageDocument.createElement("td");
-    tdCampaign.className = "g\u0441_3";
+    tdCampaign.className = "gс_3";
     tdCampaign.textContent = cartItem.campaign;
     if (cartItem.disabled && cartItem.timerText) {
       const timer = pageDocument.createElement("span");
@@ -2007,7 +2357,7 @@
     left.className = "cart_left";
     const leftHeader = pageDocument.createElement("div");
     leftHeader.className = "guild_header2 blue";
-    leftHeader.textContent = "\u0421\u043F\u0438\u0441\u043E\u043A \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432";
+    leftHeader.textContent = "Список доступных предметов";
     appendReloadBtnFn(leftHeader);
     left.appendChild(leftHeader);
     const tableWrapper = pageDocument.createElement("div");
@@ -2018,7 +2368,7 @@
     table.cellPadding = "0";
     const thead = pageDocument.createElement("thead");
     const headerRow = pageDocument.createElement("tr");
-    for (const [cls, text] of [["gh_1", "\u0414\u0430\u0442\u0430 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u044F"], ["gh_4", ""], ["gh_2", "\u041F\u0440\u0435\u0434\u043C\u0435\u0442"], ["gh_3", "\u0410\u043A\u0446\u0438\u044F"]]) {
+    for (const [cls, text] of [["gh_1", "Дата получения"], ["gh_4", ""], ["gh_2", "Предмет"], ["gh_3", "Акция"]]) {
       const th = pageDocument.createElement("th");
       th.className = cls;
       th.textContent = text;
@@ -2039,7 +2389,7 @@
     right.className = "cart_right";
     const selectedHeader = pageDocument.createElement("div");
     selectedHeader.className = "guild_header2 blue";
-    selectedHeader.textContent = "\u0421\u043F\u0438\u0441\u043E\u043A \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432";
+    selectedHeader.textContent = "Список выбранных предметов";
     right.appendChild(selectedHeader);
     const selectedOuter = pageDocument.createElement("div");
     selectedOuter.className = "tm-selected-container";
@@ -2049,7 +2399,7 @@
     right.appendChild(selectedOuter);
     const charsHeader = pageDocument.createElement("div");
     charsHeader.className = "guild_header2 blue";
-    charsHeader.textContent = "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0430";
+    charsHeader.textContent = "Выберите персонажа";
     right.appendChild(charsHeader);
     const origCharSelect = origLayout.querySelector(".char_select");
     if (origCharSelect) {
@@ -2098,7 +2448,7 @@
     }
     const transferBtn = pageDocument.createElement("span");
     transferBtn.className = "guild_button1 ico_done";
-    transferBtn.innerHTML = "<em></em>\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C";
+    transferBtn.innerHTML = "<em></em>Передать";
     transferBtn.style.opacity = "0.5";
     transferBtn.style.pointerEvents = "none";
     right.appendChild(pageDocument.createElement("br"));
@@ -2118,13 +2468,13 @@
     const renderSelectedList = /* @__PURE__ */ __name(() => {
       const selectedArray = [...selectedIds].map((id) => cartItems.find((i) => i.itemId === id)).filter(Boolean);
       renderSelectedItemsFn(selectedWrap, selectedArray, {
-        emptyText: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u044B \u0434\u043B\u044F \u043F\u0435\u0440\u0435\u0434\u0430\u0447\u0438 \u0438\u0437 \u0441\u043F\u0438\u0441\u043A\u0430 \u0441\u043B\u0435\u0432\u0430",
+        emptyText: "Выберите предметы для передачи из списка слева",
         onRemove: /* @__PURE__ */ __name((cartItem) => deselectItem(cartItem.itemId), "onRemove"),
         mapItem: /* @__PURE__ */ __name((cartItem) => {
           const itemData = findItemByName(cartItem.title, cartItem.campaign);
           return {
             iconUrl: "",
-            name: !itemData && cartItem.count > 1 ? `${cartItem.title} ${cartItem.count}\xD7` : cartItem.title,
+            name: !itemData && cartItem.count > 1 ? `${cartItem.title} ${cartItem.count}×` : cartItem.title,
             itemBase: itemData || void 0,
             count: cartItem.count
           };
@@ -2157,11 +2507,11 @@
     }
     transferBtn.addEventListener("click", () => {
       showCartPopup({
-        title: "\u0412\u044B \u0443\u0432\u0435\u0440\u0435\u043D\u044B?",
-        body: "<p>\u041F\u0440\u0435\u0434\u043C\u0435\u0442\u044B \u0431\u0443\u0434\u0443\u0442 \u043F\u0435\u0440\u0435\u0434\u0430\u043D\u044B \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u043F\u0435\u0440\u0441\u043E\u043D\u0430\u0436\u0443</p>",
+        title: "Вы уверены?",
+        body: "<p>Предметы будут переданы выбранному персонажу</p>",
         buttons: [
           {
-            label: "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C",
+            label: "Передать",
             icon: "ico_done",
             action: /* @__PURE__ */ __name(async () => {
               const allIds = [...selectedIds];
@@ -2188,9 +2538,9 @@
                     if (json.msg) messages.push(json.msg);
                   } else {
                     showCartPopup({
-                      title: "\u041E\u0448\u0438\u0431\u043A\u0430",
-                      body: `<p>${json.msg || "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430"}</p>`,
-                      buttons: [{ label: "\u041E\u043A", icon: "ico_done", action: null }]
+                      title: "Ошибка",
+                      body: `<p>${json.msg || "Неизвестная ошибка"}</p>`,
+                      buttons: [{ label: "Ок", icon: "ico_done", action: null }]
                     });
                     break;
                   }
@@ -2208,21 +2558,21 @@
                 if (messages.length > 0) {
                   const body = messages.flatMap((m) => m.split("&nbsp;")).filter(Boolean).join("<br/>");
                   showCartPopup({
-                    title: "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 \u043F\u0435\u0440\u0435\u0434\u0430\u0447\u0438",
+                    title: "Результат передачи",
                     body: `<p>${body}</p>`,
-                    buttons: [{ label: "\u041E\u043A", icon: "ico_done", action: null }]
+                    buttons: [{ label: "Ок", icon: "ico_done", action: null }]
                   });
                 }
               } catch (e) {
                 showCartPopup({
-                  title: "\u041E\u0448\u0438\u0431\u043A\u0430",
-                  body: `<p>\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u043E\u0441: ${e.message}</p>`,
-                  buttons: [{ label: "\u041E\u043A", icon: "ico_done", action: null }]
+                  title: "Ошибка",
+                  body: `<p>Не удалось выполнить запрос: ${e.message}</p>`,
+                  buttons: [{ label: "Ок", icon: "ico_done", action: null }]
                 });
               }
             }, "action")
           },
-          { label: "\u041E\u0442\u043C\u0435\u043D\u0430", icon: "ico_cancel", action: null }
+          { label: "Отмена", icon: "ico_cancel", action: null }
         ]
       });
     });
@@ -2356,7 +2706,7 @@
       const hoursAll = (expire - now) / (1e3 * 60 * 60);
       const days = Math.floor(hoursAll / 24);
       const hours = Math.round(hoursAll - days * 24);
-      return `${days} \u0434. ${hours} \u0447.`;
+      return `${days} д. ${hours} ч.`;
     }, "getExpireTime");
     const getGradeName = /* @__PURE__ */ __name((id) => {
       const g = grades.find((v) => String(v.id) === String(id));
@@ -2385,9 +2735,9 @@
     filterDiv.className = "itemrestore__filter";
     const gradeTitle = document.createElement("div");
     gradeTitle.className = "itemrestore__filter-title";
-    gradeTitle.textContent = "\u041A\u0430\u0447\u0435\u0441\u0442\u0432\u043E";
+    gradeTitle.textContent = "Качество";
     filterDiv.appendChild(gradeTitle);
-    const gradeOptions = [{ value: -1, label: "\u041D\u0435 \u0432\u044B\u0431\u0440\u0430\u043D\u043E" }, ...grades.map((g) => ({ value: g.id, label: g.name }))];
+    const gradeOptions = [{ value: -1, label: "Не выбрано" }, ...grades.map((g) => ({ value: g.id, label: g.name }))];
     const gradeSelectWrapper = makeSelect({
       options: gradeOptions,
       selected: filterGrade,
@@ -2403,7 +2753,7 @@
     filterDiv.appendChild(gradeReset);
     const nameTitle = document.createElement("div");
     nameTitle.className = "itemrestore__filter-title";
-    nameTitle.textContent = "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435";
+    nameTitle.textContent = "Название";
     filterDiv.appendChild(nameTitle);
     const inputWrapper = document.createElement("div");
     inputWrapper.className = "itemrestore__input-wrapper";
@@ -2415,7 +2765,7 @@
     const searchBtn = document.createElement("div");
     searchBtn.className = "itemrestore__search-btn";
     const searchSpan = document.createElement("span");
-    searchSpan.textContent = " \u0418\u0441\u043A\u0430\u0442\u044C";
+    searchSpan.textContent = " Искать";
     searchBtn.appendChild(searchSpan);
     filterDiv.appendChild(searchBtn);
     section.appendChild(filterDiv);
@@ -2427,7 +2777,7 @@
     panelLeft.className = "itemrestore__panel-left";
     const leftTitle = document.createElement("div");
     leftTitle.className = "guild_header2 green";
-    leftTitle.textContent = "\u0423\u0434\u0430\u043B\u0451\u043D\u043D\u044B\u0435 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u044B";
+    leftTitle.textContent = "Удалённые предметы";
     appendReloadBtn(leftTitle);
     panelLeft.appendChild(leftTitle);
     const tableWrapper = document.createElement("div");
@@ -2440,22 +2790,22 @@
     headerRow.className = "itemrestore__table-header";
     const headers = [
       { cls: "n4", text: "" },
-      { cls: "n1", text: "\u041D\u0430\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u043D\u0438\u0435" },
-      { cls: "n5", text: "\u0414\u043E\xA0\u0443\u0434\u0430\u043B\u0435\u043D\u0438\u044F" },
-      { cls: "n6", text: "\u041F\u0435\u0440\u0441\u043E\u043D\u0430\u0436" }
+      { cls: "n1", text: "Наименование" },
+      { cls: "n5", text: "До удаления" },
+      { cls: "n6", text: "Персонаж" }
     ];
     const thDate = document.createElement("th");
     thDate.className = "n2 tm-sortable";
     const thDateText = document.createElement("span");
-    thDateText.textContent = "\u0423\u0434\u0430\u043B\u0451\u043D";
+    thDateText.textContent = "Удалён";
     const thDateArrow = document.createElement("span");
     thDateArrow.className = "tm-sort-arrow";
-    thDateArrow.textContent = sortAsc ? " \u25B2" : " \u25BC";
+    thDateArrow.textContent = sortAsc ? " ▲" : " ▼";
     thDate.appendChild(thDateText);
     thDate.appendChild(thDateArrow);
     thDate.addEventListener("click", () => {
       sortAsc = !sortAsc;
-      thDateArrow.textContent = sortAsc ? " \u25B2" : " \u25BC";
+      thDateArrow.textContent = sortAsc ? " ▲" : " ▼";
       activePage = 1;
       renderTable();
     });
@@ -2477,7 +2827,7 @@
     pagination.className = "itemrestore__pagintation";
     tableFooter.appendChild(pagination);
     const perPageWrap = makeSelect({
-      options: [{ value: 10, label: "10" }, { value: 20, label: "20" }, { value: 30, label: "30" }, { value: 0, label: "\u0412\u0441\u0435" }],
+      options: [{ value: 10, label: "10" }, { value: 20, label: "20" }, { value: 30, label: "30" }, { value: 0, label: "Все" }],
       selected: itemsPerPage,
       onChange: /* @__PURE__ */ __name((val) => {
         itemsPerPage = parseInt(val);
@@ -2493,7 +2843,7 @@
     panelRight.className = "itemrestore__panel-right";
     const rightTitle = document.createElement("div");
     rightTitle.className = "guild_header2 green";
-    rightTitle.textContent = "\u0421\u043F\u0438\u0441\u043E\u043A \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432";
+    rightTitle.textContent = "Список выбранных предметов";
     panelRight.appendChild(rightTitle);
     const selectedContainer = document.createElement("div");
     selectedContainer.className = "tm-selected-container";
@@ -2504,7 +2854,7 @@
     const restoreBtn = document.createElement("div");
     restoreBtn.className = "itemrestore-recovery_btn";
     const restoreBtnSpan = document.createElement("span");
-    restoreBtnSpan.textContent = "\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C";
+    restoreBtnSpan.textContent = "Восстановить";
     restoreBtn.appendChild(restoreBtnSpan);
     panelRight.appendChild(restoreBtn);
     panel.appendChild(panelRight);
@@ -2515,8 +2865,8 @@
     section.appendChild(infoRestoredP);
     section.appendChild(infoDateP);
     const updateInfoText = /* @__PURE__ */ __name(() => {
-      infoRestoredP.textContent = `\u0417\u0430 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0439 \u043C\u0435\u0441\u044F\u0446 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432: ${restoredItems} \u0438\u0437 ${recoveryLimit} \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u044B\u0445.`;
-      infoDateP.textContent = info.lastRestored_at ? `\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u0435 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435: ${formatDateTime(info.lastRestored_at * 1e3)}` : "";
+      infoRestoredP.textContent = `За последний календарный месяц восстановлено предметов: ${restoredItems} из ${recoveryLimit} возможных.`;
+      infoDateP.textContent = info.lastRestored_at ? `Последнее восстановление: ${formatDateTime(info.lastRestored_at * 1e3)}` : "";
     }, "updateInfoText");
     updateInfoText();
     container.appendChild(section);
@@ -2532,7 +2882,7 @@
         tr.appendChild(tdDate);
         const tdCount = document.createElement("td");
         tdCount.className = "n4";
-        tdCount.textContent = parseInt(item.stack) > 1 ? `${item.stack}\xD7` : "";
+        tdCount.textContent = parseInt(item.stack) > 1 ? `${item.stack}×` : "";
         tr.appendChild(tdCount);
         const tdName = document.createElement("td");
         tdName.className = "n1";
@@ -2598,8 +2948,8 @@
         }, "makeEllipsis");
         const btnFirst = document.createElement("div");
         btnFirst.className = "itemrestore__pagintation-btn first" + (activePage > 1 ? " active" : "");
-        btnFirst.textContent = "\xAB";
-        btnFirst.title = "\u041F\u0435\u0440\u0432\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430";
+        btnFirst.textContent = "«";
+        btnFirst.title = "Первая страница";
         btnFirst.addEventListener("click", () => {
           if (activePage > 1) {
             activePage = 1;
@@ -2609,8 +2959,8 @@
         pagination.appendChild(btnFirst);
         const btnPrev = document.createElement("div");
         btnPrev.className = "itemrestore__pagintation-btn prev" + (activePage > 1 ? " active" : "");
-        btnPrev.textContent = "\u2039";
-        btnPrev.title = "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430";
+        btnPrev.textContent = "‹";
+        btnPrev.title = "Предыдущая страница";
         btnPrev.addEventListener("click", () => {
           if (activePage > 1) {
             activePage--;
@@ -2646,8 +2996,8 @@
         pagination.appendChild(pagesDiv);
         const btnNext = makeNavButton(
           "next",
-          "\u203A",
-          "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430",
+          "›",
+          "Следующая страница",
           activePage < pagesCount,
           () => {
             if (activePage < pagesCount) {
@@ -2659,8 +3009,8 @@
         pagination.appendChild(btnNext);
         const btnLast = makeNavButton(
           "last",
-          "\xBB",
-          "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430",
+          "»",
+          "Последняя страница",
           activePage < pagesCount,
           () => {
             if (activePage < pagesCount) {
@@ -2674,7 +3024,7 @@
     }, "renderPagination");
     const renderSelected = /* @__PURE__ */ __name(() => {
       renderSelectedItems(selectedList, selectedItems, {
-        emptyText: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u044B \u0434\u043B\u044F \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u0438\u0437 \u0441\u043F\u0438\u0441\u043A\u0430 \u0441\u043B\u0435\u0432\u0430",
+        emptyText: "Выберите предметы для восстановления из списка слева",
         onRemove: /* @__PURE__ */ __name((item) => deselectItem(item), "onRemove"),
         mapItem: /* @__PURE__ */ __name((item) => ({
           iconUrl: item.iconurl || "",
@@ -2688,17 +3038,17 @@
       if (item.selected) return;
       if (restoredItems >= recoveryLimit) {
         showItemRestorePopup({
-          title: "\u0412\u043D\u0438\u043C\u0430\u043D\u0438\u0435",
-          body: "<p>\u0414\u043E\u0441\u0442\u0438\u0433\u043D\u0443\u0442 \u043B\u0438\u043C\u0438\u0442 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432 \u0437\u0430 \u0442\u0435\u043A\u0443\u0449\u0438\u0439 \u043C\u0435\u0441\u044F\u0446.</p>",
-          buttons: [{ label: "\u041E\u043A", icon: "ico_done", action: null }]
+          title: "Внимание",
+          body: "<p>Достигнут лимит восстановления предметов за текущий месяц.</p>",
+          buttons: [{ label: "Ок", icon: "ico_done", action: null }]
         });
         return;
       }
       if (selectedItems.length + restoredItems >= recoveryLimit) {
         showItemRestorePopup({
-          title: "\u0412\u043D\u0438\u043C\u0430\u043D\u0438\u0435",
-          body: "<p>\u0412\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0435 \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432 \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0435\u0442 \u043B\u0438\u043C\u0438\u0442 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F.</p>",
-          buttons: [{ label: "\u041E\u043A", icon: "ico_done", action: null }]
+          title: "Внимание",
+          body: "<p>Выбранное количество предметов превышает лимит восстановления.</p>",
+          buttons: [{ label: "Ок", icon: "ico_done", action: null }]
         });
         return;
       }
@@ -2718,11 +3068,11 @@
     const restoreItems = /* @__PURE__ */ __name(() => {
       if (selectedItems.length === 0) return;
       showItemRestorePopup({
-        title: "\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432",
-        body: `<p>\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0435 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u044B (${selectedItems.length} \u0448\u0442.)?</p>`,
+        title: "Восстановление предметов",
+        body: `<p>Восстановить выбранные предметы (${selectedItems.length} шт.)?</p>`,
         buttons: [
           {
-            label: "\u0412\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C",
+            label: "Восстановить",
             icon: "ico_done",
             action: /* @__PURE__ */ __name(async () => {
               const ids = selectedItems.map((v) => v.itemid);
@@ -2753,30 +3103,30 @@
                   const resultLines = Object.entries(results).map(([id, r]) => {
                     const item = items.find((v) => v.itemid == id);
                     const name = item ? item.gi_name : id;
-                    return `${name}: ${r.status === "ok" ? "\u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D" : "\u043E\u0448\u0438\u0431\u043A\u0430"}`;
+                    return `${name}: ${r.status === "ok" ? "восстановлен" : "ошибка"}`;
                   });
                   showItemRestorePopup({
-                    title: "\u0420\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442",
+                    title: "Результат",
                     body: `<p>${resultLines.join("<br>")}</p>`,
-                    buttons: [{ label: "\u041E\u043A", icon: "ico_done", action: null }]
+                    buttons: [{ label: "Ок", icon: "ico_done", action: null }]
                   });
                 } else if (json.error) {
                   showItemRestorePopup({
-                    title: "\u041E\u0448\u0438\u0431\u043A\u0430",
+                    title: "Ошибка",
                     body: `<p>${json.error}</p>`,
-                    buttons: [{ label: "\u041E\u043A", icon: "ico_done", action: null }]
+                    buttons: [{ label: "Ок", icon: "ico_done", action: null }]
                   });
                 }
               } catch (e) {
                 showItemRestorePopup({
-                  title: "\u041E\u0448\u0438\u0431\u043A\u0430",
-                  body: `<p>\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u0435\u0442\u0438: ${e.message}</p>`,
-                  buttons: [{ label: "\u041E\u043A", icon: "ico_done", action: null }]
+                  title: "Ошибка",
+                  body: `<p>Ошибка сети: ${e.message}</p>`,
+                  buttons: [{ label: "Ок", icon: "ico_done", action: null }]
                 });
               }
             }, "action")
           },
-          { label: "\u041E\u0442\u043C\u0435\u043D\u0430", icon: "", action: null }
+          { label: "Отмена", icon: "", action: null }
         ]
       });
     }, "restoreItems");
@@ -2951,98 +3301,98 @@
   let ICON_GISAA_OVERLAY = "https://gisaa.ru/img/gisaa.svg?v=1";
   let VEKSEL_BASE = "https://gisaa.ru/veksel/";
   let QUESTS = [
-    { marathonId: [8246], id: 10559, title: "\u0427\u0443\u0436\u0438\u0435 \u043A\u043E\u043A\u043E\u043D\u044B", short: "\u0418\u0444\u043D\u0438\u0440 (\u041A\u0430\u043C\u0435\u043D\u043D\u044B\u0435 \u043A\u0440\u044B\u043B\u044C\u044F) - 10 \u043A\u043E\u043A\u043E\u043D\u043E\u0432" },
-    { marathonId: [8248, 8804], id: 9142, title: "\u041F\u043B\u043E\u0442\u043D\u0438\u0446\u043A\u0430\u044F \u043D\u0443\u0436\u0434\u0430", short: "", veksel: "blue_salt", slot: { item: ITEMS[8337], count: 60 } },
-    { marathonId: [8250, 8806], id: 9318, title: "\u0414\u0435\u0442\u0438 \u041E\u043B\u044C\u0445\u0430", short: '\u041A\u0432\u0435\u0441\u0442 \u043D\u0430 \u0412\u0437\u0440\u043E\u0441\u043B\u043E\u0433\u043E \u043E\u043B\u044C\u0445\u043E\u043D\u0430 (\u043F\u043E\u0440\u0442\u0430\u043B "\u0423\u043A\u0440\u043E\u043C\u043D\u044B\u0439 \u0443\u0442\u0435\u0441")' },
-    { marathonId: [8252, 8808], id: 10512, title: "\u041A\u043E\u0442\u043E\u043C\u043A\u0438 \u044D\u0444\u0435\u043D\u0441\u043A\u043E\u0433\u043E \u0441\u0442\u0440\u0430\u043D\u043D\u0438\u043A\u0430 I", short: "", veksel: "north", locations: ["\u0411\u0443\u0445\u0442\u0430 \u041A\u0438\u0442\u043E\u0431\u043E\u0435\u0432", "\u042D\u0444\u0435\u043D'\u0425\u0430\u043B"], slot: { item: ITEMS[43176], count: 20 } },
-    { marathonId: [8254, 8810], id: 10513, title: "\u041A\u043E\u0442\u043E\u043C\u043A\u0438 \u044D\u0444\u0435\u043D\u0441\u043A\u043E\u0433\u043E \u0441\u0442\u0440\u0430\u043D\u043D\u0438\u043A\u0430 II", short: "", veksel: "north", locations: ["\u0411\u0443\u0445\u0442\u0430 \u041A\u0438\u0442\u043E\u0431\u043E\u0435\u0432", "\u042D\u0444\u0435\u043D'\u0425\u0430\u043B"], slot: { item: ITEMS[43176], count: 60 } },
-    { marathonId: [8256, 8812], id: 9100, title: "\u0421\u0442\u0430\u0440\u044B\u0439 \u0432\u0440\u0430\u0433", short: "\u0411\u0438\u0431\u043B\u0430, 2-\u043E\u0439 \u0431\u043E\u0441\u0441" },
-    { marathonId: [8258, 8814], id: 7658, title: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u044D\u043A\u0437\u043E\u0440\u0446\u0438\u0441\u0442 (\u0433\u0435\u0440\u043E\u0438\u0447.)", short: "" },
-    { marathonId: [8260, 8816], id: 6797, title: "\u041E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u044C \u0434\u043B\u044F \u043C\u043E\u0440\u044F\u043A\u043E\u0432", short: "15 \u0436\u0443\u043A\u043E\u0432/\u043C\u0435\u0434\u0443\u0437 \u0432 \u043C\u043E\u0440\u0435 (\u043D\u0435 \u0437\u0430\u0431\u044B\u0442\u044C \u0441\u0434\u0430\u0442\u044C)" },
-    { marathonId: [8262, 8818], id: 8998, title: "\u0411\u0435\u0441\u043A\u043E\u043D\u0435\u0447\u043D\u044B\u0439 \u0431\u043E\u0439", short: "" },
-    { marathonId: [8268, 8824], id: 5972, title: "\u0418 \u043D\u0430 \u0434\u0430\u0440\u0443 \u0431\u044B\u0432\u0430\u0435\u0442 \u043F\u0440\u043E\u0440\u0443...", short: "\u0427\u0435\u0448\u0443\u044F \u0410\u0448\u044C\u044F\u0440\u044B, \u041A\u043E\u043B\u044C\u0446\u043E \u041B\u043E\u0440\u0435\u0438, \u041A\u043E\u043B\u044C\u0446\u043E \u0413\u043B\u0435\u043D\u043D\u0430" },
-    { marathonId: [8274, 8830], id: 10480, title: "\u0421\u043E\u0441\u0442\u044F\u0437\u0430\u043D\u0438\u0435 \u0441\u043E\u044E\u0437\u043E\u0432 \u0432 \u0410\u043A\u0430\u0434\u0435\u043C\u0438\u0438", short: "" },
-    { marathonId: [8282, 8838], id: 7154, title: "\u0422\u0435\u043C\u043D\u0438\u0446\u0430 \u0414\u0430\u0443\u0442\u044B", short: "" },
-    { marathonId: [8284, 8840], id: 9137, title: "\u0416\u0435\u043B\u0435\u0437\u043E \u0434\u043B\u044F \u043A\u043E\u0440\u0430\u0431\u0435\u043B\u043E\u0432", short: "", veksel: "blue_salt", slot: { item: ITEMS[8318], count: 60 } },
-    { marathonId: [8286, 8842], id: 8000131, title: "\u0412\u0434\u0430\u043B\u0438 \u043E\u0442 \u043E\u0431\u0435\u0437\u0443\u043C\u0435\u0432\u0448\u0435\u0433\u043E \u043C\u0438\u0440\u0430", short: "\u041A\u0432\u0435\u0441\u0442 \u041D\u0443\u0438 \u043D\u0430 500 \u043E\u0447\u043A\u043E\u0432 \u0440\u0430\u0431\u043E\u0442\u044B" },
-    { marathonId: [8288, 8844], id: 10508, title: "\u0420\u0430\u0441\u0448\u0438\u0442\u044B\u0435 \u0436\u0435\u043C\u0447\u0443\u0433\u043E\u043C \u043A\u043E\u0448\u0435\u043B\u044C\u043A\u0438 I", short: "", veksel: "north", locations: ["\u0411\u0435\u0437\u0434\u043D\u0430", "\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0435 \u043F\u043E\u043B\u044F"], slot: { item: ITEMS[40928], count: 25 } },
-    { marathonId: [8290, 8846], id: 10509, title: "\u0420\u0430\u0441\u0448\u0438\u0442\u044B\u0435 \u0436\u0435\u043C\u0447\u0443\u0433\u043E\u043C \u043A\u043E\u0448\u0435\u043B\u044C\u043A\u0438 II", short: "", veksel: "north", locations: ["\u0411\u0435\u0437\u0434\u043D\u0430", "\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0435 \u043F\u043E\u043B\u044F"], slot: { item: ITEMS[40928], count: 75 } },
-    { marathonId: [8292, 8848], id: 5092, title: "\u041E\u0442\u043B\u0438\u0447\u043D\u044B\u0435 \u0444\u0438\u0442\u0438\u043B\u0438", short: `<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/261-kvesty-ot-parfyumera-na-dz-vostok-arheidj#porychenie" target="_blank">\u041F\u0430\u0440\u0444\u044E\u043C\u0435\u0440 \u043D\u0430 \u0432\u043E\u0441\u0442\u043E\u043A\u0435</a>` },
-    { marathonId: [8294, 8850], id: 7659, title: "\u0422\u0440\u0435\u0431\u0443\u044E\u0442\u0441\u044F \u0440\u0430\u0431\u043E\u0442\u043D\u0438\u043A\u0438 (\u0433\u0435\u0440\u043E\u0438\u0447.)", short: "" },
-    { marathonId: [8296, 8852], id: 7817, title: "\u041E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u0438 \u043E\u043A\u043E\u043B\u044C\u043D\u044B\u0445 \u0434\u043E\u0440\u043E\u0433", short: "" },
-    { marathonId: [8298, 8854], id: 8000058, title: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u043D\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E: \u0411\u0430\u0440\u0440\u0430\u0433\u0430 \u0411\u0435\u0437\u0443\u043C\u043D\u044B\u0439", short: "\u041D\u0430\u0433\u0430\u0448\u0430\u0440 (\u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0431\u044B\u0447\u043A\u0430)", slot: { item: ITEMS[8000749] } },
-    { marathonId: [8300, 8856], id: 5971, title: "\u0427\u0435\u0448\u0443\u044F \u0410\u0448\u044C\u044F\u0440\u044B", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-    { marathonId: [8314, 8870], id: 10564, title: "\u041E\u0441\u0432\u043E\u0431\u043E\u0436\u0434\u0435\u043D\u043D\u044B\u0435 \u0443\u0437\u043D\u0438\u0446\u044B \u041D\u0430\u0433\u0430\u0448\u0430\u0440\u0430", short: "\u0418\u0444\u043D\u0438\u0440 - \u0437\u043C\u0435\u044F", schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] },
-    { marathonId: [8316, 8872], id: 8000061, title: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u043D\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E: \u0418\u0448\u0442\u0430\u0440", short: "\u0421\u0430\u0434\u044B \u043D\u0430\u0441\u043B\u0430\u0436\u0434\u0435\u043D\u0438\u0439 (\u0442\u043E\u043B\u044C\u043A\u043E \u0445\u0430\u0440\u0434)", slot: { item: ITEMS[8000752] } },
-    { marathonId: [8318, 8874], id: 9317, title: "\u041E\u0445\u043E\u0442\u0430 \u043D\u0430 \u043A\u0440\u0443\u043F\u043D\u0443\u044E \u0434\u0438\u0447\u044C", short: '\u041A\u0432\u0435\u0441\u0442 \u043D\u0430 \u041A\u043E\u0441\u043C\u0430\u0447\u0430 (\u043F\u043E\u0440\u0442\u0430\u043B "\u0417\u0438\u043C\u043D\u0438\u0439 \u041E\u0447\u0430\u0433")' },
-    { marathonId: [8320, 8876], id: 9152, title: "\u041A\u043D\u0438\u0436\u043D\u044B\u0435 \u043E\u0431\u043B\u043E\u0436\u043A\u0438", short: "", veksel: "blue_salt", slot: { item: ITEMS[16327], count: 60 } },
-    { marathonId: [8322, 8878], id: 8435, title: "\u0427\u0438\u0441\u0442\u043E\u0442\u0430 \u0438 \u043F\u043E\u0440\u044F\u0434\u043E\u043A", short: '\u041F\u043E\u0440\u0442\u0430\u043B "\u041B\u044F\u0433\u0443\u0448\u0430\u0447\u044C\u0438 \u043F\u0440\u0443\u0434\u044B"' },
-    { marathonId: [8324, 8880], id: 10510, title: "\u0424\u0435\u0440\u043C\u0435\u0440\u0441\u043A\u0438\u0435 \u0441\u0443\u043D\u0434\u0443\u0447\u043A\u0438 \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439 I", short: "", veksel: "north", locations: ["\u0411\u0435\u0437\u0434\u043D\u0430", "\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0435 \u043F\u043E\u043B\u044F"], slot: { item: ITEMS[42077], count: 8 } },
-    { marathonId: [8326, 8882], id: 10511, title: "\u0424\u0435\u0440\u043C\u0435\u0440\u0441\u043A\u0438\u0435 \u0441\u0443\u043D\u0434\u0443\u0447\u043A\u0438 \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439 II", short: "", veksel: "north", locations: ["\u0411\u0435\u0437\u0434\u043D\u0430", "\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0435 \u043F\u043E\u043B\u044F"], slot: { item: ITEMS[42077], count: 25 } },
-    { marathonId: [8328, 8884], id: 7657, title: "\u0420\u0430\u0437\u044B\u0441\u043A\u0438\u0432\u0430\u0435\u0442\u0441\u044F: \u041E'\u041A\u0430\u0440\u0444 (\u0433\u0435\u0440\u043E\u0438\u0447.)", short: "" },
-    { marathonId: [8330, 8886], id: 7813, title: "\u041F\u0440\u0435\u0433\u0440\u0430\u0434\u0430 \u043D\u0430 \u043F\u0443\u0442\u0438", short: "" },
-    { marathonId: [8336, 8892], id: 5144, title: "\u0420\u0430\u0437\u0433\u0440\u043E\u043C \u043F\u0440\u0438\u0437\u0440\u0430\u0447\u043D\u043E\u0433\u043E \u043B\u0435\u0433\u0438\u043E\u043D\u0430", short: "\u041F\u0440\u0438\u0437\u0440\u0430\u0447\u043D\u044B\u0439 (\u043D\u043E\u0447\u043D\u043E\u0439) \u0440\u0430\u0437\u043B\u043E\u043C", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
-    { marathonId: [8338, 8894], id: 5885, title: "\u0421\u043E\u0432\u0435\u0442\u043D\u0438\u043A \u041A\u0438\u0440\u0438\u043E\u0441\u0430", short: "\u0410\u043D\u0442\u0430\u043B\u043B\u043E\u043D \u043D\u0430 \u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0445 \u043F\u043E\u043B\u044F\u0445", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
-    { marathonId: [8340, 8896], id: 8000060, title: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u043D\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E: \u0438\u0444\u0435\u0440\u0438\u0439\u0446\u044B (\u043D\u0438\u0437\u043A., \u043E\u0431\u044B\u0447\u043D.)", short: "\u0421\u0430\u0434\u044B \u043D\u0430\u0441\u043B\u0430\u0436\u0434\u0435\u043D\u0438\u0439 (\u0438\u0437\u0438 \u0438\u043B\u0438 \u043D\u043E\u0440\u043C\u0430\u043B)", slot: { item: ITEMS[8000751] } },
-    { marathonId: [8346, 8902], id: 10056, title: "\u0421\u0430\u0434\u043E\u0432\u044B\u0435 \u0440\u0430\u0431\u043E\u0442\u044B**", short: "\u041A\u0432\u0435\u0441\u0442 \u043C\u043E\u0436\u043D\u043E \u0432\u0437\u044F\u0442\u044C \u0432 \u043B\u044E\u0431\u043E\u0435 \u0432\u0440\u0435\u043C\u044F, \u0431\u043E\u0441\u0441\u044B:", schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] },
-    { marathonId: [8348, 8904], id: 11154, title: "\u0411\u043E\u0439 \u0441 \u0442\u0435\u043D\u044C\u044E", short: "\u041B\u0438\u043B\u043E\u0432\u044B\u0439 (\u0430\u0440\u043C\u0438\u044F \u0444\u0430\u043D\u0442\u043E\u043C\u043E\u0432)", schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] },
-    { marathonId: [8350, 8906], id: 11227, title: "\u0411\u0438\u043B\u0435\u0442 \u0432 \u043E\u0434\u0438\u043D \u043A\u043E\u043D\u0435\u0446", short: '\u041F\u0440\u0435\u0432\u0440\u0430\u0442\u0438\u0442\u044C\u0441\u044F \u0432 <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="\u041F\u0435\u0440\u0435\u0432\u043E\u043F\u043B\u043E\u0449\u0435\u043D\u0438\u0435 \u0432 \u0434\u0430\u0440\u0443" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>\u0434\u0430\u0440\u0443, \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0438 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u043D\u0430 \u0440\u0430\u0431\u043E\u0442\u0443: \u0431\u0438\u043B\u0435\u0442 \u0432 \u043E\u0434\u0438\u043D \u043A\u043E\u043D\u0435\u0446" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, \u043F\u043E\u0442\u0440\u0430\u0442\u0438\u0442\u044C 500 \u041E\u0420 (\u0438\u0434\u0442\u0438 \u0432 \u0434\u0430\u043D\u0436 \u043D\u0435 \u043D\u0430\u0434\u043E)' },
-    { marathonId: [8352, 8908], id: 9147, title: "\u0421 \u043C\u0438\u0440\u0443 \u043F\u043E \u043D\u0438\u0442\u043A\u0435", short: "", veksel: "blue_salt", slot: { item: ITEMS[8256], count: 60 } },
-    { marathonId: [8354, 8910], id: 8000136, title: "\u0412 \u0433\u0430\u0440\u043C\u043E\u043D\u0438\u0438 \u0441 \u0441\u043E\u0431\u043E\u0439", short: "\u041A\u0432\u0435\u0441\u0442 \u041D\u0443\u0438 \u043D\u0430 2500 \u0440\u0435\u043C\u0435\u0441\u043B\u0435\u043D\u043A\u0438" },
-    { marathonId: [8356, 8912], id: 10506, title: "\u0420\u0435\u0437\u043D\u044B\u0435 \u0441\u0443\u043D\u0434\u0443\u0447\u043A\u0438 \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439 I", short: "", veksel: "north", locations: ["\u0417\u0430\u043C\u043E\u043A \u041E\u0448"], slot: { item: ITEMS[42076], count: 10 } },
-    { marathonId: [8358, 8914], id: 10507, title: "\u0420\u0435\u0437\u043D\u044B\u0435 \u0441\u0443\u043D\u0434\u0443\u0447\u043A\u0438 \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439 II", short: "", veksel: "north", locations: ["\u0417\u0430\u043C\u043E\u043A \u041E\u0448"], slot: { item: ITEMS[42076], count: 30 } },
-    { marathonId: [8360, 8916], id: 5091, title: "\u0412\u0437\u0440\u044B\u0432\u043E\u043E\u043F\u0430\u0441\u043D\u043E\u0435 \u043F\u043E\u0440\u0443\u0447\u0435\u043D\u0438\u0435", short: `<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/260-kvesty-ot-parfyumera-na-dz-v-arheidj#porychenie" target="_blank">\u041F\u0430\u0440\u0444\u044E\u043C\u0435\u0440 \u043D\u0430 \u0437\u0430\u043F\u0430\u0434\u0435</a>` },
-    { marathonId: [8362, 8918], id: 9101, title: "\u041D\u0435\u043F\u0440\u0438\u0441\u0442\u0443\u043F\u043D\u0430\u044F \u0431\u0430\u0448\u043D\u044F", short: "\u0411\u0438\u0431\u043B\u0430, 3-\u0438\u0439 \u0431\u043E\u0441\u0441" },
-    { marathonId: [8364, 8920], id: 7656, title: "\u0420\u0430\u0437\u044B\u0441\u043A\u0438\u0432\u0430\u0435\u0442\u0441\u044F: \u0410\u043A\u043C\u0438\u0442 (\u0433\u0435\u0440\u043E\u0438\u0447.)", short: "" },
-    { marathonId: [8366, 8922], id: 9320, title: "\u0412\u043E\u0439\u043D\u0430 \u0432\u043E \u0438\u043C\u044F \u0441\u043B\u0430\u0432\u044B \u0441\u043E\u044E\u0437\u0430", short: "" },
-    { marathonId: [8372, 8928], id: 9297, title: "\u041E\u0440\u0434\u044B \u0417\u0435\u043C\u0435\u043B\u044C \u043F\u043E\u043A\u043E\u044F", short: "", availableWeekdays: [6] },
-    { marathonId: [8380, 8936], id: 7815, title: "\u0422\u0440\u0438 \u043D\u043E\u0432\u043E\u0441\u0442\u0438, \u0438 \u0432\u0441\u0435 \u043F\u043B\u043E\u0445\u0438\u0435", short: "\u0418\u0437\u0438/\u043D\u043E\u0440\u043C\u0430\u043B \u0421\u0430\u0434\u044B \u043D\u0430\u0441\u043B\u0430\u0436\u0434\u0435\u043D\u0438\u0439" },
-    { marathonId: [8382, 8938], id: 10735, title: "\u041F\u0440\u0435\u0434\u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044C \u0434\u0435\u043C\u043E\u043D\u043E\u0432", short: "\u042D\u043D\u0448\u0430\u043A\u0430 \u043D\u0430 \u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0445 \u043F\u043E\u043B\u044F\u0445", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
-    { marathonId: [8388, 8944], id: 9153, title: "\u0420\u0435\u043C\u0435\u0441\u043B\u0435\u043D\u043D\u0430\u044F \u043E\u0434\u0435\u0436\u0434\u0430", short: "", veksel: "blue_salt", slot: { item: ITEMS[16327], count: 100 } },
-    { marathonId: [8390, 8946], id: 5062, title: "\u0411\u0435\u0439 \u043C\u0430\u043D\u0434\u0440\u0430\u0433\u043E\u0440\u0443!", short: "" },
-    { marathonId: [8392, 8948], id: 10514, title: "\u042D\u0444\u0435\u043D\u0441\u043A\u0438\u0435 \u0441\u0443\u043D\u0434\u0443\u0447\u043A\u0438 \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439 I", short: "", veksel: "north", locations: ["\u0411\u0443\u0445\u0442\u0430 \u041A\u0438\u0442\u043E\u0431\u043E\u0435\u0432", "\u042D\u0444\u0435\u043D'\u0425\u0430\u043B"], slot: { item: ITEMS[43177], count: 7 } },
-    { marathonId: [8394, 8950], id: 10515, title: "\u042D\u0444\u0435\u043D\u0441\u043A\u0438\u0435 \u0441\u0443\u043D\u0434\u0443\u0447\u043A\u0438 \u0441\u043E \u0432\u0441\u044F\u043A\u043E\u0439 \u0432\u0441\u044F\u0447\u0438\u043D\u043E\u0439 II", short: "", veksel: "north", locations: ["\u0411\u0443\u0445\u0442\u0430 \u041A\u0438\u0442\u043E\u0431\u043E\u0435\u0432", "\u042D\u0444\u0435\u043D'\u0425\u0430\u043B"], slot: { item: ITEMS[43177], count: 20 } },
-    { marathonId: [8396, 8952], id: 7155, title: "\u041E\u0442\u043A\u0440\u043E\u0432\u0435\u043D\u0438\u0435 \u0411\u0435\u0437\u0434\u043D\u044B", short: "\u041D\u0430\u0433\u0430\u0448\u0430\u0440 \u043E\u0431\u044B\u0447\u043A\u0430" },
-    { marathonId: [8398, 8954], id: 9398, title: "\u0421\u043E\u0441\u0442\u044F\u0437\u0430\u043D\u0438\u0435 \u0441\u043E\u044E\u0437\u043E\u0432", short: "100 \u043C\u043E\u0431\u043E\u0432 \u043D\u0430 \u041F\u0443\u0441\u0442\u043E\u0448\u0438 \u041A\u043E\u0440\u0432\u0443\u0441\u0430" },
-    { marathonId: [8400, 8956], id: 7152, title: "\u041C\u0435\u043C\u043E\u0440\u0438\u0430\u043B\u044C\u043D\u0430\u044F \u0434\u043E\u0441\u043A\u0430 (\u0433\u0435\u0440.)", short: "" },
-    { marathonId: [8402, 8958], id: 9102, title: "\u0421\u0442\u043E\u043A\u043D\u0438\u0436\u043D\u043E\u0435 \u0447\u0443\u0434\u0438\u0449\u0435", short: "\u0411\u0438\u0431\u043B\u0430, \u0433\u043E\u043B\u0435\u043C" },
-    { marathonId: [8404], id: 9205, title: "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0439 \u0434\u0435\u043D\u044C \u0418\u0440\u0430\u043C\u043A\u0430\u043D\u0434\u0430", short: "", schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
-    { marathonId: [8414, 8972], id: 10952, title: "\u0411\u043E\u0439 \u0441 \xAB\u041B\u0435\u0442\u0443\u0447\u0438\u043C \u0445\u0430\u0440\u043D\u0438\u0439\u0446\u0435\u043C\xBB", short: "" },
-    { marathonId: [8422, 8980], id: 10304, title: "\u0422\u0430\u0439\u043D\u044B \u0441\u0432\u044F\u0442\u0438\u043B\u0438\u0449\u0430", short: "" },
-    { marathonId: [8424, 8982], id: 9099, title: "\u041E\u0431\u0438\u0442\u0435\u043B\u044C \u0430\u0440\u0445\u0438\u0432\u0430\u0440\u0438\u0443\u0441\u0430", short: "\u0411\u0438\u0431\u043B\u0430, \u043F\u0435\u0440\u0432\u044B\u0439 \u0431\u043E\u0441\u0441" },
-    { marathonId: [8426, 8984], id: 9143, title: "\u0420\u0430\u0437 \u0442\u0440\u0430\u043A\u0442\u0438\u0440, \u0434\u0432\u0430 \u0442\u0440\u0430\u043A\u0442\u0438\u0440", short: "", veksel: "blue_salt", slot: { item: ITEMS[8337], count: 100 } },
-    { marathonId: [8434, 8992], id: 10504, title: "\u041F\u043E\u043B\u043D\u043E\u0432\u0435\u0441\u043D\u044B\u0435 \u043C\u0435\u0448\u043E\u0447\u043A\u0438 \u0441 \u0441\u0435\u0440\u0435\u0431\u0440\u043E\u043C I", short: "", veksel: "north", locations: ["\u0417\u0430\u043C\u043E\u043A \u041E\u0448"], slot: { item: ITEMS[35461], count: 30 } },
-    { marathonId: [8436, 8994], id: 10505, title: "\u041F\u043E\u043B\u043D\u043E\u0432\u0435\u0441\u043D\u044B\u0435 \u043C\u0435\u0448\u043E\u0447\u043A\u0438 \u0441 \u0441\u0435\u0440\u0435\u0431\u0440\u043E\u043C II", short: "", veksel: "north", locations: ["\u0417\u0430\u043C\u043E\u043A \u041E\u0448"], slot: { item: ITEMS[35461], count: 90 } },
-    { marathonId: [8438, 8996], id: 8000062, title: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u043D\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E: \u043F\u043E\u0432\u0435\u043B\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u0434\u0437\u0435\u043C\u0435\u043B\u044C\u044F (\u0433\u0435\u0440\u043E\u0438\u0447.)", short: "\u0410\u043B\u044C-\u0425\u0430\u0440\u0431\u0430 / \u0424\u0435\u0440\u043C\u0430 / \u041A\u043E\u043B\u044B\u0431\u0435\u043B\u044C / \u0412\u043E\u044E\u0449\u0430\u044F \u0411\u0435\u0437\u0434\u043D\u0430 / \u041A\u043E\u043F\u0438 / \u0410\u0440\u0441\u0435\u043D\u0430\u043B", slot: { item: ITEMS[8000753] } },
-    { marathonId: [8448, 9006], id: 2943, title: "\u042D\u043B\u0438\u0442\u043D\u044B\u0435 \u0432\u043E\u0439\u0441\u043A\u0430 \u041A\u0440\u043E\u0432\u0430\u0432\u043E\u0439 \u0430\u0440\u043C\u0438\u0438", short: "\u041A\u0440\u043E\u0432\u0430\u0432\u044B\u0439 (\u0434\u043D\u0435\u0432\u043D\u043E\u0439) \u0440\u0430\u0437\u043B\u043E\u043C - 3-\u044F \u0432\u043E\u043B\u043D\u0430", schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
-    { marathonId: [8450, 9008], id: 7935, title: "\u0425\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u044C \u0417\u0432\u0435\u043D\u044F\u0449\u0435\u0433\u043E \u0443\u0449\u0435\u043B\u044C\u044F**", short: "\u0413\u0430\u0440\u0434\u0443\u043C", schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
-    { marathonId: [8452, 9010], id: 7660, title: "\u0413\u0435\u0440\u043E\u0439 \u0441 \u043A\u0440\u0435\u043F\u043A\u0438\u043C \u0440\u0430\u0441\u0441\u0443\u0434\u043A\u043E\u043C (\u0433\u0435\u0440\u043E\u0438\u0447.)", short: "" },
-    { marathonId: [8470, 9028], id: 10739, title: "\u041F\u0440\u0438\u0437\u0440\u0430\u0447\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044C", short: "\u041F\u0440\u0438\u0437\u0440\u0430\u0447\u043D\u044B\u0439 (\u043D\u043E\u0447\u043D\u043E\u0439) \u0440\u0430\u0437\u043B\u043E\u043C - \u042D\u043D\u0448\u0430\u043A\u0430", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
-    { marathonId: [8478, 9030], id: 10423, title: "\u0413\u043E\u043B\u0438\u0430\u0444, \u043C\u0435\u0445\u0430\u043D\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0441\u043A\u0430\u0440\u0430\u0431\u0435\u0439", short: "" },
-    { marathonId: [8494, 9032], id: 8635, title: "\u0421\u0440\u043E\u0447\u043D\u0430\u044F \u0434\u043E\u0441\u0442\u0430\u0432\u043A\u0430", short: "" },
-    { marathonId: [8496, 9034], id: 9295, title: "\u041E\u0440\u0434\u044B \u0421\u0430\u043B\u044C\u0444\u0438\u043C\u0430\u0440\u0430", short: "", availableWeekdays: [1, 4] },
-    { marathonId: [8498, 9036], id: 9294, title: "\u041E\u0440\u0434\u044B \u041D\u0443\u0438\u043C\u0430\u0440\u0430", short: "", availableWeekdays: [0, 3] },
-    { marathonId: [8500, 9050], id: 8637, title: "\u0421\u0442\u0430\u0440\u044B\u0439 \u0434\u0440\u0443\u0433 \u2013 \u043D\u043E\u0432\u044B\u0439 \u0432\u0440\u0430\u0433", short: "\u0411\u0443\u0445\u0442\u0430 - \u0416\u0430\u043A\u0430\u0440" },
-    { marathonId: [8502, 9040], id: 7327, title: "\u0412\u0437\u0433\u043B\u044F\u0434 \u0441\u043B\u0435\u043F\u0446\u0430", short: "50 \u043C\u043E\u0431\u043E\u0432 (100 \u043E\u0447\u043A\u043E\u0432) \u043D\u0430 \u0421\u0432\u0435\u0440\u043A\u0430\u044E\u0449\u0435\u043C \u043F\u043E\u0431\u0435\u0440\u0435\u0436\u044C\u0435" },
-    { marathonId: [8504, 9042], id: 9296, title: "\u041E\u0440\u0434\u044B \u0421\u0430\u043D\u0433\u0435\u043C\u0430\u0440\u0430", short: "", availableWeekdays: [2, 5] },
-    { marathonId: [8506, 9044], id: 5969, title: "\u041A\u043E\u043B\u044C\u0446\u043E \u041B\u043E\u0440\u0435\u0438", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-    { marathonId: [8508, 9062], id: 8641, title: "\u041D\u0430\u0441\u0442\u0443\u043F\u043B\u0435\u043D\u0438\u0435 \u043A\u0438\u0440'\u0444\u0435\u0440\u043E\u0432", short: "\u042D\u0444\u0435\u043D - \u0436\u0430\u0431\u0430 (\u0447\u0435\u0440\u0435\u0437 5 \u043C\u0438\u043D\u0443\u0442 \u043F\u043E\u0441\u043B\u0435 \u043D\u0430\u0447\u0430\u043B\u0430 \u0432\u043E\u0439\u043D\u044B)" },
-    { marathonId: [8510, 9048], id: 5077, title: "\u0410\u0440\u043E\u043C\u0430\u0442 \u0434\u043B\u044F \u0432\u0430\u0436\u043D\u043E\u0439 \u043E\u0441\u043E\u0431\u044B", short: `\u041F\u0430\u0440\u0444\u044E\u043C\u0435\u0440 (<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/260-kvesty-ot-parfyumera-na-dz-v-arheidj#aroma" target="_blank">\u0437\u0430\u043F\u0430\u0434</a>/<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/261-kvesty-ot-parfyumera-na-dz-vostok-arheidj#aroma" target="_blank">\u0432\u043E\u0441\u0442\u043E\u043A</a>)` },
-    { marathonId: [8512, 9038], id: 8605, title: "\u0411\u0438\u0442\u0432\u0430 \u0432 \u0411\u0443\u0445\u0442\u0435 \u043A\u0438\u0442\u043E\u0431\u043E\u0435\u0432", short: "" },
-    { marathonId: [8514, 9052], id: 11096, title: "\u0422\u0443\u0440\u043D\u0438\u0440 \u0432 \u0447\u0435\u0441\u0442\u044C \u041E\u0442\u0446\u0430-\u0421\u043E\u043B\u043D\u0446\u0430", short: "\u041B\u0443\u0433 - \u0411\u0438\u0442\u0432\u0430 \u0445\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u0435\u0439", schedule: [{ timeStart: "18:00", weekdays: [6, 0] }] },
-    { marathonId: [8516, 9054], id: 8000129, title: "\u0412\u043E \u0441\u043B\u0430\u0432\u0443 \u041E\u0440\u0445\u0438\u0434\u043D\u044B", short: "" },
-    { marathonId: [8518, 9056], id: 1415, title: "\u0421\u0438\u0440\u043E\u0442\u0430", short: "" },
-    { marathonId: [8520, 9058], id: 5970, title: "\u041A\u043E\u043B\u044C\u0446\u043E \u043A\u0430\u043F\u0438\u0442\u0430\u043D\u0430 \u0413\u043B\u0435\u043D\u043D\u0430", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
-    { marathonId: [8522, 9060], id: 10188, title: "\u041E\u0431\u0440\u0430\u0437\u0446\u044B \u0444\u043B\u043E\u0440\u044B \u0421\u0430\u0434\u0430", short: "", slot: { item: ITEMS[49252], count: 20 } },
-    { marathonId: [8524, 9046], id: 8618, title: "\u0411\u0438\u0442\u0432\u0430 \u0437\u0430 \u042D\u0444\u0435\u043D'\u0425\u0430\u043B", short: "\u042D\u0444\u0435\u043D - \u043C\u043E\u0431\u044B" },
-    { marathonId: [9064], id: 8000311, title: "\u041E\u0445\u043E\u0442\u0430 \u043D\u0430 \u043F\u0440\u0438\u0437\u0440\u0430\u043A\u043E\u0432", short: "\u041F\u0440\u0435\u0434\u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u0435 \u0438\u0441\u043F\u044B\u0442\u0430\u043D\u0438\u0435 \u0434\u043B\u044F \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432 \u043F\u0440\u0435\u0434\u0435\u043B\u0430" }
+    { marathonId: [8246], id: 10559, title: "Чужие коконы", short: "Ифнир (Каменные крылья) - 10 коконов" },
+    { marathonId: [8248, 8804], id: 9142, title: "Плотницкая нужда", short: "", veksel: "blue_salt", slot: { item: ITEMS[8337], count: 60 } },
+    { marathonId: [8250, 8806], id: 9318, title: "Дети Ольха", short: 'Квест на Взрослого ольхона (портал "Укромный утес")' },
+    { marathonId: [8252, 8808], id: 10512, title: "Котомки эфенского странника I", short: "", veksel: "north", locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43176], count: 20 } },
+    { marathonId: [8254, 8810], id: 10513, title: "Котомки эфенского странника II", short: "", veksel: "north", locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43176], count: 60 } },
+    { marathonId: [8256, 8812], id: 9100, title: "Старый враг", short: "Библа, 2-ой босс" },
+    { marathonId: [8258, 8814], id: 7658, title: "Требуется экзорцист (героич.)", short: "" },
+    { marathonId: [8260, 8816], id: 6797, title: "Опасность для моряков", short: "15 жуков/медуз в море (не забыть сдать)" },
+    { marathonId: [8262, 8818], id: 8998, title: "Бесконечный бой", short: "" },
+    { marathonId: [8268, 8824], id: 5972, title: "И на дару бывает прору...", short: "Чешуя Ашьяры, Кольцо Лореи, Кольцо Гленна" },
+    { marathonId: [8274, 8830], id: 10480, title: "Состязание союзов в Академии", short: "" },
+    { marathonId: [8282, 8838], id: 7154, title: "Темница Дауты", short: "" },
+    { marathonId: [8284, 8840], id: 9137, title: "Железо для корабелов", short: "", veksel: "blue_salt", slot: { item: ITEMS[8318], count: 60 } },
+    { marathonId: [8286, 8842], id: 8000131, title: "Вдали от обезумевшего мира", short: "Квест Нуи на 500 очков работы" },
+    { marathonId: [8288, 8844], id: 10508, title: "Расшитые жемчугом кошельки I", short: "", veksel: "north", locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 25 } },
+    { marathonId: [8290, 8846], id: 10509, title: "Расшитые жемчугом кошельки II", short: "", veksel: "north", locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 75 } },
+    { marathonId: [8292, 8848], id: 5092, title: "Отличные фитили", short: `<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/261-kvesty-ot-parfyumera-na-dz-vostok-arheidj#porychenie" target="_blank">Парфюмер на востоке</a>` },
+    { marathonId: [8294, 8850], id: 7659, title: "Требуются работники (героич.)", short: "" },
+    { marathonId: [8296, 8852], id: 7817, title: "Опасности окольных дорог", short: "" },
+    { marathonId: [8298, 8854], id: 8000058, title: "Лицензия на убийство: Баррага Безумный", short: "Нагашар (только обычка)", slot: { item: ITEMS[8000749] } },
+    { marathonId: [8300, 8856], id: 5971, title: "Чешуя Ашьяры", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+    { marathonId: [8314, 8870], id: 10564, title: "Освобожденные узницы Нагашара", short: "Ифнир - змея", schedule: [{ timeStart: "22:00", weekdays: [5] }, { timeStart: "16:00", weekdays: [6] }] },
+    { marathonId: [8316, 8872], id: 8000061, title: "Лицензия на убийство: Иштар", short: "Сады наслаждений (только хард)", slot: { item: ITEMS[8000752] } },
+    { marathonId: [8318, 8874], id: 9317, title: "Охота на крупную дичь", short: 'Квест на Космача (портал "Зимний Очаг")' },
+    { marathonId: [8320, 8876], id: 9152, title: "Книжные обложки", short: "", veksel: "blue_salt", slot: { item: ITEMS[16327], count: 60 } },
+    { marathonId: [8322, 8878], id: 8435, title: "Чистота и порядок", short: 'Портал "Лягушачьи пруды"' },
+    { marathonId: [8324, 8880], id: 10510, title: "Фермерские сундучки со всякой всячиной I", short: "", veksel: "north", locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[42077], count: 8 } },
+    { marathonId: [8326, 8882], id: 10511, title: "Фермерские сундучки со всякой всячиной II", short: "", veksel: "north", locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[42077], count: 25 } },
+    { marathonId: [8328, 8884], id: 7657, title: "Разыскивается: О'Карф (героич.)", short: "" },
+    { marathonId: [8330, 8886], id: 7813, title: "Преграда на пути", short: "" },
+    { marathonId: [8336, 8892], id: 5144, title: "Разгром призрачного легиона", short: "Призрачный (ночной) разлом", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
+    { marathonId: [8338, 8894], id: 5885, title: "Советник Кириоса", short: "Анталлон на Солнечных полях", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
+    { marathonId: [8340, 8896], id: 8000060, title: "Лицензия на убийство: иферийцы (низк., обычн.)", short: "Сады наслаждений (изи или нормал)", slot: { item: ITEMS[8000751] } },
+    { marathonId: [8346, 8902], id: 10056, title: "Садовые работы**", short: "Квест можно взять в любое время, боссы:", schedule: [{ timeStart: "03:00" }, { timeStart: "07:00" }, { timeStart: "11:00" }, { timeStart: "15:00" }, { timeStart: "19:00" }, { timeStart: "23:00" }] },
+    { marathonId: [8348, 8904], id: 11154, title: "Бой с тенью", short: "Лиловый (армия фантомов)", schedule: [{ timeStart: "01:50" }, { timeStart: "05:50" }, { timeStart: "09:50" }, { timeStart: "13:50" }, { timeStart: "17:50" }, { timeStart: "21:50" }] },
+    { marathonId: [8350, 8906], id: 11227, title: "Билет в один конец", short: 'Превратиться в <a href="https://archeagecodex.com/ru/buff/32459/" target="_blank" rel="noopener noreferrer" title="Перевоплощение в дару" class="tm-inline-icon"><img src="https://archeagecodex.com/items/icon_skill_buff691.png" alt=""></a>дару, получить и использовать <a href="https://archeagecodex.com/ru/item/54615/" target="_blank" rel="noopener noreferrer" title="Разрешение на работу: билет в один конец" class="tm-inline-icon tm-inline-icon--graded"><img src="https://archeagecodex.com/items/icon_item_0226.png" alt=""><img src="https://archeagecodex.com/images/icon_grade3.png" alt="" class="tm-inline-icon-grade"></a>, потратить 500 ОР (идти в данж не надо)' },
+    { marathonId: [8352, 8908], id: 9147, title: "С миру по нитке", short: "", veksel: "blue_salt", slot: { item: ITEMS[8256], count: 60 } },
+    { marathonId: [8354, 8910], id: 8000136, title: "В гармонии с собой", short: "Квест Нуи на 2500 ремесленки" },
+    { marathonId: [8356, 8912], id: 10506, title: "Резные сундучки со всякой всячиной I", short: "", veksel: "north", locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 10 } },
+    { marathonId: [8358, 8914], id: 10507, title: "Резные сундучки со всякой всячиной II", short: "", veksel: "north", locations: ["Замок Ош"], slot: { item: ITEMS[42076], count: 30 } },
+    { marathonId: [8360, 8916], id: 5091, title: "Взрывоопасное поручение", short: `<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/260-kvesty-ot-parfyumera-na-dz-v-arheidj#porychenie" target="_blank">Парфюмер на западе</a>` },
+    { marathonId: [8362, 8918], id: 9101, title: "Неприступная башня", short: "Библа, 3-ий босс" },
+    { marathonId: [8364, 8920], id: 7656, title: "Разыскивается: Акмит (героич.)", short: "" },
+    { marathonId: [8366, 8922], id: 9320, title: "Война во имя славы союза", short: "" },
+    { marathonId: [8372, 8928], id: 9297, title: "Орды Земель покоя", short: "", availableWeekdays: [6] },
+    { marathonId: [8380, 8936], id: 7815, title: "Три новости, и все плохие", short: "Изи/нормал Сады наслаждений" },
+    { marathonId: [8382, 8938], id: 10735, title: "Предводитель демонов", short: "Эншака на Солнечных полях", schedule: [{ timeStart: "01:20" }, { timeStart: "05:20" }, { timeStart: "09:20" }, { timeStart: "13:20" }, { timeStart: "17:20" }, { timeStart: "21:20" }] },
+    { marathonId: [8388, 8944], id: 9153, title: "Ремесленная одежда", short: "", veksel: "blue_salt", slot: { item: ITEMS[16327], count: 100 } },
+    { marathonId: [8390, 8946], id: 5062, title: "Бей мандрагору!", short: "" },
+    { marathonId: [8392, 8948], id: 10514, title: "Эфенские сундучки со всякой всячиной I", short: "", veksel: "north", locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43177], count: 7 } },
+    { marathonId: [8394, 8950], id: 10515, title: "Эфенские сундучки со всякой всячиной II", short: "", veksel: "north", locations: ["Бухта Китобоев", "Эфен'Хал"], slot: { item: ITEMS[43177], count: 20 } },
+    { marathonId: [8396, 8952], id: 7155, title: "Откровение Бездны", short: "Нагашар обычка" },
+    { marathonId: [8398, 8954], id: 9398, title: "Состязание союзов", short: "100 мобов на Пустоши Корвуса" },
+    { marathonId: [8400, 8956], id: 7152, title: "Мемориальная доска (гер.)", short: "" },
+    { marathonId: [8402, 8958], id: 9102, title: "Стокнижное чудище", short: "Библа, голем" },
+    { marathonId: [8404], id: 9205, title: "Последний день Ирамканда", short: "", schedule: [{ timeStart: "0:40", timeEnd: "1:20" }, { timeStart: "12:00", timeEnd: "12:40" }, { timeStart: "17:00", timeEnd: "17:40" }, { timeStart: "20:00", timeEnd: "20:40" }] },
+    { marathonId: [8414, 8972], id: 10952, title: "Бой с «Летучим харнийцем»", short: "" },
+    { marathonId: [8422, 8980], id: 10304, title: "Тайны святилища", short: "" },
+    { marathonId: [8424, 8982], id: 9099, title: "Обитель архивариуса", short: "Библа, первый босс" },
+    { marathonId: [8426, 8984], id: 9143, title: "Раз трактир, два трактир", short: "", veksel: "blue_salt", slot: { item: ITEMS[8337], count: 100 } },
+    { marathonId: [8434, 8992], id: 10504, title: "Полновесные мешочки с серебром I", short: "", veksel: "north", locations: ["Замок Ош"], slot: { item: ITEMS[35461], count: 30 } },
+    { marathonId: [8436, 8994], id: 10505, title: "Полновесные мешочки с серебром II", short: "", veksel: "north", locations: ["Замок Ош"], slot: { item: ITEMS[35461], count: 90 } },
+    { marathonId: [8438, 8996], id: 8000062, title: "Лицензия на убийство: повелитель подземелья (героич.)", short: "Аль-Харба / Ферма / Колыбель / Воющая Бездна / Копи / Арсенал", slot: { item: ITEMS[8000753] } },
+    { marathonId: [8448, 9006], id: 2943, title: "Элитные войска Кровавой армии", short: "Кровавый (дневной) разлом - 3-я волна", schedule: [{ timeStart: "00:20" }, { timeStart: "04:20" }, { timeStart: "08:20" }, { timeStart: "12:20" }, { timeStart: "16:20" }, { timeStart: "20:20" }] },
+    { marathonId: [8450, 9008], id: 7935, title: "Хранитель Звенящего ущелья**", short: "Гардум", schedule: [{ timeStart: "12:40", timeEnd: "13:20" }, { timeStart: "17:40", timeEnd: "18:20" }, { timeStart: "20:40", timeEnd: "21:20" }] },
+    { marathonId: [8452, 9010], id: 7660, title: "Герой с крепким рассудком (героич.)", short: "" },
+    { marathonId: [8470, 9028], id: 10739, title: "Призрачный предводитель", short: "Призрачный (ночной) разлом - Эншака", schedule: [{ timeStart: "02:20" }, { timeStart: "06:20" }, { timeStart: "10:20" }, { timeStart: "14:20" }, { timeStart: "18:20" }, { timeStart: "22:20" }] },
+    { marathonId: [8478, 9030], id: 10423, title: "Голиаф, механический скарабей", short: "" },
+    { marathonId: [8494, 9032], id: 8635, title: "Срочная доставка", short: "" },
+    { marathonId: [8496, 9034], id: 9295, title: "Орды Сальфимара", short: "", availableWeekdays: [1, 4] },
+    { marathonId: [8498, 9036], id: 9294, title: "Орды Нуимара", short: "", availableWeekdays: [0, 3] },
+    { marathonId: [8500, 9050], id: 8637, title: "Старый друг – новый враг", short: "Бухта - Жакар" },
+    { marathonId: [8502, 9040], id: 7327, title: "Взгляд слепца", short: "50 мобов (100 очков) на Сверкающем побережье" },
+    { marathonId: [8504, 9042], id: 9296, title: "Орды Сангемара", short: "", availableWeekdays: [2, 5] },
+    { marathonId: [8506, 9044], id: 5969, title: "Кольцо Лореи", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+    { marathonId: [8508, 9062], id: 8641, title: "Наступление кир'феров", short: "Эфен - жаба (через 5 минут после начала войны)" },
+    { marathonId: [8510, 9048], id: 5077, title: "Аромат для важной особы", short: `Парфюмер (<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/260-kvesty-ot-parfyumera-na-dz-v-arheidj#aroma" target="_blank">запад</a>/<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/261-kvesty-ot-parfyumera-na-dz-vostok-arheidj#aroma" target="_blank">восток</a>)` },
+    { marathonId: [8512, 9038], id: 8605, title: "Битва в Бухте китобоев", short: "" },
+    { marathonId: [8514, 9052], id: 11096, title: "Турнир в честь Отца-Солнца", short: "Луг - Битва хранителей", schedule: [{ timeStart: "18:00", weekdays: [6, 0] }] },
+    { marathonId: [8516, 9054], id: 8000129, title: "Во славу Орхидны", short: "" },
+    { marathonId: [8518, 9056], id: 1415, title: "Сирота", short: "" },
+    { marathonId: [8520, 9058], id: 5970, title: "Кольцо капитана Гленна", short: "", schedule: [{ timeStart: "03:20" }, { timeStart: "07:20" }, { timeStart: "11:20" }, { timeStart: "15:20" }, { timeStart: "19:20" }, { timeStart: "23:20" }] },
+    { marathonId: [8522, 9060], id: 10188, title: "Образцы флоры Сада", short: "", slot: { item: ITEMS[49252], count: 20 } },
+    { marathonId: [8524, 9046], id: 8618, title: "Битва за Эфен'Хал", short: "Эфен - мобы" },
+    { marathonId: [9064], id: 8000311, title: "Охота на призраков", short: "Предпоследнее испытание для осколков предела" }
   ];
   let normalizeQuestTitleForMatch = /* @__PURE__ */ __name((value) => {
     const roman = /* @__PURE__ */ __name((num) => {
       const map = ["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"];
       return map[num] || String(num);
     }, "roman");
-    return String(value || "").toLowerCase().replace(/ё/g, "\u0435").replace(/(\D)(\d+)$/u, (_, prefix, num) => `${prefix} ${roman(Number(num))}`).replace(/\*+/g, "").replace(/героич/g, "\u0433\u0435\u0440").replace(/[«»"'`´’‘“”()[\]{}.,:;!?\-–—_/\\]+/g, " ").replace(/\s+/g, " ").trim();
+    return String(value || "").toLowerCase().replace(/ё/g, "е").replace(/(\D)(\d+)$/u, (_, prefix, num) => `${prefix} ${roman(Number(num))}`).replace(/\*+/g, "").replace(/героич/g, "гер").replace(/[«»"'`´’‘“”()[\]{}.,:;!?\-–—_/\\]+/g, " ").replace(/\s+/g, " ").trim();
   }, "normalizeQuestTitleForMatch");
   let getQuestTitleMatchWords = /* @__PURE__ */ __name((value) => normalizeQuestTitleForMatch(value).split(" ").filter((word) => word.length >= 3 || /^[ivx]+$/.test(word)), "getQuestTitleMatchWords");
   let scoreQuestTitleMatch = /* @__PURE__ */ __name((apiTitle, localTitle) => {
@@ -3285,7 +3635,7 @@
     const table = document.createElement("table");
     table.className = "table table--history_events";
     const thead = document.createElement("thead");
-    thead.innerHTML = "<tr><th>\u0414\u0430\u0442\u0430</th><th>\u0417\u0430\u0434\u0430\u043D\u0438\u0435</th><th>\u041E\u043F\u044B\u0442</th></tr>";
+    thead.innerHTML = "<tr><th>Дата</th><th>Задание</th><th>Опыт</th></tr>";
     table.appendChild(thead);
     const tbody = document.createElement("tbody");
     for (const entry of pageItems) {
@@ -3341,15 +3691,15 @@
         if (firstPage === 1) lastPage = Math.min(totalPages, firstPage + maxVisiblePages - 1);
         else if (lastPage === totalPages) firstPage = Math.max(1, lastPage - maxVisiblePages + 1);
       }
-      const firstLi = makePageItem(1, "\xAB", "pagination__item--first", historyCurrentPage <= 1, () => {
+      const firstLi = makePageItem(1, "«", "pagination__item--first", historyCurrentPage <= 1, () => {
         historyCurrentPage = 1;
         renderHistoryTable();
       });
-      firstLi.title = "\u041F\u0435\u0440\u0432\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430";
+      firstLi.title = "Первая страница";
       ul.appendChild(firstLi);
       const prevLi = document.createElement("li");
       prevLi.className = "pagination__item pagination__item--prev" + (historyCurrentPage <= 1 ? " disabled" : "");
-      prevLi.title = "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430";
+      prevLi.title = "Предыдущая страница";
       prevLi.innerHTML = '<i class="icons-arrow"></i>';
       prevLi.addEventListener("click", () => {
         if (historyCurrentPage > 1) {
@@ -3372,7 +3722,7 @@
       if (lastPage < totalPages) ul.appendChild(makeEllipsisItem());
       const nextLi = document.createElement("li");
       nextLi.className = "pagination__item pagination__item--next" + (historyCurrentPage >= totalPages ? " disabled" : "");
-      nextLi.title = "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430";
+      nextLi.title = "Следующая страница";
       nextLi.innerHTML = '<i class="icons-arrow"></i>';
       nextLi.addEventListener("click", () => {
         if (historyCurrentPage < totalPages) {
@@ -3381,11 +3731,11 @@
         }
       });
       ul.appendChild(nextLi);
-      const lastLi = makePageItem(totalPages, "\xBB", "pagination__item--last", historyCurrentPage >= totalPages, () => {
+      const lastLi = makePageItem(totalPages, "»", "pagination__item--last", historyCurrentPage >= totalPages, () => {
         historyCurrentPage = totalPages;
         renderHistoryTable();
       });
-      lastLi.title = "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430";
+      lastLi.title = "Последняя страница";
       ul.appendChild(lastLi);
       wrap.appendChild(ul);
     }
@@ -3540,7 +3890,7 @@
   }, "saveVekselServerIdOverride");
   let getVekselAutoOptionText = /* @__PURE__ */ __name(() => {
     const serverName = SERVERS[vekselAutoDetectedServerId];
-    return `\u0410\u0432\u0442\u043E\u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0438\u0435${serverName ? ` (${serverName})` : ""}`;
+    return `Автоопределение${serverName ? ` (${serverName})` : ""}`;
   }, "getVekselAutoOptionText");
   let updateVekselServerAutoOptionText = /* @__PURE__ */ __name(() => {
     document.querySelectorAll('[data-veksel-server-auto-option="1"]').forEach((option) => {
@@ -3829,7 +4179,7 @@
     reward.className = "tasks__item-reward";
     const name = document.createElement("span");
     name.className = "tasks__item-reward-name";
-    name.textContent = "\u041D\u0430\u0433\u0440\u0430\u0434\u0430:";
+    name.textContent = "Награда:";
     reward.appendChild(name);
     const n = Math.max(0, Math.min(20, amount));
     const cls = isDone ? "icon-point--received" : "icon-point--not-received";
@@ -3852,8 +4202,8 @@
     line.className = `tm-gisaa-status tm-gisaa-status--${info.status}`;
     if (info.status === "available") {
       const places = (info.locations || []).filter((location2) => !/^copy$/i.test(String(location2).trim())).join(" / ");
-      line.textContent = places ? `\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u043C\u043E\u0436\u043D\u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C: ${places}` : "\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u043C\u043E\u0436\u043D\u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C";
-    } else if (info.status === "unavailable") line.textContent = "\u0421\u0435\u0433\u043E\u0434\u043D\u044F \u043D\u0435\u043B\u044C\u0437\u044F \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C";
+      line.textContent = places ? `Сегодня можно выполнить: ${places}` : "Сегодня можно выполнить";
+    } else if (info.status === "unavailable") line.textContent = "Сегодня нельзя выполнить";
     else return null;
     return line;
   }, "makeGisaaStatusLine");
@@ -3928,10 +4278,10 @@
     const icons = document.createElement("div");
     icons.className = "tm-icons";
     row.appendChild(icons);
-    const codexTitle = questTitle ? `${formatQuestTitle(questTitle)} - ArcheageCodex` : "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u0434\u0430\u043D\u0438\u0435 \u0432 ArcheageCodex";
+    const codexTitle = questTitle ? `${formatQuestTitle(questTitle)} - ArcheageCodex` : "Открыть задание в ArcheageCodex";
     if (id) icons.appendChild(makeIconLink2({ href: `${CODEX_BASE}${id}/`, iconSrc: ICON_QUEST, title: codexTitle, className: "tm-codex-link" }));
     if (veksel === "blue_salt" || veksel === "north") {
-      const link = makeVekselIconLink({ href: buildVekselUrl(veksel, slot, locations), title: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0442\u0430\u0431\u043B\u0438\u0446\u0443 \u0432\u0435\u043A\u0441\u0435\u043B\u0435\u0439", vekselIcon: veksel === "blue_salt" ? ICON_VEKSEL : ICON_VEKSEL_NORTH });
+      const link = makeVekselIconLink({ href: buildVekselUrl(veksel, slot, locations), title: "Открыть таблицу векселей", vekselIcon: veksel === "blue_salt" ? ICON_VEKSEL : ICON_VEKSEL_NORTH });
       link.classList.add("tm-veksel-link");
       link.dataset.veksel = veksel;
       if (slot) link.dataset.slot = JSON.stringify(slot);
@@ -3959,13 +4309,13 @@
       const progress = Number(q?.progress || 0);
       const progressEl = document.createElement("span");
       progressEl.className = "tm-done-progress";
-      if (maxStep === 0 && isToday) progressEl.textContent = "\u041C\u043E\u0436\u043D\u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u043E";
+      if (maxStep === 0 && isToday) progressEl.textContent = "Можно выполнить повторно";
       else if (maxStep === 0) progressEl.textContent = "";
       else progressEl.textContent = `${progress}/${maxStep}`;
       row.appendChild(progressEl);
       const checkEl = document.createElement("span");
       checkEl.className = "tm-done-check";
-      checkEl.textContent = "\u2714";
+      checkEl.textContent = "✔";
       row.appendChild(checkEl);
       done.appendChild(row);
       if (showLastDone) {
@@ -3999,7 +4349,7 @@
     levelCurrent.className = "level__current";
     const levelCurrentTitle = document.createElement("div");
     levelCurrentTitle.className = "level__current-title";
-    levelCurrentTitle.textContent = "\u0412\u0430\u0448 \u0443\u0440\u043E\u0432\u0435\u043D\u044C:";
+    levelCurrentTitle.textContent = "Ваш уровень:";
     levelCurrent.appendChild(levelCurrentTitle);
     const iconLevel = document.createElement("div");
     iconLevel.className = "icon_level";
@@ -4019,7 +4369,7 @@
     tooltip.className = "tooltip";
     const tooltipText = document.createElement("div");
     tooltipText.className = "tooltip__text";
-    tooltipText.textContent = "\u0412\u044B\u043F\u043E\u043B\u043D\u044F\u0439\u0442\u0435 \u0432\u043D\u0443\u0442\u0440\u0438\u0438\u0433\u0440\u043E\u0432\u044B\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u2014 \u0438 \u043F\u043E\u043B\u0443\u0447\u0430\u0439\u0442\u0435 \u0437\u0430 \u044D\u0442\u043E \u0443\u0440\u043E\u0432\u043D\u0438 \u0432 \u0441\u043E\u0431\u044B\u0442\u0438\u0438 \xAB\u041C\u0430\u0440\u0430\u0444\u043E\u043D \u0433\u0435\u0440\u043E\u0435\u0432\xBB!";
+    tooltipText.textContent = "Выполняйте внутриигровые задания — и получайте за это уровни в событии «Марафон героев»!";
     tooltip.appendChild(tooltipText);
     tooltipWrap.appendChild(tooltip);
     iconInfo.appendChild(tooltipWrap);
@@ -4029,7 +4379,7 @@
     levelNext.className = "level__next";
     const levelNextTitle = document.createElement("div");
     levelNextTitle.className = "level__next-title";
-    levelNextTitle.textContent = "\u041F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0434\u043E \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0433\u043E \u0443\u0440\u043E\u0432\u043D\u044F:";
+    levelNextTitle.textContent = "Прогресс до следующего уровня:";
     levelNext.appendChild(levelNextTitle);
     const levelNextList = document.createElement("div");
     levelNextList.className = "level__next-list";
@@ -4055,7 +4405,7 @@
       DOM.tasksHeader.appendChild(balanceEl);
     }
     balanceEl.innerHTML = "";
-    const label = document.createTextNode(`\u0417\u0430\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043E \u0437\u0430 \u044D\u0442\u0443 \u043D\u0435\u0434\u0435\u043B\u044E: ${weekExp} / ${maxWeekExp}`);
+    const label = document.createTextNode(`Заработано за эту неделю: ${weekExp} / ${maxWeekExp}`);
     balanceEl.appendChild(label);
     const iconPoint = document.createElement("div");
     iconPoint.className = "icon-point icon-point--received";
@@ -4090,17 +4440,17 @@
     const todayBtn = document.createElement("button");
     todayBtn.className = "tm-date-btn tm-date-today";
     todayBtn.type = "button";
-    todayBtn.textContent = "\u0421\u0435\u0433\u043E\u0434\u043D\u044F";
+    todayBtn.textContent = "Сегодня";
     nav = document.createElement("div");
     nav.className = "tm-date-nav";
     const left = document.createElement("button");
     left.className = "tm-date-btn tm-date-prev";
     left.type = "button";
-    left.textContent = "\u2190";
+    left.textContent = "←";
     const right = document.createElement("button");
     right.className = "tm-date-btn tm-date-next";
     right.type = "button";
-    right.textContent = "\u2192";
+    right.textContent = "→";
     const label = document.createElement("div");
     label.className = "tm-date-label";
     label.textContent = "...";
@@ -4112,13 +4462,13 @@
     const hideDoneCheckbox = document.createElement("input");
     hideDoneCheckbox.type = "checkbox";
     hideDoneCheckbox.className = "tm-hide-done-checkbox";
-    const hideDoneText = document.createTextNode(" \u0421\u043A\u0440\u044B\u0442\u044C \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u044B\u0435");
+    const hideDoneText = document.createTextNode(" Скрыть выполненные");
     hideDoneLabel.appendChild(hideDoneCheckbox);
     hideDoneLabel.appendChild(hideDoneText);
     const refreshBtn = document.createElement("button");
     refreshBtn.type = "button";
     refreshBtn.className = "tm-refresh-btn";
-    refreshBtn.title = "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0434\u0430\u043D\u043D\u044B\u0435";
+    refreshBtn.title = "Обновить данные";
     refreshBtn.innerHTML = "&#x21bb;";
     DOM.refreshLoader = refreshBtn;
     refreshBtn.addEventListener("click", () => {
@@ -4169,8 +4519,8 @@
     const dateStr = formatDMY(parts);
     const isThu = isThursdayByTZ(selectedDayUtcMs);
     let suffix = "";
-    if (isThu && selectedSegment === "pre") suffix = "\u0434\u043E 09:00";
-    else if (isThu && selectedSegment === "post") suffix = "\u043F\u043E\u0441\u043B\u0435 09:00";
+    if (isThu && selectedSegment === "pre") suffix = "до 09:00";
+    else if (isThu && selectedSegment === "post") suffix = "после 09:00";
     DOM.label.innerHTML = "";
     const dateEl = document.createElement("span");
     dateEl.className = "tm-date-label-date";
@@ -4323,8 +4673,8 @@
       listEl.appendChild(card);
       renderedCount++;
     }
-    if (active.length && !renderedCount) renderEmptyTasksDiagnostic(listEl, "ArcheAgeExtraUI: \u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u0435\u0441\u0442\u044C \u0432 API, \u043D\u043E \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0438 \u043D\u0435 \u0431\u044B\u043B\u0438 \u043E\u0442\u0440\u0438\u0441\u043E\u0432\u0430\u043D\u044B. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043A\u043E\u043D\u0441\u043E\u043B\u044C.");
-    else if (!active.length) renderEmptyTasksDiagnostic(listEl, "ArcheAgeExtraUI: \u0434\u043B\u044F \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0433\u043E \u0434\u043D\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0435 \u0437\u0430\u0434\u0430\u043D\u0438\u044F \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u044B. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043A\u043E\u043D\u0441\u043E\u043B\u044C.");
+    if (active.length && !renderedCount) renderEmptyTasksDiagnostic(listEl, "ArcheAgeExtraUI: активные задания есть в API, но карточки не были отрисованы. Проверьте консоль.");
+    else if (!active.length) renderEmptyTasksDiagnostic(listEl, "ArcheAgeExtraUI: для выбранного дня активные задания не найдены. Проверьте консоль.");
     previouslyDoneQuestIds = currentDoneIds;
   }, "renderTasksForSelectedDay");
   let init = /* @__PURE__ */ __name(async ({
@@ -4540,7 +4890,7 @@
     if (lootbox.is_show_popup || lootbox.is_button_pushed) return;
     const boxesAvailable = lootbox.getChestNum;
     if (boxesAvailable <= 0 || !hasPremiumMarathonAccess()) return;
-    console.log(`[ArcheAgeExtraUI] \u0410\u0432\u0442\u043E\u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u0441\u0443\u043D\u0434\u0443\u043A\u0430 (\u043E\u0441\u0442\u0430\u043B\u043E\u0441\u044C: ${boxesAvailable})`);
+    console.log(`[ArcheAgeExtraUI] Автооткрытие сундука (осталось: ${boxesAvailable})`);
     lootbox.openBox();
   }, "tryOpenNextBox");
   let startAutoOpenBoxesInterval = /* @__PURE__ */ __name(() => {
@@ -4563,7 +4913,7 @@
     checkbox.type = "checkbox";
     checkbox.className = "tm-auto-open-checkbox";
     checkbox.checked = loadAutoOpenBoxesState();
-    const text = document.createTextNode("\u041E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C \u043F\u0440\u0438 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0438");
+    const text = document.createTextNode("Открывать при получении");
     label.appendChild(checkbox);
     label.appendChild(text);
     lootboxTitle.appendChild(label);
@@ -4589,7 +4939,7 @@
     checkbox.type = "checkbox";
     checkbox.className = "tm-auto-claim-checkbox";
     checkbox.checked = loadAutoClaimState();
-    const text = document.createTextNode(" \u0417\u0430\u0431\u0438\u0440\u0430\u0442\u044C \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438");
+    const text = document.createTextNode(" Забирать автоматически");
     label.appendChild(checkbox);
     label.appendChild(text);
     prizesTitle.appendChild(label);
@@ -4611,16 +4961,882 @@
   }, "initPrizes");
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/itemIcon/itemIcon.scss
-  let itemIcon_default = '@charset "UTF-8";\n:root {\n  --tm-screen-scale: 1;\n}\n\n.tm-item-icon {\n  position: relative;\n  display: inline-block;\n  flex-shrink: 0;\n}\n\n.tm-item-icon--small {\n  width: 30px;\n  height: 30px;\n  font-size: 11.5px;\n}\n\n.tm-item-icon--medium {\n  width: 42px;\n  height: 42px;\n  font-size: 11.5px;\n}\n\n.tm-item-icon::after {\n  content: "";\n  position: absolute;\n  inset: 0;\n  border-radius: inherit;\n  opacity: 0;\n  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.35), inset 0 0 4px rgba(255, 255, 255, 0.6);\n}\n\n.tm-item-icon:hover::after {\n  opacity: 1;\n}\n\n.tm-item-icon-img {\n  position: relative;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  display: block;\n}\n\n.tm-item-icon-overlay {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  pointer-events: auto;\n}\n\n.tm-item-icon-grade {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  pointer-events: none;\n}\n\n.tm-item-icon-count {\n  position: absolute;\n  right: 9%;\n  bottom: 12.5%;\n  line-height: 0.5;\n  letter-spacing: 0.02em;\n  color: #fff;\n  text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;\n  pointer-events: none;\n  z-index: 3;\n}\n\n/* \u0412\u0441\u043F\u043B\u044B\u0432\u0430\u0448\u043A\u0430 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u0430 (\u0433\u043B\u043E\u0431\u0430\u043B\u044C\u043D\u0430\u044F, \u0432 body) */\n.tm-item-tooltip {\n  display: none;\n  position: fixed;\n  top: var(--tm-tooltip-top, 0);\n  left: var(--tm-tooltip-left, 0);\n  z-index: 10000;\n  box-sizing: border-box;\n  width: 248px;\n  padding: 15px 15px 14px;\n  background: rgba(0, 8, 24, 0.85);\n  border: 1px solid rgba(255, 255, 255, 0.25);\n  pointer-events: none;\n  white-space: normal;\n  font-family: Calibri, Arial, Verdana, Tahoma;\n  font-size: 14px;\n  line-height: 18px;\n  color: #cfd6e0;\n  transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: top right;\n}\n\n.tm-item-tooltip--visible {\n  display: block;\n}\n\n.tm-item-tooltip--right {\n  transform: scale(var(--tm-tooltip-scale, 1));\n  transform-origin: top left;\n}\n\n.tm-item-tooltip--bottom {\n  transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: bottom right;\n}\n\n.tm-item-tooltip--bottom.tm-item-tooltip--right {\n  transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: bottom left;\n}\n\n.tm-item-tooltip-header {\n  display: flex;\n  gap: 6px;\n  align-items: flex-start;\n  padding: 0;\n}\n\n.tm-item-tooltip-header > .tm-item-icon {\n  flex-shrink: 0;\n}\n\n.tm-item-tooltip-meta {\n  display: flex;\n  flex-direction: column;\n  padding: 6px 0 2px;\n}\n\n.tm-item-tooltip-type {\n  opacity: 0.7;\n}\n\n.tm-item-tooltip-name {\n  font-size: 16px;\n  line-height: 20px;\n}\n\n.tm-item-tooltip-sep {\n  height: 2px;\n  margin: 4px 0;\n  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));\n  -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);\n  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);\n  padding: 0;\n}\n\n.tm-item-tooltip-req {\n  padding: 0 3px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-level {\n  display: flex;\n  align-items: center;\n}\n\n.tm-item-tooltip-hero-level-icon {\n  width: 16px;\n  height: 16px;\n  margin: 0 2px;\n  flex: 0 0 auto;\n}\n\n.tm-item-tooltip-stats {\n  padding: 0 3px;\n  display: flex;\n  flex-direction: column;\n  gap: 1px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-stat-row {\n  display: flex;\n  gap: 4px;\n}\n\n.tm-item-tooltip-stat-value {\n  color: #cfd6e0;\n  text-align: right;\n}\n\n.tm-item-tooltip-equipment-subtype {\n  padding: 0 3px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-desc {\n  padding: 4px 3px 2px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n\n.tm-item-tooltip-use-label {\n  color: #888;\n}\n\n.tm-item-tooltip-use-text {\n  color: #4caf50;\n}\n\n.tm-item-tooltip-price {\n  padding: 0 3px;\n  display: grid;\n  grid-template-columns: min-content 1fr;\n  gap: 8px;\n}\n\n.tm-item-tooltip-price--none {\n  display: block;\n  color: #d02e2e;\n}\n\n.tm-item-tooltip-price-value {\n  color: #cfd6e0;\n  display: inline-flex;\n  align-items: center;\n  justify-content: flex-end;\n  flex-wrap: wrap;\n  gap: 4px;\n  text-align: right;\n}\n\n.tm-item-tooltip-price-part {\n  display: inline-flex;\n  align-items: center;\n  gap: 2px;\n  white-space: nowrap;\n}\n\n.tm-item-tooltip-price-icon {\n  width: 16px;\n  height: 16px;\n  flex: 0 0 auto;\n}\n\n.orange_text,\n.inv-nc,\n.inv-nn,\n.inv-buffvar {\n  color: #ff9c27;\n}\n\n.light_blue_text,\n.inv-nd {\n  color: #74b0ca;\n}\n\n.blue_text,\n.inv-ni {\n  color: #27b1c6;\n}\n\n.red_text,\n.inv-nr {\n  color: #de482f;\n}';
+  let itemIcon_default = `@charset "UTF-8";
+:root {
+  --tm-screen-scale: 1;
+}
+
+.tm-item-icon {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tm-item-icon--small {
+  width: 30px;
+  height: 30px;
+  font-size: 11.5px;
+}
+
+.tm-item-icon--medium {
+  width: 42px;
+  height: 42px;
+  font-size: 11.5px;
+}
+
+.tm-item-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.35), inset 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.tm-item-icon:hover::after {
+  opacity: 1;
+}
+
+.tm-item-icon-img {
+  position: relative;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tm-item-icon-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.tm-item-icon-grade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tm-item-icon-count {
+  position: absolute;
+  right: 9%;
+  bottom: 12.5%;
+  line-height: 0.5;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Всплывашка предмета (глобальная, в body) */
+.tm-item-tooltip {
+  display: none;
+  position: fixed;
+  top: var(--tm-tooltip-top, 0);
+  left: var(--tm-tooltip-left, 0);
+  z-index: 10000;
+  box-sizing: border-box;
+  width: 248px;
+  padding: 15px 15px 14px;
+  background: rgba(0, 8, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  white-space: normal;
+  font-family: Calibri, Arial, Verdana, Tahoma;
+  font-size: 14px;
+  line-height: 18px;
+  color: #cfd6e0;
+  transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: top right;
+}
+
+.tm-item-tooltip--visible {
+  display: block;
+}
+
+.tm-item-tooltip--right {
+  transform: scale(var(--tm-tooltip-scale, 1));
+  transform-origin: top left;
+}
+
+.tm-item-tooltip--bottom {
+  transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: bottom right;
+}
+
+.tm-item-tooltip--bottom.tm-item-tooltip--right {
+  transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: bottom left;
+}
+
+.tm-item-tooltip-header {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 0;
+}
+
+.tm-item-tooltip-header > .tm-item-icon {
+  flex-shrink: 0;
+}
+
+.tm-item-tooltip-meta {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0 2px;
+}
+
+.tm-item-tooltip-type {
+  opacity: 0.7;
+}
+
+.tm-item-tooltip-name {
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.tm-item-tooltip-sep {
+  height: 2px;
+  margin: 4px 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));
+  -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+  padding: 0;
+}
+
+.tm-item-tooltip-req {
+  padding: 0 3px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-level {
+  display: flex;
+  align-items: center;
+}
+
+.tm-item-tooltip-hero-level-icon {
+  width: 16px;
+  height: 16px;
+  margin: 0 2px;
+  flex: 0 0 auto;
+}
+
+.tm-item-tooltip-stats {
+  padding: 0 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-stat-row {
+  display: flex;
+  gap: 4px;
+}
+
+.tm-item-tooltip-stat-value {
+  color: #cfd6e0;
+  text-align: right;
+}
+
+.tm-item-tooltip-equipment-subtype {
+  padding: 0 3px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-desc {
+  padding: 4px 3px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tm-item-tooltip-use-label {
+  color: #888;
+}
+
+.tm-item-tooltip-use-text {
+  color: #4caf50;
+}
+
+.tm-item-tooltip-price {
+  padding: 0 3px;
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  gap: 8px;
+}
+
+.tm-item-tooltip-price--none {
+  display: block;
+  color: #d02e2e;
+}
+
+.tm-item-tooltip-price-value {
+  color: #cfd6e0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  text-align: right;
+}
+
+.tm-item-tooltip-price-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.tm-item-tooltip-price-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.orange_text,
+.inv-nc,
+.inv-nn,
+.inv-buffvar {
+  color: #ff9c27;
+}
+
+.light_blue_text,
+.inv-nd {
+  color: #74b0ca;
+}
+
+.blue_text,
+.inv-ni {
+  color: #27b1c6;
+}
+
+.red_text,
+.inv-nr {
+  color: #de482f;
+}`;
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/marathon/selectedItems/selectedItems.scss
-  let selectedItems_default = '.tm-selected-container {\n  position: relative;\n  min-height: 100px;\n  padding: 18px 14px 18px 11px;\n}\n\n.tm-selected-container::before {\n  content: "";\n  position: absolute;\n  left: -1px;\n  top: 0;\n  bottom: 0;\n  width: 100%;\n  pointer-events: none;\n  background: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_top.png) left top no-repeat, url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bottom.png) left bottom no-repeat;\n}\n\n.tm-selected-list {\n  display: flex;\n  flex-direction: column;\n  min-height: 181px;\n  padding: 13px 15px;\n  background: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bg.jpg) left bottom no-repeat;\n  max-height: 181px;\n  overflow: auto;\n  position: relative;\n}\n\n.tm-selected-items-help {\n  margin: auto;\n  color: #495a6d;\n  font: 14px/16px Cambria, Georgia, "Times New Roman", Times, serif;\n  text-align: center;\n  cursor: default;\n}\n\n.tm-selected-item {\n  position: relative;\n  display: flex;\n  align-items: center;\n  padding: 2px 36px 2px 0;\n  font: 14px/16px Cambria, Georgia, "Times New Roman", Times, serif;\n  border-bottom: 1px solid #d6dde5;\n  border-top: 1px solid #d6dde5;\n  cursor: default;\n  z-index: 1;\n}\n\n.tm-cart-item-name {\n  display: inline-flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.tm-selected-item .del_btn {\n  position: absolute;\n  display: block;\n  top: 50%;\n  margin-top: -12px;\n  right: 0;\n  width: 25px;\n  height: 25px;\n  background-image: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/icons.png);\n  background-repeat: no-repeat;\n  background-position: left 0px;\n  cursor: pointer;\n}';
+  let selectedItems_default = `.tm-selected-container {
+  position: relative;
+  min-height: 100px;
+  padding: 18px 14px 18px 11px;
+}
+
+.tm-selected-container::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  pointer-events: none;
+  background: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_top.png) left top no-repeat, url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bottom.png) left bottom no-repeat;
+}
+
+.tm-selected-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 181px;
+  padding: 13px 15px;
+  background: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/cart_items_sel_bg.jpg) left bottom no-repeat;
+  max-height: 181px;
+  overflow: auto;
+  position: relative;
+}
+
+.tm-selected-items-help {
+  margin: auto;
+  color: #495a6d;
+  font: 14px/16px Cambria, Georgia, "Times New Roman", Times, serif;
+  text-align: center;
+  cursor: default;
+}
+
+.tm-selected-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 2px 36px 2px 0;
+  font: 14px/16px Cambria, Georgia, "Times New Roman", Times, serif;
+  border-bottom: 1px solid #d6dde5;
+  border-top: 1px solid #d6dde5;
+  cursor: default;
+  z-index: 1;
+}
+
+.tm-cart-item-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tm-selected-item .del_btn {
+  position: absolute;
+  display: block;
+  top: 50%;
+  margin-top: -12px;
+  right: 0;
+  width: 25px;
+  height: 25px;
+  background-image: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/content/itemrestore/icons.png);
+  background-repeat: no-repeat;
+  background-position: left 0px;
+  cursor: pointer;
+}`;
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/marathon/page/page.scss
-  let page_default = '@charset "UTF-8";\n.tm-task-completed {\n  background-color: rgba(255, 240, 226, 0.7490196078);\n}\n\n/* \u0410\u043D\u0438\u043C\u0430\u0446\u0438\u044F "\u0442\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043E" */\n@keyframes tm-just-completed-glow {\n  0% {\n    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7), inset 0 0 20px rgba(76, 175, 80, 0.3);\n    transform: scale(1);\n  }\n  15% {\n    box-shadow: 0 0 25px 8px rgba(76, 175, 80, 0.6), inset 0 0 30px rgba(76, 175, 80, 0.4);\n    transform: scale(1.02);\n  }\n  30% {\n    box-shadow: 0 0 35px 12px rgba(255, 215, 0, 0.5), inset 0 0 40px rgba(255, 215, 0, 0.3);\n    transform: scale(1.03);\n  }\n  50% {\n    box-shadow: 0 0 20px 6px rgba(76, 175, 80, 0.4), inset 0 0 25px rgba(76, 175, 80, 0.2);\n    transform: scale(1.01);\n  }\n  100% {\n    box-shadow: 0 0 0 0 transparent, inset 0 0 0 transparent;\n    transform: scale(1);\n  }\n}\n@keyframes tm-just-completed-bg {\n  0% {\n    background-color: rgba(255, 240, 226, 0.7490196078);\n  }\n  20% {\n    background-color: rgba(76, 175, 80, 0.35);\n  }\n  40% {\n    background-color: rgba(255, 215, 0, 0.3);\n  }\n  60% {\n    background-color: rgba(76, 175, 80, 0.25);\n  }\n  100% {\n    background-color: rgba(255, 240, 226, 0.7490196078);\n  }\n}\n@keyframes tm-checkmark-pop {\n  0% {\n    transform: scale(0) rotate(-45deg);\n    opacity: 0;\n  }\n  50% {\n    transform: scale(1.4) rotate(10deg);\n    opacity: 1;\n  }\n  70% {\n    transform: scale(0.9) rotate(-5deg);\n  }\n  100% {\n    transform: scale(1) rotate(0deg);\n    opacity: 1;\n  }\n}\n.tm-task-just-completed {\n  animation: tm-just-completed-glow 2s ease-out forwards, tm-just-completed-bg 2s ease-out forwards;\n  position: relative;\n  z-index: 9;\n}\n\n.tm-task-just-completed .tm-done-check {\n  animation: tm-checkmark-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;\n  animation-delay: 0.2s;\n  transform: scale(0);\n}\n\n.tasks__item {\n  overflow: visible;\n}\n\n.tasks__item-done {\n  display: flex;\n  flex-direction: column;\n  align-items: flex-end;\n  gap: 2px;\n  pointer-events: none;\n  opacity: 0.8;\n}\n\n.tm-done-row {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n}\n\n.tm-done-time {\n  font-size: 12px;\n}\n\n.tm-done-progress {\n  font-size: 12px;\n}\n\n.tm-done-check {\n  font-size: 14px;\n  font-weight: 700;\n  line-height: 1;\n  color: #3cb45a;\n}\n\n.tm-links-row {\n  margin-top: 6px;\n  display: flex;\n  gap: 4px;\n  justify-content: space-between;\n  align-items: center;\n  z-index: 1;\n}\n\n.tm-links-left {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  min-width: 0;\n}\n\n.tm-item-name-link {\n  font-size: 12px;\n  color: inherit;\n  opacity: 0.85;\n  text-decoration: none;\n}\n\n.tm-item-name-link:hover {\n  opacity: 1;\n  text-decoration: underline;\n}\n\n.tm-info-wrapper {\n  display: flex;\n  flex-direction: column;\n  gap: 2px;\n}\n\n.tm-info-line {\n  display: flex;\n  align-items: baseline;\n  gap: 6px;\n}\n\n.tm-locations {\n  font-size: 12px;\n  line-height: 1.25;\n  opacity: 0.85;\n}\n\n.tm-short {\n  font-size: 12px;\n  line-height: 1.25;\n  opacity: 0.85;\n}\n\n.tm-available-days {\n  font-size: 12px;\n  line-height: 1.25;\n  color: #8a6230;\n  font-weight: 600;\n}\n\n.tm-gisaa-status {\n  font-size: 12px;\n  line-height: 1.25;\n  font-weight: 600;\n}\n\n.tm-gisaa-status--available {\n  color: #3f8f3a;\n}\n\n.tm-gisaa-status--unavailable {\n  color: #b04a44;\n}\n\n.tm-short a {\n  color: inherit;\n}\n\n.tm-events {\n  font-size: 12px;\n  line-height: 1.25;\n  opacity: 0.85;\n}\n\n.tm-inline-icon {\n  display: inline-block;\n  position: relative;\n  width: 18px;\n  height: 18px;\n  vertical-align: middle;\n  margin: 0 2px;\n}\n\n.tm-inline-icon img:first-child {\n  width: 100%;\n  height: 100%;\n  display: block;\n}\n\n.tm-inline-icon-grade {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  pointer-events: none;\n}\n\n.tm-countdown {\n  font-weight: 500;\n  white-space: nowrap;\n}\n\n.tm-countdown.tm-countdown--active {\n  color: #4caf50;\n}\n\n.tm-countdown.tm-countdown--waiting {\n  color: #d02e2e;\n}\n\n.tm-icons {\n  display: flex;\n  flex-direction: row-reverse;\n  gap: 8px;\n  align-items: center;\n  flex: 0 0 auto;\n}\n\n.tm-icon-link {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  border-radius: 6px;\n  background: rgba(255, 255, 255, 0.06);\n  transition: box-shadow 150ms ease, opacity 150ms ease;\n}\n\n.tm-icon-link:hover {\n  transform: translateY(-1px);\n}\n\n.tm-icon-link img {\n  width: 30px;\n  display: block;\n}\n\n.tm-veksel-icon-link {\n  position: relative;\n  display: inline-block;\n  width: 30px;\n  height: 30px;\n  flex-shrink: 0;\n  transition: transform 120ms ease, opacity 120ms ease;\n}\n\n.tm-veksel-icon-link:hover {\n  transform: translateY(-1px);\n  opacity: 1;\n}\n\n.tm-veksel-icon-main {\n  width: 100%;\n  height: 100%;\n  display: block;\n}\n\n.tm-veksel-icon-badge {\n  position: absolute;\n  bottom: -2px;\n  right: -2px;\n  width: 18px;\n  height: 18px;\n  border-radius: 2px;\n  background: rgba(0, 0, 0, 0.6);\n}\n\n.tm-nav-wrapper {\n  display: flex;\n  align-items: center;\n  gap: 16px;\n}\n\n.tm-date-nav {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n@media (max-width: 1300px) {\n  .tm-nav-wrapper {\n    padding: 0 20px;\n  }\n}\n.tm-date-btn {\n  cursor: pointer;\n  padding: 4px 8px;\n  border-radius: 6px;\n  border: 1px solid rgba(255, 255, 255, 0.18);\n  background: rgba(255, 255, 255, 0.06);\n  color: inherit;\n  font: inherit;\n  font-size: 14px;\n  text-transform: uppercase;\n}\n\n.tm-date-btn:hover {\n  background: rgba(255, 255, 255, 0.1);\n}\n\n.tm-date-label {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  min-width: 150px;\n  text-align: center;\n}\n\n.tm-date-label-date {\n  font-size: 16px;\n}\n\n.tm-date-label-suffix {\n  font-size: 12px;\n  opacity: 0.75;\n  line-height: 1;\n}\n\n.tasks__header {\n  flex-wrap: wrap;\n  justify-content: space-between;\n  gap: 16px;\n}\n\n.tm-date-btn:disabled {\n  opacity: 0.35;\n  cursor: default;\n}\n\n.tm-hide-done-label {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  cursor: pointer;\n  font-size: 16px;\n}\n\n.tm-hide-done-label:hover {\n  opacity: 1;\n}\n\n.tm-hide-done-checkbox {\n  cursor: pointer;\n}\n\n.tm-hide-done .tm-task-completed {\n  display: none;\n}\n\n.tm-refresh-btn {\n  width: 26px;\n  height: 26px;\n  padding: 0;\n  border: none;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.06);\n  color: rgba(255, 255, 255, 0.7);\n  font-size: 18px;\n  line-height: 1;\n  cursor: pointer;\n  transition: background 150ms ease, color 150ms ease, transform 150ms ease;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n\n.tm-refresh-btn:hover {\n  background: rgba(255, 255, 255, 0.12);\n  color: rgba(255, 255, 255, 0.95);\n}\n\n.tm-refresh-btn:active {\n  transform: scale(0.92);\n}\n\n.tm-refresh-loader--active {\n  pointer-events: none;\n  animation: tm-spin 0.7s linear infinite;\n}\n\n@keyframes tm-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n/* \u0410\u0432\u0442\u043E\u0437\u0430\u0431\u043E\u0440 \u043F\u043E\u0434\u0430\u0440\u043A\u043E\u0432 */\n.prizes__title {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 16px;\n}\n\n.tm-auto-claim-label {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  font-size: 14px;\n  font-weight: normal;\n  cursor: pointer;\n  user-select: none;\n  white-space: nowrap;\n}\n\n.tm-auto-claim-checkbox {\n  width: 16px;\n  height: 16px;\n  cursor: pointer;\n}\n\n/* \u0410\u0432\u0442\u043E\u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u0441\u0443\u043D\u0434\u0443\u043A\u043E\u0432 */\n.lootbox__title {\n  gap: 30px;\n  flex-wrap: wrap;\n}\n\n.lootbox__title .icon-info {\n  margin-left: 0;\n}\n\n.tm-auto-open-label {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  font-size: 14px;\n  font-weight: normal;\n  cursor: pointer;\n  user-select: none;\n  white-space: nowrap;\n  text-transform: none;\n}\n\n.tm-auto-open-checkbox {\n  width: 16px;\n  height: 16px;\n  cursor: pointer;\n}\n\n.pagination__item--ellipsis {\n  cursor: default;\n  color: #777;\n}';
+  let page_default = `@charset "UTF-8";
+.tm-task-completed {
+  background-color: rgba(255, 240, 226, 0.7490196078);
+}
+
+/* Анимация "только что выполнено" */
+@keyframes tm-just-completed-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7), inset 0 0 20px rgba(76, 175, 80, 0.3);
+    transform: scale(1);
+  }
+  15% {
+    box-shadow: 0 0 25px 8px rgba(76, 175, 80, 0.6), inset 0 0 30px rgba(76, 175, 80, 0.4);
+    transform: scale(1.02);
+  }
+  30% {
+    box-shadow: 0 0 35px 12px rgba(255, 215, 0, 0.5), inset 0 0 40px rgba(255, 215, 0, 0.3);
+    transform: scale(1.03);
+  }
+  50% {
+    box-shadow: 0 0 20px 6px rgba(76, 175, 80, 0.4), inset 0 0 25px rgba(76, 175, 80, 0.2);
+    transform: scale(1.01);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent, inset 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+@keyframes tm-just-completed-bg {
+  0% {
+    background-color: rgba(255, 240, 226, 0.7490196078);
+  }
+  20% {
+    background-color: rgba(76, 175, 80, 0.35);
+  }
+  40% {
+    background-color: rgba(255, 215, 0, 0.3);
+  }
+  60% {
+    background-color: rgba(76, 175, 80, 0.25);
+  }
+  100% {
+    background-color: rgba(255, 240, 226, 0.7490196078);
+  }
+}
+@keyframes tm-checkmark-pop {
+  0% {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.4) rotate(10deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.9) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+.tm-task-just-completed {
+  animation: tm-just-completed-glow 2s ease-out forwards, tm-just-completed-bg 2s ease-out forwards;
+  position: relative;
+  z-index: 9;
+}
+
+.tm-task-just-completed .tm-done-check {
+  animation: tm-checkmark-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation-delay: 0.2s;
+  transform: scale(0);
+}
+
+.tasks__item {
+  overflow: visible;
+}
+
+.tasks__item-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.tm-done-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tm-done-time {
+  font-size: 12px;
+}
+
+.tm-done-progress {
+  font-size: 12px;
+}
+
+.tm-done-check {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  color: #3cb45a;
+}
+
+.tm-links-row {
+  margin-top: 6px;
+  display: flex;
+  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1;
+}
+
+.tm-links-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tm-item-name-link {
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+.tm-item-name-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.tm-info-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tm-info-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.tm-locations {
+  font-size: 12px;
+  line-height: 1.25;
+  opacity: 0.85;
+}
+
+.tm-short {
+  font-size: 12px;
+  line-height: 1.25;
+  opacity: 0.85;
+}
+
+.tm-available-days {
+  font-size: 12px;
+  line-height: 1.25;
+  color: #8a6230;
+  font-weight: 600;
+}
+
+.tm-gisaa-status {
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.tm-gisaa-status--available {
+  color: #3f8f3a;
+}
+
+.tm-gisaa-status--unavailable {
+  color: #b04a44;
+}
+
+.tm-short a {
+  color: inherit;
+}
+
+.tm-events {
+  font-size: 12px;
+  line-height: 1.25;
+  opacity: 0.85;
+}
+
+.tm-inline-icon {
+  display: inline-block;
+  position: relative;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.tm-inline-icon img:first-child {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tm-inline-icon-grade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tm-countdown {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tm-countdown.tm-countdown--active {
+  color: #4caf50;
+}
+
+.tm-countdown.tm-countdown--waiting {
+  color: #d02e2e;
+}
+
+.tm-icons {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.tm-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  transition: box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.tm-icon-link:hover {
+  transform: translateY(-1px);
+}
+
+.tm-icon-link img {
+  width: 30px;
+  display: block;
+}
+
+.tm-veksel-icon-link {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.tm-veksel-icon-link:hover {
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.tm-veksel-icon-main {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tm-veksel-icon-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.tm-nav-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.tm-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 1300px) {
+  .tm-nav-wrapper {
+    padding: 0 20px;
+  }
+}
+.tm-date-btn {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.tm-date-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tm-date-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 150px;
+  text-align: center;
+}
+
+.tm-date-label-date {
+  font-size: 16px;
+}
+
+.tm-date-label-suffix {
+  font-size: 12px;
+  opacity: 0.75;
+  line-height: 1;
+}
+
+.tasks__header {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tm-date-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tm-hide-done-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.tm-hide-done-label:hover {
+  opacity: 1;
+}
+
+.tm-hide-done-checkbox {
+  cursor: pointer;
+}
+
+.tm-hide-done .tm-task-completed {
+  display: none;
+}
+
+.tm-refresh-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tm-refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.tm-refresh-btn:active {
+  transform: scale(0.92);
+}
+
+.tm-refresh-loader--active {
+  pointer-events: none;
+  animation: tm-spin 0.7s linear infinite;
+}
+
+@keyframes tm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Автозабор подарков */
+.prizes__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tm-auto-claim-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: normal;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tm-auto-claim-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Автооткрытие сундуков */
+.lootbox__title {
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.lootbox__title .icon-info {
+  margin-left: 0;
+}
+
+.tm-auto-open-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: normal;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.tm-auto-open-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.pagination__item--ellipsis {
+  cursor: default;
+  color: #777;
+}`;
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/cart/cart.scss
-  let cart_default = '@charset "UTF-8";\n#block_content {\n  overflow: unset;\n}\n\n.cart_right {\n  position: sticky;\n  top: 0;\n}\n\n.guild_tab.cart_items .gh_1,\n.guild_tab.cart_items .g\u0441_1 {\n  width: 1%;\n}\n\n.guild_tab.cart_items .gh_2 {\n  border-left: none;\n  padding-left: 0;\n}\n\n.guild_tab.cart_items .gh_3 {\n  width: 1px;\n  min-width: 170px;\n  border-right: none;\n}\n\n.guild_tab.cart_items .gh_4 {\n  width: 1%;\n}\n\n.guild_tab.cart_items .g\u0441_2 {\n  border-left: none;\n  padding-left: 0;\n}\n\n.guild_tab.cart_items .g\u0441_4 {\n  white-space: nowrap;\n  text-align: right;\n  border-right: none;\n  width: 1%;\n}\n\n.cart_items .item:hover {\n  background: #edf4fa;\n}\n\n.cart_items .item.disabled:hover {\n  background: transparent;\n}\n\n.cart_items .item.tm-selected {\n  display: none;\n}\n\n.tm-cart-timer {\n  display: block;\n}\n\n.tm-char-face {\n  width: 100%;\n  height: 100%;\n  /*border-radius: 50%;*/\n  opacity: 0;\n  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent), linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);\n  -webkit-mask-composite: destination-in;\n  mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent), linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);\n  mask-composite: intersect;\n  filter: brightness(1.1);\n  mix-blend-mode: multiply;\n}\n\n.tm-char-face--loaded {\n  opacity: 1;\n}\n\n.tm-char-face--error {\n  opacity: 0;\n}\n\n.tm-char-face-ready div {\n  background: none !important;\n}';
+  let cart_default = `@charset "UTF-8";
+#block_content {
+  overflow: unset;
+}
+
+.cart_right {
+  position: sticky;
+  top: 0;
+}
+
+.guild_tab.cart_items .gh_1,
+.guild_tab.cart_items .gс_1 {
+  width: 1%;
+}
+
+.guild_tab.cart_items .gh_2 {
+  border-left: none;
+  padding-left: 0;
+}
+
+.guild_tab.cart_items .gh_3 {
+  width: 1px;
+  min-width: 170px;
+  border-right: none;
+}
+
+.guild_tab.cart_items .gh_4 {
+  width: 1%;
+}
+
+.guild_tab.cart_items .gс_2 {
+  border-left: none;
+  padding-left: 0;
+}
+
+.guild_tab.cart_items .gс_4 {
+  white-space: nowrap;
+  text-align: right;
+  border-right: none;
+  width: 1%;
+}
+
+.cart_items .item:hover {
+  background: #edf4fa;
+}
+
+.cart_items .item.disabled:hover {
+  background: transparent;
+}
+
+.cart_items .item.tm-selected {
+  display: none;
+}
+
+.tm-cart-timer {
+  display: block;
+}
+
+.tm-char-face {
+  width: 100%;
+  height: 100%;
+  /*border-radius: 50%;*/
+  opacity: 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent), linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);
+  -webkit-mask-composite: destination-in;
+  mask-image: linear-gradient(to bottom, transparent, #000 5px, #000 80%, transparent), linear-gradient(to right, transparent, #000 5px, #000 calc(100% - 5px), transparent);
+  mask-composite: intersect;
+  filter: brightness(1.1);
+  mix-blend-mode: multiply;
+}
+
+.tm-char-face--loaded {
+  opacity: 1;
+}
+
+.tm-char-face--error {
+  opacity: 0;
+}
+
+.tm-char-face-ready div {
+  background: none !important;
+}`;
 
   // src/marathon/styles.js
   let itemIconStylesInjected = false;
@@ -4657,7 +5873,189 @@
   }, "injectSelectedItemsStyles");
 
   // scss:/Users/cergx/wsProjects/archeage-extra-ui/src/marathon/tooltip/tooltip.scss
-  let tooltip_default = ".tm-item-tooltip {\n  display: none;\n  position: fixed;\n  top: var(--tm-tooltip-top, 0);\n  left: var(--tm-tooltip-left, 0);\n  z-index: 10000;\n  box-sizing: border-box;\n  width: 248px;\n  padding: 15px 15px 14px;\n  background: rgba(0, 8, 24, 0.85);\n  border: 1px solid rgba(255, 255, 255, 0.25);\n  pointer-events: none;\n  white-space: normal;\n  font-family: Calibri, Arial, Verdana, Tahoma;\n  font-size: 14px;\n  line-height: 18px;\n  color: #cfd6e0;\n  transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: top right;\n}\n\n.tm-item-tooltip--visible {\n  display: block;\n}\n\n.tm-item-tooltip--right {\n  transform: scale(var(--tm-tooltip-scale, 1));\n  transform-origin: top left;\n}\n\n.tm-item-tooltip--bottom {\n  transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: bottom right;\n}\n\n.tm-item-tooltip--bottom.tm-item-tooltip--right {\n  transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));\n  transform-origin: bottom left;\n}\n\n.tm-item-tooltip-header {\n  display: flex;\n  gap: 6px;\n  align-items: flex-start;\n  padding: 0;\n}\n\n.tm-item-tooltip-header > .tm-item-icon {\n  flex-shrink: 0;\n}\n\n.tm-item-tooltip-meta {\n  display: flex;\n  flex-direction: column;\n  padding: 6px 0 2px;\n}\n\n.tm-item-tooltip-type {\n  opacity: 0.7;\n}\n\n.tm-item-tooltip-name {\n  font-size: 16px;\n  line-height: 20px;\n}\n\n.tm-item-tooltip-sep {\n  height: 2px;\n  margin: 4px 0;\n  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));\n  -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);\n  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);\n  padding: 0;\n}\n\n.tm-item-tooltip-req {\n  padding: 0 3px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-level {\n  display: flex;\n  align-items: center;\n}\n\n.tm-item-tooltip-hero-level-icon {\n  width: 16px;\n  height: 16px;\n  margin: 0 2px;\n  flex: 0 0 auto;\n}\n\n.tm-item-tooltip-stats {\n  padding: 0 3px;\n  display: flex;\n  flex-direction: column;\n  gap: 1px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-stat-row {\n  display: flex;\n  gap: 4px;\n}\n\n.tm-item-tooltip-stat-value {\n  color: #cfd6e0;\n  text-align: right;\n}\n\n.tm-item-tooltip-equipment-subtype {\n  padding: 0 3px;\n  letter-spacing: 0.03em;\n}\n\n.tm-item-tooltip-desc {\n  padding: 4px 3px 2px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n\n.tm-item-tooltip-use-label {\n  color: #888;\n}\n\n.tm-item-tooltip-use-text {\n  color: #4caf50;\n}\n\n.tm-item-tooltip-price {\n  padding: 0 3px;\n  display: grid;\n  grid-template-columns: min-content 1fr;\n  gap: 8px;\n}\n\n.tm-item-tooltip-price--none {\n  display: block;\n  color: #d02e2e;\n}\n\n.tm-item-tooltip-price-value {\n  color: #cfd6e0;\n  display: inline-flex;\n  align-items: center;\n  justify-content: flex-end;\n  flex-wrap: wrap;\n  gap: 4px;\n  text-align: right;\n}\n\n.tm-item-tooltip-price-part {\n  display: inline-flex;\n  align-items: center;\n  gap: 2px;\n  white-space: nowrap;\n}\n\n.tm-item-tooltip-price-icon {\n  width: 16px;\n  height: 16px;\n  flex: 0 0 auto;\n}\n\n.orange_text,\n.inv-nc,\n.inv-nn,\n.inv-buffvar {\n  color: #ff9c27;\n}\n\n.inv-nd {\n  color: #d02e2e;\n}\n\n.inv-ni {\n  color: #4caf50;\n}\n\n.inv-nr {\n  color: #b19cff;\n}";
+  let tooltip_default = `.tm-item-tooltip {
+  display: none;
+  position: fixed;
+  top: var(--tm-tooltip-top, 0);
+  left: var(--tm-tooltip-left, 0);
+  z-index: 10000;
+  box-sizing: border-box;
+  width: 248px;
+  padding: 15px 15px 14px;
+  background: rgba(0, 8, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+  white-space: normal;
+  font-family: Calibri, Arial, Verdana, Tahoma;
+  font-size: 14px;
+  line-height: 18px;
+  color: #cfd6e0;
+  transform: translateX(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: top right;
+}
+
+.tm-item-tooltip--visible {
+  display: block;
+}
+
+.tm-item-tooltip--right {
+  transform: scale(var(--tm-tooltip-scale, 1));
+  transform-origin: top left;
+}
+
+.tm-item-tooltip--bottom {
+  transform: translateX(-100%) translateY(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: bottom right;
+}
+
+.tm-item-tooltip--bottom.tm-item-tooltip--right {
+  transform: translateY(-100%) scale(var(--tm-tooltip-scale, 1));
+  transform-origin: bottom left;
+}
+
+.tm-item-tooltip-header {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 0;
+}
+
+.tm-item-tooltip-header > .tm-item-icon {
+  flex-shrink: 0;
+}
+
+.tm-item-tooltip-meta {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0 2px;
+}
+
+.tm-item-tooltip-type {
+  opacity: 0.7;
+}
+
+.tm-item-tooltip-name {
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.tm-item-tooltip-sep {
+  height: 2px;
+  margin: 4px 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));
+  -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+  padding: 0;
+}
+
+.tm-item-tooltip-req {
+  padding: 0 3px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-level {
+  display: flex;
+  align-items: center;
+}
+
+.tm-item-tooltip-hero-level-icon {
+  width: 16px;
+  height: 16px;
+  margin: 0 2px;
+  flex: 0 0 auto;
+}
+
+.tm-item-tooltip-stats {
+  padding: 0 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-stat-row {
+  display: flex;
+  gap: 4px;
+}
+
+.tm-item-tooltip-stat-value {
+  color: #cfd6e0;
+  text-align: right;
+}
+
+.tm-item-tooltip-equipment-subtype {
+  padding: 0 3px;
+  letter-spacing: 0.03em;
+}
+
+.tm-item-tooltip-desc {
+  padding: 4px 3px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tm-item-tooltip-use-label {
+  color: #888;
+}
+
+.tm-item-tooltip-use-text {
+  color: #4caf50;
+}
+
+.tm-item-tooltip-price {
+  padding: 0 3px;
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  gap: 8px;
+}
+
+.tm-item-tooltip-price--none {
+  display: block;
+  color: #d02e2e;
+}
+
+.tm-item-tooltip-price-value {
+  color: #cfd6e0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  text-align: right;
+}
+
+.tm-item-tooltip-price-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.tm-item-tooltip-price-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.orange_text,
+.inv-nc,
+.inv-nn,
+.inv-buffvar {
+  color: #ff9c27;
+}
+
+.inv-nd {
+  color: #d02e2e;
+}
+
+.inv-ni {
+  color: #4caf50;
+}
+
+.inv-nr {
+  color: #b19cff;
+}`;
 
   // src/marathon/tooltip/tooltip.js
   let LS_KEY_DYNAMIC_TOOLTIPS = "tm_aa_dynamic_tooltips";
@@ -4704,7 +6102,7 @@
       const icon = pageDocument.createElement("img");
       icon.className = "tm-item-tooltip-hero-level-icon";
       icon.src = HERO_LEVEL_ICON;
-      icon.alt = "\u0433\u0435\u0440\u043E\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0443\u0440\u043E\u0432\u0435\u043D\u044C";
+      icon.alt = "героический уровень";
       container.appendChild(icon);
       const value = pageDocument.createElement("span");
       value.className = "inv-nc";
@@ -4717,7 +6115,7 @@
   let makeRequiredLevelLine = /* @__PURE__ */ __name((reqLevel, maxLevel) => {
     const line = pageDocument.createElement("div");
     line.className = "tm-item-tooltip-level";
-    line.appendChild(pageDocument.createTextNode("\u0422\u0440\u0435\u0431\u0443\u0435\u043C\u044B\u0439 \u0443\u0440\u043E\u0432\u0435\u043D\u044C: "));
+    line.appendChild(pageDocument.createTextNode("Требуемый уровень: "));
     if (reqLevel != null) appendItemLevelValue(line, reqLevel);
     if (maxLevel != null) {
       line.appendChild(pageDocument.createTextNode("~"));
@@ -4732,20 +6130,20 @@
     return `${whole}.${fraction || "0"}`;
   }, "formatSpeedStat");
   let ITEM_UTILITY_STATS = [
-    { field: "speed", label: "\u0421\u043D\u043E\u0440\u043E\u0432\u043A\u0430", format: formatSpeedStat },
-    { field: "durability", label: "\u041F\u0440\u043E\u0447\u043D\u043E\u0441\u0442\u044C", format: /* @__PURE__ */ __name((value) => `${value}/${value}`, "format") }
+    { field: "speed", label: "Сноровка", format: formatSpeedStat },
+    { field: "durability", label: "Прочность", format: /* @__PURE__ */ __name((value) => `${value}/${value}`, "format") }
   ];
   let ITEM_COMBAT_STATS = [
-    { field: "dps", label: "\u0423\u0440\u043E\u043D", colon: true },
-    { field: "armor", label: "\u0417\u0430\u0449\u0438\u0442\u0430", colon: true },
-    { field: "magicResistance", label: "\u0421\u043E\u043F\u0440\u043E\u0442\u0438\u0432\u043B\u0435\u043D\u0438\u0435", colon: true },
-    { field: "mdps", label: "\u0421\u0438\u043B\u0430 \u0437\u0430\u043A\u043B\u0438\u043D\u0430\u043D\u0438\u0439" },
-    { field: "hdps", label: "\u042D\u0444\u0444\u0435\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C \u0438\u0441\u0446\u0435\u043B\u0435\u043D\u0438\u044F" },
-    { field: "str", label: "\u0421\u0438\u043B\u0430" },
-    { field: "dex", label: "\u041B\u043E\u0432\u043A\u043E\u0441\u0442\u044C" },
-    { field: "sta", label: "\u0412\u044B\u043D\u043E\u0441\u043B\u0438\u0432\u043E\u0441\u0442\u044C" },
-    { field: "int", label: "\u0418\u043D\u0442\u0435\u043B\u043B\u0435\u043A\u0442" },
-    { field: "spi", label: "\u041C\u0443\u0434\u0440\u043E\u0441\u0442\u044C" }
+    { field: "dps", label: "Урон", colon: true },
+    { field: "armor", label: "Защита", colon: true },
+    { field: "magicResistance", label: "Сопротивление", colon: true },
+    { field: "mdps", label: "Сила заклинаний" },
+    { field: "hdps", label: "Эффективность исцеления" },
+    { field: "str", label: "Сила" },
+    { field: "dex", label: "Ловкость" },
+    { field: "sta", label: "Выносливость" },
+    { field: "int", label: "Интеллект" },
+    { field: "spi", label: "Мудрость" }
   ];
   let isDisplayableItemStatValue = /* @__PURE__ */ __name((value) => {
     if (value == null || value === "") return false;
@@ -4792,9 +6190,9 @@
     const gold = Math.floor(totalBronze / 1e4);
     const silver = Math.floor(totalBronze % 1e4 / 100);
     const bronze = totalBronze % 100;
-    if (gold > 0) appendPricePart(value, gold, CURRENCY_ICONS.gold, "\u0437\u043E\u043B\u043E\u0442\u043E");
-    if (silver > 0) appendPricePart(value, silver, CURRENCY_ICONS.silver, "\u0441\u0435\u0440\u0435\u0431\u0440\u043E");
-    if (bronze > 0 || totalBronze === 0) appendPricePart(value, bronze, CURRENCY_ICONS.bronze, "\u0431\u0440\u043E\u043D\u0437\u0430");
+    if (gold > 0) appendPricePart(value, gold, CURRENCY_ICONS.gold, "золото");
+    if (silver > 0) appendPricePart(value, silver, CURRENCY_ICONS.silver, "серебро");
+    if (bronze > 0 || totalBronze === 0) appendPricePart(value, bronze, CURRENCY_ICONS.bronze, "бронза");
     return value;
   }, "makeItemPriceValue");
   let getItemDynamicTooltipKey = /* @__PURE__ */ __name((item) => {
@@ -5031,7 +6429,7 @@
       }
       if (item.isPersonal) {
         const p = pageDocument.createElement("div");
-        p.textContent = "\u041F\u0435\u0440\u0441\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442";
+        p.textContent = "Персональный предмет";
         reqSection.appendChild(p);
       }
       tooltip.appendChild(reqSection);
@@ -5077,7 +6475,7 @@
         useBlock.className = "tm-item-tooltip-use";
         const useLabel = pageDocument.createElement("div");
         useLabel.className = "tm-item-tooltip-use-label";
-        useLabel.textContent = "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0435";
+        useLabel.textContent = "Использование";
         const useText = pageDocument.createElement("div");
         useText.className = "tm-item-tooltip-use-text";
         useText.innerHTML = parseGameMarkup(resolveItemPlaceholders(item.useDescription, item));
@@ -5090,7 +6488,7 @@
         equipBlock.className = "tm-item-tooltip-use";
         const equipLabel = pageDocument.createElement("div");
         equipLabel.className = "tm-item-tooltip-use-label";
-        equipLabel.textContent = item.isEquipDescriptionTemporary ? "\u042D\u043A\u0438\u043F\u0438\u0440\u043E\u0432\u043A\u0430 (\u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E)" : "\u042D\u043A\u0438\u043F\u0438\u0440\u043E\u0432\u043A\u0430";
+        equipLabel.textContent = item.isEquipDescriptionTemporary ? "Экипировка (временно)" : "Экипировка";
         const equipText = pageDocument.createElement("div");
         equipText.className = "tm-item-tooltip-use-text";
         equipText.innerHTML = parseGameMarkup(resolveItemPlaceholders(item.equipDescription, item));
@@ -5108,10 +6506,10 @@
       priceSection.className = "tm-item-tooltip-price";
       if (item.price === null || Number(item.price) === 0) {
         priceSection.className = "tm-item-tooltip-price tm-item-tooltip-price--none";
-        priceSection.textContent = "\u042D\u0442\u043E\u0442 \u043F\u0440\u0435\u0434\u043C\u0435\u0442 \u043D\u0435 \u043D\u0443\u0436\u0435\u043D \u0442\u043E\u0440\u0433\u043E\u0432\u0446\u0430\u043C.";
+        priceSection.textContent = "Этот предмет не нужен торговцам.";
       } else {
         const label = pageDocument.createElement("span");
-        label.textContent = "\u0426\u0435\u043D\u0430\n\u043F\u0440\u043E\u0434\u0430\u0436\u0438:";
+        label.textContent = "Цена\nпродажи:";
         priceSection.appendChild(label);
         priceSection.appendChild(makeItemPriceValue(item.price));
       }
