@@ -10,7 +10,7 @@ import {
 } from './utils.js';
 import { EVENTS } from './data/events.js';
 import { SERVERS } from './data/servers.js';
-import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent } from './data/items.js';
+import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom } from './data/items.js';
 
 const LS_KEYS = {
     EVENT_VISIBILITY: 'tm_aa_ev_vis',
@@ -342,6 +342,27 @@ export const injectEventsPopupStyles = () => {
                 vertical-align: middle;
             }
             .tm-ev-bell--off { opacity: 0.25; }
+            .tm-scale-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .tm-scale-input {
+                width: 75px;
+                padding: 4px 6px;
+                border: 1px solid #bbb;
+                border-radius: 4px;
+                font: inherit;
+            }
+            .tm-scale-suffix { color: #555; }
+            .tm-zoom-row {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 4px;
+            }
+            .tm-zoom-cb:disabled + .tm-zoom-label { opacity: 0.5; }
+            .tm-zoom-label { cursor: pointer; user-select: none; font-size: 13px; }
         `;
     document.head.appendChild(style);
 };
@@ -488,19 +509,19 @@ export const openSettingsPopup = (onChanged, {
     scaleSection.appendChild(scaleTitle);
 
     const scaleRow = document.createElement('div');
-    scaleRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+    scaleRow.className = 'tm-scale-row';
 
     const scaleInput = document.createElement('input');
     scaleInput.type = 'number';
+    scaleInput.className = 'tm-scale-input';
     scaleInput.step = '5';
     scaleInput.min = '10';
     scaleInput.max = '5000';
     scaleInput.value = loadIconScalePercent();
-    scaleInput.style.cssText = 'width:75px;padding:4px 6px;border:1px solid #bbb;border-radius:4px;font:inherit;';
 
     const scaleSuffix = document.createElement('span');
+    scaleSuffix.className = 'tm-scale-suffix';
     scaleSuffix.textContent = '%';
-    scaleSuffix.style.cssText = 'color:#555;';
 
     scaleInput.addEventListener('change', () => {
         const val = parseInt(scaleInput.value, 10);
@@ -515,6 +536,23 @@ export const openSettingsPopup = (onChanged, {
     scaleRow.appendChild(scaleInput);
     scaleRow.appendChild(scaleSuffix);
     scaleSection.appendChild(scaleRow);
+
+    const zoomCb = document.createElement('input');
+    zoomCb.type = 'checkbox';
+    zoomCb.className = 'tm-zoom-cb';
+    zoomCb.id = 'tm-scale-browser-zoom';
+    zoomCb.checked = loadIconScaleBrowserZoom();
+    zoomCb.disabled = window.devicePixelRatio === 1;
+    zoomCb.addEventListener('change', () => saveIconScaleBrowserZoom(zoomCb.checked));
+    const zoomLabel = document.createElement('label');
+    zoomLabel.className = 'tm-zoom-label';
+    zoomLabel.htmlFor = 'tm-scale-browser-zoom';
+    zoomLabel.textContent = 'Масштаб браузера';
+    const zoomRow = document.createElement('div');
+    zoomRow.className = 'tm-zoom-row';
+    zoomRow.appendChild(zoomCb);
+    zoomRow.appendChild(zoomLabel);
+    scaleSection.appendChild(zoomRow);
 
     leftCol.appendChild(scaleSection);
 

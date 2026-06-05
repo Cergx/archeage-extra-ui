@@ -17,6 +17,7 @@ import {
     parseGameMarkup,
     resolveItemPlaceholders,
     loadIconScalePercent,
+    loadIconScaleBrowserZoom,
 } from '../data/items.js';
 
 void ITEMS;
@@ -41,7 +42,10 @@ const TOOLTIP_RIGHT_CLASS = 'tm-item-tooltip--right';
 const TOOLTIP_BOTTOM_CLASS = 'tm-item-tooltip--bottom';
 const TOOLTIP_WIDTH = 248;
 
-const getSystemScale = () => pageWindow.devicePixelRatio / (pageWindow.visualViewport?.scale || 1);
+const getSystemScale = () => {
+    if (loadIconScaleBrowserZoom()) return 1;
+    return pageWindow.devicePixelRatio;
+};
 
 const getTooltipContainer = () => {
     if (globalTooltip) return globalTooltip;

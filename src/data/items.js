@@ -3,6 +3,7 @@
 export const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
 export const LS_KEY_ICON_SEX = 'tm_aa_icon_sex';
 export const LS_KEY_ICON_SCALE = 'tm_aa_icon_scale';
+export const LS_KEY_ICON_SCALE_BROWSER_ZOOM = 'tm_aa_icon_scale_browser_zoom';
 export const LS_KEYS = { ICON_SEX: LS_KEY_ICON_SEX };
 
 /**
@@ -362,6 +363,18 @@ export const saveIconScalePercent = (val) => {
         } else {
             localStorage.removeItem(LS_KEY_ICON_SCALE);
         }
+    } catch { /* ignore */ }
+};
+
+export const loadIconScaleBrowserZoom = () => {
+    try { return localStorage.getItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM) !== 'false'; }
+    catch { return true; }
+};
+
+export const saveIconScaleBrowserZoom = (enabled) => {
+    try {
+        if (enabled) localStorage.removeItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM);
+        else localStorage.setItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM, 'false');
     } catch { /* ignore */ }
 };
 

@@ -680,6 +680,7 @@
   let CODEX_IMAGES_BASE = "https://archeagecodex.com/images/";
   let LS_KEY_ICON_SEX = "tm_aa_icon_sex";
   let LS_KEY_ICON_SCALE = "tm_aa_icon_scale";
+  let LS_KEY_ICON_SCALE_BROWSER_ZOOM = "tm_aa_icon_scale_browser_zoom";
   let GRADES = [
     /* 0  */
     { overlay: `${CODEX_IMAGES_BASE}icon_grade0.png`, title: "\u0411\u0435\u0441\u043F\u043E\u043B\u0435\u0437\u043D\u044B\u0439 \u043F\u0440\u0435\u0434\u043C\u0435\u0442", color: "#949293" },
@@ -875,6 +876,20 @@
     } catch {
     }
   }, "saveIconScalePercent");
+  let loadIconScaleBrowserZoom = /* @__PURE__ */ __name(() => {
+    try {
+      return localStorage.getItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM) !== "false";
+    } catch {
+      return true;
+    }
+  }, "loadIconScaleBrowserZoom");
+  let saveIconScaleBrowserZoom = /* @__PURE__ */ __name((enabled) => {
+    try {
+      if (enabled) localStorage.removeItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM);
+      else localStorage.setItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM, "false");
+    } catch {
+    }
+  }, "saveIconScaleBrowserZoom");
   let getItemIconUrlFromParts = /* @__PURE__ */ __name((icon, iconM, iconF) => {
     const sex = loadIconSex();
     const sexIcon = sex === "m" ? iconM || iconF || "m" : iconF || iconM || "f";
@@ -1386,6 +1401,27 @@
                 vertical-align: middle;
             }
             .tm-ev-bell--off { opacity: 0.25; }
+            .tm-scale-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .tm-scale-input {
+                width: 75px;
+                padding: 4px 6px;
+                border: 1px solid #bbb;
+                border-radius: 4px;
+                font: inherit;
+            }
+            .tm-scale-suffix { color: #555; }
+            .tm-zoom-row {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 4px;
+            }
+            .tm-zoom-cb:disabled + .tm-zoom-label { opacity: 0.5; }
+            .tm-zoom-label { cursor: pointer; user-select: none; font-size: 13px; }
         `;
     document.head.appendChild(style);
   }, "injectEventsPopupStyles");
@@ -1506,17 +1542,17 @@
     scaleTitle.textContent = "\u041C\u0430\u0441\u0448\u0442\u0430\u0431 \u0432\u0441\u043F\u043B\u044B\u0432\u0430\u0448\u043A\u0438";
     scaleSection.appendChild(scaleTitle);
     const scaleRow = document.createElement("div");
-    scaleRow.style.cssText = "display:flex;align-items:center;gap:8px;";
+    scaleRow.className = "tm-scale-row";
     const scaleInput = document.createElement("input");
     scaleInput.type = "number";
+    scaleInput.className = "tm-scale-input";
     scaleInput.step = "5";
     scaleInput.min = "10";
     scaleInput.max = "5000";
     scaleInput.value = loadIconScalePercent();
-    scaleInput.style.cssText = "width:75px;padding:4px 6px;border:1px solid #bbb;border-radius:4px;font:inherit;";
     const scaleSuffix = document.createElement("span");
+    scaleSuffix.className = "tm-scale-suffix";
     scaleSuffix.textContent = "%";
-    scaleSuffix.style.cssText = "color:#555;";
     scaleInput.addEventListener("change", () => {
       const val = parseInt(scaleInput.value, 10);
       if (Number.isFinite(val) && val >= 10 && val <= 5e3) {
@@ -1529,6 +1565,22 @@
     scaleRow.appendChild(scaleInput);
     scaleRow.appendChild(scaleSuffix);
     scaleSection.appendChild(scaleRow);
+    const zoomCb = document.createElement("input");
+    zoomCb.type = "checkbox";
+    zoomCb.className = "tm-zoom-cb";
+    zoomCb.id = "tm-scale-browser-zoom";
+    zoomCb.checked = loadIconScaleBrowserZoom();
+    zoomCb.disabled = window.devicePixelRatio === 1;
+    zoomCb.addEventListener("change", () => saveIconScaleBrowserZoom(zoomCb.checked));
+    const zoomLabel = document.createElement("label");
+    zoomLabel.className = "tm-zoom-label";
+    zoomLabel.htmlFor = "tm-scale-browser-zoom";
+    zoomLabel.textContent = "\u041C\u0430\u0441\u0448\u0442\u0430\u0431 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430";
+    const zoomRow = document.createElement("div");
+    zoomRow.className = "tm-zoom-row";
+    zoomRow.appendChild(zoomCb);
+    zoomRow.appendChild(zoomLabel);
+    scaleSection.appendChild(zoomRow);
     leftCol.appendChild(scaleSection);
     const eventsSection = document.createElement("div");
     eventsSection.className = "tm-settings-section";
@@ -5754,7 +5806,10 @@
   let TOOLTIP_RIGHT_CLASS = "tm-item-tooltip--right";
   let TOOLTIP_BOTTOM_CLASS = "tm-item-tooltip--bottom";
   let TOOLTIP_WIDTH = 248;
-  let getSystemScale2 = /* @__PURE__ */ __name(() => pageWindow.devicePixelRatio / (pageWindow.visualViewport?.scale || 1), "getSystemScale");
+  let getSystemScale2 = /* @__PURE__ */ __name(() => {
+    if (loadIconScaleBrowserZoom()) return 1;
+    return pageWindow.devicePixelRatio;
+  }, "getSystemScale");
   let getTooltipContainer = /* @__PURE__ */ __name(() => {
     if (globalTooltip) return globalTooltip;
     globalTooltip = pageDocument.createElement("div");
