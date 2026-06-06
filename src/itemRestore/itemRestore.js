@@ -1,4 +1,5 @@
 import { pageWindow, pageDocument } from '../utils.js';
+import itemRestoreStyles from './itemRestore.scss';
 import { ITEMS, GRADES } from '../data/items.js';
 import { inferGradeFromCartItemName } from '../cart/cart.js';
 import { SERVERS } from '../data/servers.js';
@@ -678,99 +679,7 @@ export const buildItemRestoreUI = (container, grades, info, items, { makeItemIco
 /** Инжектит стили для страницы восстановления предметов. */
 export const injectItemRestoreStyles = () => {
     const style = document.createElement('style');
-    style.textContent = `
-            #block_content {
-                overflow: unset;
-            }
-
-            .itemrestore__panel-left {
-                min-height: 615px;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .itemrestore__table-wrapper {
-                min-height: unset;
-                margin-bottom: auto;
-            }
-
-            .itemrestore__panel-right {
-                position: sticky;
-                top: 0;
-                align-self: flex-start;
-            }
-
-            .itemrestore__table tr:last-child td {
-                border-bottom: 0;
-            }
-
-            .itemrestore__table .n2 {
-                width: 0%;
-            }
-
-            .itemrestore__table .n4 {
-                white-space: nowrap;
-                width: 0%;
-                text-align: right;
-                min-width: 24px;
-            }
-
-            .itemrestore__table .n5,
-            .itemrestore__table .n6 {
-                width: 0%;
-            }
-
-            .tm-server-name {
-                color: #999;
-                font-size: 0.85em;
-            }
-
-            .tm-sortable {
-                cursor: pointer;
-                user-select: none;
-                white-space: nowrap;
-            }
-
-            .tm-table-footer {
-                position: sticky;
-                bottom: 0;
-                background: #fff;
-                padding: 10px;
-                display: flex;
-                align-items: center;
-                justify-content: flex-end;
-                gap: 12px;
-                border: 1px solid #e1e1e1;
-                border-radius: 8px;
-            }
-
-            .itemrestore__pagintation {
-                margin: 0;
-            }
-
-            .itemrestore__pagintation,
-            .itemrestore__pagintation-pages {
-                display: flex;
-                align-items: center;
-                gap: 4px;
-            }
-
-            .itemrestore__pagintation-btn,
-            .itemrestore__pagintation-page,
-            .itemrestore__pagintation-ellipsis {
-                min-width: 22px;
-                height: 22px;
-                line-height: 22px;
-                text-align: center;
-                user-select: none;
-            }
-
-            .itemrestore__pagintation-ellipsis {
-                color: #777;
-            }
-
-        `;
+    style.textContent = itemRestoreStyles;
     document.head.appendChild(style);
 };
 

@@ -9,6 +9,7 @@ import {
     isItemRestorePage,
     pageDocument,
     updateCountdownEl,
+    getSecondsUntilNextEvent,
 } from './utils.js';
 
 import { initGisaa } from './gisaa/gisaa.js';
@@ -61,15 +62,20 @@ if (!isArcheageSite) {
         injectMarathonStyles();
     };
 
-    // Simple countdown interval (server clock handles primary countdown)
+    let countdownIntervalId = null;
     const startCountdownInterval = () => {
-        setInterval(() => {
+        if (countdownIntervalId != null) return;
+        countdownIntervalId = setInterval(() => {
             document.querySelectorAll('.tm-countdown').forEach(el => {
-                const remaining = parseInt(el.dataset.remaining || '0', 10);
-                if (remaining > 0) {
-                    el.dataset.remaining = String(remaining - 1);
+                const scheduleJson = el.dataset.schedule;
+                if (!scheduleJson) return;
+                try {
+                    const schedule = JSON.parse(scheduleJson);
+                    const seconds = getSecondsUntilNextEvent(schedule);
+                    updateCountdownEl(el, seconds);
+                } catch {
+                    // ignore
                 }
-                updateCountdownEl(el, remaining - 1);
             });
         }, 1000);
     };

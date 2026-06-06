@@ -4,7 +4,9 @@
   "private": true,
   "description": "Доработка страниц марафона, корзины и восстановления предметов",
   "scripts": {
-    "build": "node build.js",
+    "build": "npm run build:dev",
+    "build:dev": "node build.js",
+    "build:prod": "node build.js --prod",
     "watch": "node build.js --watch"
   },
   "devDependencies": {
