@@ -1,4 +1,4 @@
-import itemIconStyles from '../itemIcon/itemIcon.scss';
+import itemIconStyles from '../../components/itemIcon/itemIcon.scss';
 import selectedItemsStyles from './selectedItems/selectedItems.scss';
 import marathonStyles from './page/page.scss';
 import cartStyles from '../cart/cart.scss';

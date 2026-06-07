@@ -7,18 +7,16 @@ import {
     isArcheageSite,
     isCartPage,
     isItemRestorePage,
-    pageDocument,
-    updateCountdownEl,
-    getSecondsUntilNextEvent,
-} from './utils.js';
+} from './utils/env.js';
+import { updateCountdownEl, getSecondsUntilNextEvent } from './utils/events-time.js';
 
-import { initGisaa } from './gisaa/gisaa.js';
+import { initGisaa } from './pages/gisaa/gisaa.js';
 
-import { initServerClock } from './serverClock/serverClock.js';
-import { openEventsPopup, checkEventNotifications } from './events/events.js';
+import { initServerClock } from './components/serverClock/serverClock.js';
+import { openEventsPopup, checkEventNotifications, loadNotificationState, saveNotificationState } from './pages/events/events.js';
 
-import { initCart } from './cart/cart.js';
-import { initItemRestore } from './itemRestore/itemRestore.js';
+import { initCart } from './pages/cart/cart.js';
+import { initItemRestore } from './pages/itemRestore/itemRestore.js';
 
 import {
     init as initMarathon,
@@ -29,18 +27,16 @@ import {
     saveVekselServerIdOverride,
     resolveVekselUrl,
     getVekselAutoOptionText,
-} from './marathon/core.js';
-import { initPrizes, initAutoOpenBoxesCheckbox } from './marathon/prizes.js';
+} from './pages/marathon/core.js';
+import { initPrizes, initAutoOpenBoxesCheckbox } from './pages/marathon/prizes.js';
 import {
     injectItemIconStyles,
     injectSelectedItemsStyles,
     injectMarathonStyles,
     injectCartStyles,
-} from './marathon/styles.js';
-import { initTooltips } from './marathon/tooltip/tooltip.js';
-import { makeItemIconLink } from './marathon/tooltip/tooltip.js';
-import { makeIconLink, updateRenderedItemIcons } from './itemIcon/itemIcon.js';
-import { loadNotificationState, saveNotificationState } from './events/events.js';
+} from './pages/marathon/styles.js';
+import { initTooltips, makeItemIconLink } from './components/tooltip/tooltip.js';
+import { makeIconLink, updateRenderedItemIcons } from './components/itemIcon/itemIcon.js';
 
 // ============================================================
 // ====================== GISAA.RU =============================

@@ -5,7 +5,6 @@ import {
     SERVER_TIME_OFFSET,
     pad2,
     nowMs,
-    getNowMs,
     getMSKDatePartsFromUtcMs,
     formatDMY,
     formatTimeMSK,
@@ -16,59 +15,16 @@ import {
     getUnixForDayAtHour,
     isSameDayByTZ,
     isThursdayByTZ,
-    getServerNowMs,
     initServerTimeOffset,
-    syncServerTime,
-    getMSKWeekday,
-    getMSKTimeOfDaySeconds,
-    WEEKDAY_NAMES,
-    parseTime,
-    formatEventsToString,
-    formatCountdown,
-    getSecondsUntilNextEvent,
-    updateCountdownEl,
-    GAME_MIDNIGHT_MSK_SECONDS,
-    GAME_DAY_REAL_SECONDS,
-    REAL_TO_GAME_FACTOR,
-    getGameTime,
-    formatAvailableWeekdaysStatus,
     getTodayWeekdayMonFirst,
-    pageWindow,
-    pageDocument,
-    readSharedJson,
-    writeSharedJson,
     getNowUnix,
     setNowMs,
     setServerTimeOffset,
-    makeGisaaVekselKey,
-    getSavedGisaaVekselInfo,
-    getSavedGisaaTablesSnapshot,
-} from '../utils.js';
+} from '../../utils/time.js';
+import { formatEventsToString, getSecondsUntilNextEvent, updateCountdownEl } from '../../utils/events-time.js';
+import { pageWindow } from '../../utils/env.js';
+import { makeGisaaVekselKey, getSavedGisaaVekselInfo, getSavedGisaaTablesSnapshot } from '../../utils/gisaa.js';
 import {
-    ITEMS,
-    GRADES,
-    ITEM_TYPES,
-    ITEM_SUB_TYPES,
-    EQUIPMENT_SUB_TYPES,
-    ICON_OVERLAY,
-    HERO_LEVEL_ICON,
-    MAX_HERO_LEVEL,
-    MAX_LEVEL,
-    CURRENCY_ICONS,
-    ICON_SEX_VALUES,
-    loadIconSex,
-    saveIconSex,
-    getItemIconUrlFromParts,
-    getItemIconUrl,
-    getItemCodexUrl,
-    CODEX_ITEM_URL,
-    CODEX_ITEM_ICONS,
-    CODEX_IMAGES_BASE as ITEM_CODEX_IMAGES_BASE,
-    GMRU_CDN_ICONS,
-    LS_KEYS as ITEM_LS_KEYS,
-} from '../data/items.js';
-import {
-    QUESTS,
     CODEX_BASE,
     ICON_QUEST,
     ICON_VEKSEL,
@@ -76,23 +32,8 @@ import {
     ICON_GISAA_OVERLAY,
     VEKSEL_BASE,
     findQuestMetaForMarathonQuest,
-    normalizeQuestTitleForMatch,
-    getQuestTitleMatchWords,
-    scoreQuestTitleMatch,
-} from '../data/quests.js';
-import { SERVERS } from '../data/servers.js';
-
-void ITEMS; void GRADES; void ITEM_TYPES; void ITEM_SUB_TYPES; void EQUIPMENT_SUB_TYPES;
-void ICON_OVERLAY; void HERO_LEVEL_ICON; void MAX_HERO_LEVEL; void MAX_LEVEL;
-void CURRENCY_ICONS; void ICON_SEX_VALUES; void loadIconSex; void saveIconSex;
-void getItemIconUrlFromParts; void getItemIconUrl; void CODEX_ITEM_URL;
-void CODEX_ITEM_ICONS; void ITEM_CODEX_IMAGES_BASE; void GMRU_CDN_ICONS; void ITEM_LS_KEYS;
-void QUESTS; void normalizeQuestTitleForMatch; void getQuestTitleMatchWords; void scoreQuestTitleMatch;
-void getNowMs; void getServerNowMs; void syncServerTime; void getMSKWeekday;
-void getMSKTimeOfDaySeconds; void WEEKDAY_NAMES; void parseTime; void formatCountdown;
-void GAME_MIDNIGHT_MSK_SECONDS; void GAME_DAY_REAL_SECONDS; void REAL_TO_GAME_FACTOR;
-void getGameTime; void formatAvailableWeekdaysStatus; void pageDocument;
-void readSharedJson; void writeSharedJson;
+} from '../../data/quests.js';
+import { SERVERS } from '../../data/servers.js';
 
 // ==================== Константы ====================
 

@@ -1,8 +1,6 @@
 import {
     normalizeGisaaPart,
     makeGisaaVekselKey,
-    readSharedJson,
-    writeSharedJson,
     saveGisaaVekselInfo,
     getSavedGisaaVekselInfo,
     getSavedGisaaTablesSnapshot,
@@ -12,7 +10,8 @@ import {
     readGisaaTableRows,
     readGisaaTablesSnapshot,
     saveGisaaTablesSnapshot,
-} from '../utils.js';
+} from '../../utils/gisaa.js';
+import { readSharedJson, writeSharedJson } from '../../utils/storage.js';
 import gisaaStyles from './gisaa.scss';
 
 const GISAA_MATCH_CLASS = 'tm-gisaa-match';

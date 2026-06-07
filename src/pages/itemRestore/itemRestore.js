@@ -1,10 +1,10 @@
-import { pageWindow, pageDocument } from '../utils.js';
+import { pageWindow, pageDocument } from '../../utils/env.js';
 import itemRestoreStyles from './itemRestore.scss';
-import { ITEMS, GRADES } from '../data/items.js';
+import { ITEMS, GRADES } from '../../data/items.js';
 import { inferGradeFromCartItemName } from '../cart/cart.js';
-import { SERVERS } from '../data/servers.js';
-import { makeSelect, renderSelectedItems } from '../select/select.js';
-import { appendReloadBtn } from '../reloadBtn/reloadBtn.js';
+import { SERVERS } from '../../data/servers.js';
+import { makeSelect, renderSelectedItems } from '../../components/select/select.js';
+import { appendReloadBtn } from '../../components/reloadBtn/reloadBtn.js';
 
 // ============================================================
 // =================== ITEMRESTORE PAGE ======================

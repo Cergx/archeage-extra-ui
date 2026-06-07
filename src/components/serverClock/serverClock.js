@@ -1,17 +1,16 @@
 import {
     TZ,
     getServerNowMs,
-    getGameTime,
-    formatCountdown,
     getMSKWeekday,
     getMSKTimeOfDaySeconds,
-    getSecondsUntilNextEvent,
     setNowMs,
     setServerTimeOffset,
     getNowMs,
     syncServerTime,
-} from '../utils.js';
-import { EVENTS } from '../data/events.js';
+} from '../../utils/time.js';
+import { getGameTime } from '../../utils/game-time.js';
+import { formatCountdown, getSecondsUntilNextEvent } from '../../utils/events-time.js';
+import { EVENTS } from '../../data/events.js';
 import serverClockStyles from './serverClock.scss';
 
 export let serverClockEl = null;

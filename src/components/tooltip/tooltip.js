@@ -1,4 +1,4 @@
-import { pageDocument, pageWindow, isArcheageSite } from '../../utils.js';
+import { pageDocument, pageWindow, isArcheageSite } from '../../utils/env.js';
 import tooltipStyles from './tooltip.scss';
 import {
     ITEMS,

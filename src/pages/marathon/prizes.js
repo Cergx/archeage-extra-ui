@@ -1,5 +1,5 @@
 import { API_INFO_CACHE } from './core.js';
-import { pageDocument } from '../utils.js';
+import { pageDocument } from '../../utils/env.js';
 
 export const LS_KEY_AUTO_CLAIM = 'tm_aa_prizes_auto_claim';
 export const LS_KEY_AUTO_OPEN_BOXES = 'tm_aa_auto_open_boxes';

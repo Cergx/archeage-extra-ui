@@ -3,14 +3,13 @@ import {
     getServerNowMs,
     getMSKWeekday,
     getMSKTimeOfDaySeconds,
-    formatCountdown,
     WEEKDAY_NAMES,
     parseTime,
-    updateCountdownEl,
-} from '../utils.js';
-import { EVENTS } from '../data/events.js';
-import { SERVERS } from '../data/servers.js';
-import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom } from '../data/items.js';
+} from '../../utils/time.js';
+import { formatCountdown } from '../../utils/events-time.js';
+import { EVENTS } from '../../data/events.js';
+import { SERVERS } from '../../data/servers.js';
+import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom } from '../../data/items.js';
 import eventsStyles from './events.scss';
 
 const LS_KEYS = {
