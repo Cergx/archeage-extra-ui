@@ -9,6 +9,7 @@
     "build:tm:prod": "node build.js --prod",
     "build:chrome": "node build.js --chrome",
     "build:chrome:prod": "node build.js --chrome --prod",
+    "build:chrome:zip": "npm run build:chrome:prod && cd dist/chrome && zip -r ../../chrome-extension.zip .",
     "watch": "node build.js --watch"
   },
   "devDependencies": {
