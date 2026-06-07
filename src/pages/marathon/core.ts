@@ -35,17 +35,19 @@ import {
     findQuestMetaForMarathonQuest,
 } from '../../data/quests.js';
 import { SERVERS } from '../../data/servers.js';
+import { getItemCodexUrl } from '../../data/items.js';
+import type { ItemBase } from '../../data/items.js';
 
 // ==================== Константы ====================
 
-export const DONE_CLASS = 'tm-task-completed';
-export const JUST_DONE_CLASS = 'tm-task-just-completed';
+export const DONE_CLASS: string = 'tm-task-completed';
+export const JUST_DONE_CLASS: string = 'tm-task-just-completed';
 // TZ, MSK_OFFSET_HOURS → imported from utils.js
-export const THU_PRE_HOUR = 3;
-export const DEFAULT_HOUR = 16;
+export const THU_PRE_HOUR: number = 3;
+export const DEFAULT_HOUR: number = 16;
 /** Эндпоинт информации о марафоне. Ответ: {@link ApiInfoResponse}. */
-export const API_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
-export const LS_KEYS = {
+export const API_INFO_PATH: string = '/minigames/marathon_of_heroes/api/info';
+export const LS_KEYS: Record<string, string> = {
     HIDE_DONE: 'tm_aa_hide_done',
     AUTO_CLAIM: 'tm_aa_auto_claim',
     QUEST_HISTORY: 'tm_aa_qh',
@@ -57,119 +59,314 @@ export const LS_KEYS = {
     NOTIFICATIONS: 'tm_aa_notifications',
     DYNAMIC_TOOLTIPS: 'tm_aa_dynamic_tooltips',
 };
-export const HISTORY_MAX_ENTRIES = 500;
-export const HISTORY_PER_PAGE = 10;
-export const DEBUG_PREFIX = '[ArcheAgeExtraUI]';
-export const DEBUG_ENABLED = true;
+export const HISTORY_MAX_ENTRIES: number = 500;
+export const HISTORY_PER_PAGE: number = 10;
+export const DEBUG_PREFIX: string = '[ArcheAgeExtraUI]';
+export const DEBUG_ENABLED: boolean = true;
 
-export const debugLog = (...args) => {
+export const debugLog = (...args: unknown[]): void => {
     if (DEBUG_ENABLED) console.log(DEBUG_PREFIX, ...args);
 };
 
-export const debugWarn = (...args) => {
+export const debugWarn = (...args: unknown[]): void => {
     console.warn(DEBUG_PREFIX, ...args);
 };
-export const DAY_RESET_HOUR = 0;
-export const CLAIM_DELAY_MS = 400;
+export const DAY_RESET_HOUR: number = 0;
+export const CLAIM_DELAY_MS: number = 400;
 
 // ==================== Типы API ====================
 
-/**
- * @typedef {Object} ApiReward
- * @property {'moh_experience'|'cart_item'|'currency'|string} type
- * @property {{ amount?: number, id?: number, count?: number, site_count?: number, code?: string }} value
- * @property {string} [title] - Название (для `cart_item`).
- */
+export type DayUtcMs = number;
+export type Segment = 'pre' | 'post' | 'auto' | null;
+export type EffectiveSegment = 'pre' | 'post' | null;
 
-/**
- * @typedef {Object} ApiQuestStep
- * @property {number} id
- * @property {number} target
- * @property {ApiReward[]} rewards
- */
+export interface ApiRewardValue {
+    amount?: number;
+    id?: number;
+    count?: number;
+    site_count?: number;
+    code?: string;
+}
 
-/**
- * @typedef {Object} ApiQuest
- * @property {number} id - ID задания марафона.
- * @property {string} code - Код задания марафона.
- * @property {string} type
- * @property {string} group
- * @property {number} end_time - Время окончания задания.
- * @property {number} start_time - Время начала задания.
- * @property {'now'|'future'|'past'} time_status
- * @property {number} max_completed_step
- * @property {number} progress
- * @property {number} max_target
- * @property {string} title - Заголовок марафона.
- * @property {string} description - Описание задания марафона.
- * @property {any[]} payload
- * @property {number|null} reset_time
- * @property {number|null} stop_time
- * @property {number} last_complete_time
- * @property {Record<string, ApiQuestStep>} steps
- */
+export interface ApiReward {
+    type: 'moh_experience' | 'cart_item' | 'currency' | string;
+    value: ApiRewardValue;
+    /** Название (для `cart_item`). */
+    title?: string;
+}
 
-/**
- * @typedef {Object} ApiUserInfo
- * @property {number} level
- * @property {'trial'|'premium'} status
- * @property {number} count_boxes_for_open
- * @property {number} week_exp
- * @property {number} exp_total
- * @property {Record<string, string[]>} farmed_rewards
- */
+export interface ApiQuestStep {
+    id: number;
+    target: number;
+    rewards: ApiReward[];
+}
 
-/**
- * @typedef {Object} ApiActionInfo
- * @property {number} count_levels_for_box
- * @property {number} exp_for_level
- * @property {number} increase_max_exp_per_week
- * @property {Record<string, Record<string, ApiReward[]>>} level_prizes
- * @property {ApiReward[]} box_rewards
- */
+export interface ApiQuest {
+    /** ID задания марафона. */
+    id: number;
+    /** Код задания марафона. */
+    code: string;
+    type: string;
+    group: string;
+    /** Время окончания задания. */
+    end_time: number;
+    /** Время начала задания. */
+    start_time: number;
+    time_status: 'now' | 'future' | 'past';
+    max_completed_step: number;
+    progress: number;
+    max_target: number;
+    /** Заголовок марафона. */
+    title: string;
+    /** Описание задания марафона. */
+    description: string;
+    payload: unknown[];
+    reset_time: number | null;
+    stop_time: number | null;
+    last_complete_time: number;
+    steps: Record<string, ApiQuestStep>;
+}
 
-/**
- * @typedef {Object} ApiInfoData
- * @property {ApiUserInfo} user_info
- * @property {Record<string, ApiQuest>} quests
- * @property {number} week_number
- * @property {number} next_week_at
- * @property {ApiActionInfo} action_info
- * @property {any[]} pins
- * @property {Record<string, Record<string, number>>} prices
- */
+export interface ApiUserInfo {
+    level: number;
+    status: 'trial' | 'premium';
+    count_boxes_for_open: number;
+    week_exp: number;
+    exp_total: number;
+    farmed_rewards: Record<string, string[]>;
+}
 
-/**
- * @typedef {Object} ApiInfoResponse
- * @property {ApiInfoData} data
- * @property {any} meta
- * @property {'Success'|'Fail'} state
- */
+export interface ApiActionInfo {
+    count_levels_for_box: number;
+    exp_for_level: number;
+    increase_max_exp_per_week: number;
+    level_prizes: Record<string, Record<string, ApiReward[]>>;
+    box_rewards: ApiReward[];
+}
+
+export interface ApiInfoData {
+    user_info: ApiUserInfo;
+    quests: Record<string, ApiQuest>;
+    week_number: number;
+    next_week_at: number;
+    action_info: ApiActionInfo;
+    pins: unknown[];
+    prices: Record<string, Record<string, number>>;
+}
+
+export interface ApiInfoResponse {
+    data: ApiInfoData;
+    meta: unknown;
+    state: 'Success' | 'Fail';
+}
+
+export interface HistoryEntry {
+    code: string;
+    /** unix timestamp (last_complete_time) */
+    completedAt: number;
+}
+
+export interface SlotPosition {
+    dayUtcMs: DayUtcMs;
+    segment: Segment;
+}
+
+export interface Slot {
+    /** Предмет. */
+    item: ItemBase;
+    /** Количество предмета. */
+    count?: number;
+}
+
+export interface EventSchedule {
+    /** Время начала события (HH:MM). */
+    timeStart: string;
+    /** Время окончания события (HH:MM). Если указано — событие длится диапазон. */
+    timeEnd?: string;
+    /** Дни недели (1–7), если не каждый день. */
+    weekdays?: number[];
+    /** Примерная длительность события (в минутах). */
+    duration?: number;
+}
+
+export interface MarathonQuestMeta {
+    id: number;
+    title: string;
+    marathonId: number[];
+    short: string;
+    veksel?: VekselType;
+    locations?: string[];
+    availableWeekdays?: number[];
+    slot?: Slot;
+    schedule?: EventSchedule[];
+}
+
+export interface CartItem {
+    /** Название предмета. */
+    title: string;
+    /** Количество. */
+    count: number;
+    /** Дата получения. */
+    date: Date;
+    /** ID предмета (из data-item чекбокса). */
+    itemId: string;
+    /** Название акции. */
+    campaign: string;
+    /** Заблокирован (таймер передачи). */
+    disabled: boolean;
+    /** Текст таймера ("Можно передать через: XXX мин."). */
+    timerText: string;
+}
+
+export interface CartCharacter {
+    /** Имя персонажа. */
+    name: string;
+    /** Название сервера. */
+    server: string;
+    /** Значение radio (для отправки формы). */
+    value: string;
+    /** Доступен для выбора. */
+    enabled: boolean;
+}
+
+export type VekselType = 'blue_salt' | 'north';
+export type VekselTypeMaybe = VekselType | undefined;
+export type MakeItemIconLink = (params: { item: ItemBase; linked?: boolean; size?: string; count?: number | string; noTooltip?: boolean }) => HTMLElement;
+export type MakeIconLink = (params: { href: string; iconSrc: string; title?: string; className?: string }) => HTMLElement;
+
+export interface DOMCache {
+    nav: HTMLDivElement | null;
+    label: HTMLDivElement | null;
+    prevBtn: HTMLButtonElement | null;
+    nextBtn: HTMLButtonElement | null;
+    todayBtn: HTMLButtonElement | null;
+    hideDoneCheckbox: HTMLInputElement | null;
+    refreshLoader: HTMLButtonElement | null;
+    tasksHeader: Element | null;
+    tasksList: Element | null;
+}
+
+export interface SlotBoundsUnix {
+    start: number;
+    end: number;
+}
+
+export interface QuestDebugSummary {
+    id: number;
+    code: string;
+    title: string;
+    group: string;
+    type: string;
+    time_status: ApiQuest['time_status'];
+    start_time: number;
+    start_iso: string | null;
+    end_time: number;
+    end_iso: string | null;
+    progress: number;
+    max_completed_step: number;
+    reward: number;
+    known_meta: boolean;
+}
+
+export type GisaaRowStatus = 'match' | 'unknown' | 'exclude';
+
+export interface GisaaStatusRow {
+    location: string;
+    status: GisaaRowStatus;
+}
+
+export interface GisaaInfo {
+    status: 'available' | 'unavailable';
+    locations: string[];
+    unknownLocations: string[];
+    excludedLocations: string[];
+}
+
+export interface MakeVekselIconLinkParams {
+    href: string;
+    title?: string;
+    vekselIcon: string;
+}
+
+export interface MakeLinksRowParams {
+    id: number | null;
+    short: string;
+    questTitle: string;
+    slot?: Slot | null;
+    veksel?: VekselType;
+    locations?: string[];
+    availableWeekdays?: number[];
+    schedule?: EventSchedule[];
+    makeItemIconLink: MakeItemIconLink;
+    makeIconLink: MakeIconLink;
+}
+
+export interface MakeTaskCardParams extends MakeLinksRowParams {
+    q: ApiQuest;
+    amount: number;
+    isDone: boolean;
+    showLastDone: boolean;
+    completionTime?: number;
+    isToday: boolean;
+    animateCompletion?: boolean;
+}
+
+export interface TaskCardFactories {
+    makeItemIconLink: MakeItemIconLink | null;
+    makeIconLink: MakeIconLink | null;
+}
+
+export interface RenderTasksOptions {
+    animateNewlyDone?: boolean;
+    makeItemIconLink?: MakeItemIconLink | null;
+    makeIconLink?: MakeIconLink | null;
+}
+
+export interface RefreshApiInfoOptions {
+    loadAutoClaimState?: () => boolean;
+    claimAllLevelRewards?: () => Promise<void>;
+}
+
+export interface InitOptions {
+    injectStyles?: () => void;
+    startCountdownInterval?: () => void;
+    initPrizes?: () => Promise<void>;
+    initAutoOpenBoxesCheckbox?: () => void;
+    makeItemIconLink?: MakeItemIconLink;
+    makeIconLink?: MakeIconLink;
+}
+
+export interface PaginationPageItemParams {
+    page: number;
+    text: string;
+    className: string;
+    disabled: boolean;
+    onClick: (page: number) => void;
+}
 
 // ==================== Состояние ====================
 
-export let selectedDayUtcMs = null;
-export let selectedSegment = 'auto';
+export let selectedDayUtcMs: DayUtcMs | null = null;
+export let selectedSegment: Segment = 'auto';
 
-/** @type {ApiInfoResponse|null} */
-export let API_INFO_CACHE = null;
-export let API_INFO_PROMISE = null;
+export let API_INFO_CACHE: ApiInfoResponse | null = null;
+export let API_INFO_PROMISE: Promise<ApiInfoResponse> | null = null;
 // NOW_MS, SERVER_TIME_OFFSET → imported from utils.js
 
-export const AUTO_REFRESH_INTERVAL_FOCUSED_MS = 30000;
-export const AUTO_REFRESH_INTERVAL_HIDDEN_MS = 1800000;
-export let autoRefreshIntervalId = null;
-export let isRefreshing = false;
+export const AUTO_REFRESH_INTERVAL_FOCUSED_MS: number = 30000;
+export const AUTO_REFRESH_INTERVAL_HIDDEN_MS: number = 1800000;
+export let autoRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
+export let isRefreshing: boolean = false;
 
-/** @type {Set<number>} ID квестов, которые были выполнены на прошлой отрисовке */
-export let previouslyDoneQuestIds = new Set();
+/** ID квестов, которые были выполнены на прошлой отрисовке */
+export let previouslyDoneQuestIds: Set<number> = new Set();
 
-export let MIN_DAY_UTC_MS = null;
-export let MAX_DAY_UTC_MS = null;
-export let MIN_SEG = null;
-export let MAX_SEG = null;
+export let MIN_DAY_UTC_MS: DayUtcMs | null = null;
+export let MAX_DAY_UTC_MS: DayUtcMs | null = null;
+export let MIN_SEG: Segment = null;
+export let MAX_SEG: Segment = null;
 
-export const DOM = {
+export const DOM: DOMCache = {
     nav: null,
     label: null,
     prevBtn: null,
@@ -181,16 +378,15 @@ export const DOM = {
     tasksList: null,
 };
 
-export const clearDOMCache = () => {
-    for (const key of Object.keys(DOM)) {
+export const clearDOMCache = (): void => {
+    for (const key of Object.keys(DOM) as (keyof DOMCache)[]) {
         DOM[key] = null;
     }
 };
 
 // ==================== Перехват API ====================
 
-/** @param {string|URL} url */
-export const normalizeUrlToPath = (url) => {
+export const normalizeUrlToPath = (url: string | URL): string => {
     try {
         return new URL(url, location.href).pathname;
     } catch {
@@ -198,7 +394,7 @@ export const normalizeUrlToPath = (url) => {
     }
 };
 
-export const installApiInfoInterceptor = () => {
+export const installApiInfoInterceptor = (): void => {
     if (pageWindow.__tmAA_fetchPatched) return;
     pageWindow.__tmAA_fetchPatched = true;
 
@@ -227,9 +423,9 @@ export const installApiInfoInterceptor = () => {
             }
 
             if (API_INFO_PROMISE == null) {
-                API_INFO_PROMISE = res.clone().json();
+                API_INFO_PROMISE = res.clone().json() as Promise<ApiInfoResponse>;
                 API_INFO_PROMISE
-                    .then((json) => { API_INFO_CACHE = json; })
+                    .then((json: ApiInfoResponse) => { API_INFO_CACHE = json; })
                     .catch(() => {});
             }
         }
@@ -240,9 +436,8 @@ export const installApiInfoInterceptor = () => {
 
 // ==================== Форматирование title квеста ====================
 
-/** @param {number} num */
-export const toRoman = (num) => {
-    const numerals = [
+export const toRoman = (num: number): string => {
+    const numerals: [string, number][] = [
         ['M', 1000], ['CM', 900], ['D', 500], ['CD', 400],
         ['C', 100], ['XC', 90], ['L', 50], ['XL', 40],
         ['X', 10], ['IX', 9], ['V', 5], ['IV', 4], ['I', 1]
@@ -257,8 +452,7 @@ export const toRoman = (num) => {
     return result;
 };
 
-/** @param {string} title */
-export const formatQuestTitle = (title) => {
+export const formatQuestTitle = (title: string): string => {
     if (!title) return '';
     let result = title.replace(/\*+$/, '');
     const match = result.match(/(\s*)(\d+)$/);
@@ -274,18 +468,18 @@ export const formatQuestTitle = (title) => {
 
 // ==================== LocalStorage для "Скрыть выполненные" ====================
 
-export const getHideDoneDayKey = () => {
+export const getHideDoneDayKey = (): string => {
     const ms = nowMs();
     const shiftedMs = ms - DAY_RESET_HOUR * 3600 * 1000;
     const { y, m, d } = getMSKDatePartsFromUtcMs(shiftedMs);
     return `${y}-${pad2(m)}-${pad2(d)}`;
 };
 
-export const loadHideDoneState = () => {
+export const loadHideDoneState = (): boolean => {
     try {
         const raw = localStorage.getItem(LS_KEYS.HIDE_DONE);
         if (!raw) return false;
-        const data = JSON.parse(raw);
+        const data = JSON.parse(raw) as { dayKey?: string; checked?: boolean };
         if (data.dayKey !== getHideDoneDayKey()) return false;
         return !!data.checked;
     } catch {
@@ -293,7 +487,7 @@ export const loadHideDoneState = () => {
     }
 };
 
-export const saveHideDoneState = (checked) => {
+export const saveHideDoneState = (checked: boolean): void => {
     try {
         localStorage.setItem(LS_KEYS.HIDE_DONE, JSON.stringify({
             checked,
@@ -306,33 +500,23 @@ export const saveHideDoneState = (checked) => {
 
 // ==================== История выполнений заданий ====================
 
-/**
- * @typedef {Object} HistoryEntry
- * @property {string} code
- * @property {number} completedAt — unix timestamp (last_complete_time)
- */
-
-/** @returns {Record<string, HistoryEntry[]>} */
-export const loadAllQuestHistory = () => {
+export const loadAllQuestHistory = (): Record<string, HistoryEntry[]> => {
     try {
-        return JSON.parse(localStorage.getItem(LS_KEYS.QUEST_HISTORY)) || {};
+        return (JSON.parse(localStorage.getItem(LS_KEYS.QUEST_HISTORY) || 'null') as Record<string, HistoryEntry[]> | null) || {};
     } catch {
         return {};
     }
 };
 
 /** UID текущего пользователя; заполняется при инициализации. */
-export let cachedUid = null;
-export let historyCurrentPage = 1;
-/** @type {HistoryEntry[]} */
-export let historyEntries = [];
+export let cachedUid: string | null = null;
+export let historyCurrentPage: number = 1;
+export let historyEntries: HistoryEntry[] = [];
 
 /**
  * Читает историю из localStorage, мержит новые записи из API и сохраняет обратно.
- * @param {ApiQuest[]} quests
- * @returns {HistoryEntry[]}
  */
-export const mergeQuestHistory = (quests) => {
+export const mergeQuestHistory = (quests: ApiQuest[]): HistoryEntry[] => {
     if (!cachedUid) return [];
     const all = loadAllQuestHistory();
     const history = all[cachedUid] || [];
@@ -361,7 +545,7 @@ export const mergeQuestHistory = (quests) => {
 };
 
 /** Форматирует unix-секунды в строку «DD.MM.YYYY HH:MM» (МСК). */
-export const formatDateTimeMSK = (unixSec) => {
+export const formatDateTimeMSK = (unixSec: number): string => {
     if (!unixSec) return '';
     const ms = unixSec * 1000;
     const { y, m, d } = getMSKDatePartsFromUtcMs(ms);
@@ -370,7 +554,7 @@ export const formatDateTimeMSK = (unixSec) => {
 };
 
 /** Перерисовывает таблицу истории выполнений в DOM. */
-export const renderHistoryTable = () => {
+export const renderHistoryTable = (): void => {
     const section = document.querySelector('section.history-events');
     if (!section) return;
     const layout = section.querySelector('.layout');
@@ -425,14 +609,14 @@ export const renderHistoryTable = () => {
     if (totalPages > 1) {
         const ul = document.createElement('ul');
         ul.className = 'pagination';
-        const makePageItem = (page, text, className, disabled, onClick) => {
+        const makePageItem = (page: number, text: string, className: string, disabled: boolean, onClick: (page: number) => void): HTMLLIElement => {
             const li = document.createElement('li');
             li.className = 'pagination__item' + (className ? ' ' + className : '') + (disabled ? ' disabled' : '');
             li.textContent = text;
             li.addEventListener('click', () => { if (!disabled) onClick(page); });
             return li;
         };
-        const makeEllipsisItem = () => {
+        const makeEllipsisItem = (): HTMLLIElement => {
             const li = document.createElement('li');
             li.className = 'pagination__item pagination__item--ellipsis disabled';
             li.textContent = '...';
@@ -497,7 +681,7 @@ export const renderHistoryTable = () => {
     layout.appendChild(wrap);
 };
 
-export const updateQuestHistory = () => {
+export const updateQuestHistory = (): void => {
     if (!API_INFO_CACHE) return;
     try {
         const quests = getQuestsArrayFromInfo(API_INFO_CACHE);
@@ -510,24 +694,19 @@ export const updateQuestHistory = () => {
 
 // ==================== Слоты и сегменты (четверг pre/post) ====================
 
-/** @typedef {'pre'|'post'|'auto'|null} Segment */
-/** @typedef {{ dayUtcMs: number, segment: Segment }} SlotPosition */
-
-/** @param {number} dayUtcMs @param {Segment} segment @returns {number} */
-export const slotKey = (dayUtcMs, segment) => {
+export const slotKey = (dayUtcMs: DayUtcMs | null, segment: Segment): number => {
+    if (dayUtcMs == null) return 0;
     const seg = segment === 'pre' ? 0 : segment === 'post' ? 2 : 1;
     return dayUtcMs * 10 + seg;
 };
 
-/** @param {number} dayUtcMs @param {Segment} seg @returns {Segment} */
-export const normalizeSegmentForDay = (dayUtcMs, seg) => {
+export const normalizeSegmentForDay = (dayUtcMs: DayUtcMs, seg: Segment): Segment => {
     if (!isThursdayByTZ(dayUtcMs)) return null;
     if (seg === 'pre' || seg === 'post' || seg === 'auto') return seg;
     return 'post';
 };
 
-/** @param {number} dayUtcMs @param {Segment} seg @returns {'pre'|'post'|null} */
-export const effectiveSegment = (dayUtcMs, seg) => {
+export const effectiveSegment = (dayUtcMs: DayUtcMs, seg: Segment): EffectiveSegment => {
     if (!isThursdayByTZ(dayUtcMs)) return null;
     if (seg === 'pre' || seg === 'post') return seg;
     const todayUtc = getTodayUtcMsByTZ();
@@ -538,8 +717,7 @@ export const effectiveSegment = (dayUtcMs, seg) => {
     return getNowUnix() < cut ? 'pre' : 'post';
 };
 
-/** @param {number} dayUtcMs @param {Segment} seg @returns {{ start: number, end: number }} */
-export const getSlotBoundsUnix = (dayUtcMs, seg) => {
+export const getSlotBoundsUnix = (dayUtcMs: DayUtcMs, seg: Segment): SlotBoundsUnix => {
     const { start, end } = getDayBoundsUnix(dayUtcMs);
     if (!isThursdayByTZ(dayUtcMs)) return { start, end };
     const cut = start + 9 * 3600;
@@ -548,8 +726,7 @@ export const getSlotBoundsUnix = (dayUtcMs, seg) => {
     return { start: cut, end };
 };
 
-/** @param {number} dayUtcMs @param {Segment} seg @returns {SlotPosition} */
-export const getPrevSlot = (dayUtcMs, seg) => {
+export const getPrevSlot = (dayUtcMs: DayUtcMs, seg: Segment): SlotPosition => {
     const isThu = isThursdayByTZ(dayUtcMs);
     if (isThu) {
         if (seg === 'post') return { dayUtcMs, segment: 'pre' };
@@ -564,8 +741,7 @@ export const getPrevSlot = (dayUtcMs, seg) => {
     return { dayUtcMs: prevDay, segment: null };
 };
 
-/** @param {number} dayUtcMs @param {Segment} seg @returns {SlotPosition} */
-export const getNextSlot = (dayUtcMs, seg) => {
+export const getNextSlot = (dayUtcMs: DayUtcMs, seg: Segment): SlotPosition => {
     const isThu = isThursdayByTZ(dayUtcMs);
     if (isThu) {
         if (seg === 'pre') return { dayUtcMs, segment: 'post' };
@@ -580,8 +756,7 @@ export const getNextSlot = (dayUtcMs, seg) => {
     return { dayUtcMs: nextDay, segment: null };
 };
 
-/** @param {number} dayUtcMs @param {Segment} segment @returns {SlotPosition} */
-export const clampNotPast = (dayUtcMs, segment) => {
+export const clampNotPast = (dayUtcMs: DayUtcMs, segment: Segment): SlotPosition => {
     const todayUtc = getTodayUtcMsByTZ();
     if (dayUtcMs < todayUtc) {
         dayUtcMs = todayUtc;
@@ -591,8 +766,7 @@ export const clampNotPast = (dayUtcMs, segment) => {
     return { dayUtcMs, segment };
 };
 
-/** @param {number} dayUtcMs @param {Segment} segment @returns {SlotPosition} */
-export const clampSelectedDay = (dayUtcMs, segment) => {
+export const clampSelectedDay = (dayUtcMs: DayUtcMs | null, segment: Segment): SlotPosition => {
     if (dayUtcMs == null) return { dayUtcMs, segment };
     segment = normalizeSegmentForDay(dayUtcMs, segment);
     const curKey = slotKey(dayUtcMs, segment);
@@ -604,7 +778,7 @@ export const clampSelectedDay = (dayUtcMs, segment) => {
     return { dayUtcMs, segment };
 };
 
-export const applySlot = (dayUtcMs, segment) => {
+export const applySlot = (dayUtcMs: DayUtcMs, segment: Segment): void => {
     segment = effectiveSegment(dayUtcMs, segment) ?? segment;
     const c = clampSelectedDay(dayUtcMs, segment);
     selectedDayUtcMs = c.dayUtcMs;
@@ -613,48 +787,42 @@ export const applySlot = (dayUtcMs, segment) => {
 
 // ==================== Квесты ====================
 
-/** @param {ApiQuest} q @param {number} unix */
-export const isQuestActiveAtUnix = (q, unix) => {
+export const isQuestActiveAtUnix = (q: ApiQuest, unix: number): boolean => {
     const qs = Number(q?.start_time || 0);
     const qe = Number(q?.end_time || 0);
     if (!qs || !qe) return false;
     return qs <= unix && unix < qe;
 };
 
-/** @param {string} code @param {number} dayUtcMs @param {Segment} seg @returns {number} unix timestamp или 0 */
-export const getCompletionTimeInSlot = (code, dayUtcMs, seg) => {
+export const getCompletionTimeInSlot = (code: string, dayUtcMs: DayUtcMs, seg: Segment): number => {
     const b = getSlotBoundsUnix(dayUtcMs, seg);
     const entry = historyEntries.find(e => e.code === code && b.start <= e.completedAt && e.completedAt < b.end);
     return entry ? entry.completedAt : 0;
 };
 
-export const isDoneInSelectedSlot = (q, dayUtcMs, seg) => {
+export const isDoneInSelectedSlot = (q: ApiQuest, dayUtcMs: DayUtcMs, seg: Segment): boolean => {
     return getCompletionTimeInSlot(q.code, dayUtcMs, seg) > 0;
 };
 
-/** @param {ApiQuest} q */
-export const getRewardAmount = (q) => {
+export const getRewardAmount = (q: ApiQuest): number => {
     const steps = q?.steps;
     const step1 = steps?.['1'] || steps?.[1];
     const amount = step1?.rewards?.[0]?.value?.amount;
     return Number(amount || 0);
 };
 
-/** @param {ApiInfoResponse} json @returns {ApiQuest[]} */
-export const getQuestsArrayFromInfo = (json) => {
+export const getQuestsArrayFromInfo = (json: ApiInfoResponse): ApiQuest[] => {
     const quests = json?.data?.quests;
     if (!quests || typeof quests !== 'object') throw new Error('api/info: quests not found');
     return Object.values(quests);
 };
 
-/** @param {number} unix */
-export const debugTime = (unix) => {
+export const debugTime = (unix: number): string | null => {
     if (!unix) return null;
     return new Date(unix * 1000).toISOString();
 };
 
-/** @param {ApiQuest} q */
-export const summarizeQuestForDebug = (q) => ({
+export const summarizeQuestForDebug = (q: ApiQuest): QuestDebugSummary => ({
     id: q?.id,
     code: q?.code,
     title: q?.title,
@@ -671,7 +839,7 @@ export const summarizeQuestForDebug = (q) => ({
     known_meta: !!findQuestMetaForMarathonQuest(q),
 });
 
-export const renderEmptyTasksDiagnostic = (listEl, message) => {
+export const renderEmptyTasksDiagnostic = (listEl: Element, message: string): void => {
     const empty = document.createElement('div');
     empty.className = 'tasks__item tm-tasks-empty';
     empty.textContent = message;
@@ -680,10 +848,10 @@ export const renderEmptyTasksDiagnostic = (listEl, message) => {
 
 // ==================== Внешние ссылки (Codex, Veksel) ====================
 
-export let vekselUrlResolved = VEKSEL_BASE;
-export let vekselAutoDetectedServerId = '';
+export let vekselUrlResolved: string = VEKSEL_BASE;
+export let vekselAutoDetectedServerId: string = '';
 
-export const loadVekselServerIdOverride = () => {
+export const loadVekselServerIdOverride = (): string => {
     try {
         const id = localStorage.getItem(LS_KEYS.VEKSEL_SERVER_ID);
         return id && SERVERS[id] ? id : '';
@@ -692,7 +860,7 @@ export const loadVekselServerIdOverride = () => {
     }
 };
 
-export const saveVekselServerIdOverride = (serverId) => {
+export const saveVekselServerIdOverride = (serverId: string): void => {
     try {
         if (serverId && SERVERS[serverId]) localStorage.setItem(LS_KEYS.VEKSEL_SERVER_ID, serverId);
         else localStorage.removeItem(LS_KEYS.VEKSEL_SERVER_ID);
@@ -701,34 +869,33 @@ export const saveVekselServerIdOverride = (serverId) => {
     }
 };
 
-export const getVekselAutoOptionText = () => {
+export const getVekselAutoOptionText = (): string => {
     const serverName = SERVERS[vekselAutoDetectedServerId];
     return `Автоопределение${serverName ? ` (${serverName})` : ''}`;
 };
 
-export const updateVekselServerAutoOptionText = () => {
+export const updateVekselServerAutoOptionText = (): void => {
     document.querySelectorAll('[data-veksel-server-auto-option="1"]').forEach(option => {
         option.textContent = getVekselAutoOptionText();
     });
 };
 
-export const updateRenderedVekselLinks = () => {
-    document.querySelectorAll('.tm-veksel-link').forEach(link => {
+export const updateRenderedVekselLinks = (): void => {
+    document.querySelectorAll<HTMLAnchorElement>('.tm-veksel-link').forEach(link => {
         const veksel = link.dataset.veksel;
-        let slot = null;
-        let locations = null;
-        try { slot = link.dataset.slot ? JSON.parse(link.dataset.slot) : null; } catch {}
-        try { locations = link.dataset.locations ? JSON.parse(link.dataset.locations) : null; } catch {}
+        let slot: Slot | null = null;
+        let locations: string[] | undefined;
+        try { slot = link.dataset.slot ? JSON.parse(link.dataset.slot) as Slot : null; } catch {}
+        try { locations = link.dataset.locations ? JSON.parse(link.dataset.locations) as string[] : undefined; } catch {}
         link.href = buildVekselUrl(veksel, slot, locations);
     });
 };
 
-/** @param {'blue_salt'|'north'|undefined} veksel @param {Slot|null} slot @param {string[]|undefined} locations */
-export const buildVekselUrl = (veksel, slot, locations) => {
+export const buildVekselUrl = (veksel: string | undefined, slot: Slot | null | undefined, locations: string[] | undefined): string => {
     const isBlueSalt = veksel === 'blue_salt';
     const isNorth = veksel === 'north';
     if (!isBlueSalt && !isNorth) return vekselUrlResolved;
-    let params = null;
+    let params: string | null = null;
     const item = slot?.item;
     if (slot?.count && (item?.vekselName || item?.name)) {
         if (isBlueSalt) params = `res=${encodeURIComponent(item.vekselName || item.name)}&amount=${slot.count}`;
@@ -743,7 +910,7 @@ export const buildVekselUrl = (veksel, slot, locations) => {
     return `${vekselUrlResolved}${separator}${params}`;
 };
 
-export const getGisaaVekselKeyForQuest = (veksel, slot, locations) => {
+export const getGisaaVekselKeyForQuest = (veksel: string | undefined, slot: Slot | null | undefined, locations: string[] | undefined): string | null => {
     const item = slot?.item;
     const amount = Number(slot?.count || 0);
     if (!amount || !item) return null;
@@ -756,8 +923,8 @@ export const getGisaaVekselKeyForQuest = (veksel, slot, locations) => {
     return null;
 };
 
-export const makeGisaaInfoFromRows = (rows) => {
-    const unique = (values) => [...new Set((values || []).filter(Boolean))];
+export const makeGisaaInfoFromRows = (rows: GisaaStatusRow[]): GisaaInfo | null => {
+    const unique = (values: string[]): string[] => [...new Set((values || []).filter(Boolean))];
     const matches = unique(rows.filter(row => row.status === 'match').map(row => row.location));
     const unknown = unique(rows.filter(row => row.status === 'unknown').map(row => row.location));
     const excludes = unique(rows.filter(row => row.status === 'exclude').map(row => row.location));
@@ -766,7 +933,7 @@ export const makeGisaaInfoFromRows = (rows) => {
     return null;
 };
 
-export const getGisaaVekselInfoFromSavedTable = (veksel, slot, locations) => {
+export const getGisaaVekselInfoFromSavedTable = (veksel: string | undefined, slot: Slot | null | undefined, locations: string[] | undefined): GisaaInfo | null => {
     const snapshot = getSavedGisaaTablesSnapshot();
     if (!snapshot) return null;
     const item = slot?.item;
@@ -797,41 +964,39 @@ export const getGisaaVekselInfoFromSavedTable = (veksel, slot, locations) => {
     return null;
 };
 
-export const getGisaaVekselInfoForQuest = (veksel, slot, locations) => (
+export const getGisaaVekselInfoForQuest = (veksel: string | undefined, slot: Slot | null | undefined, locations: string[] | undefined): GisaaInfo | null => (
     getGisaaVekselInfoFromSavedTable(veksel, slot, locations)
     || getSavedGisaaVekselInfo(getGisaaVekselKeyForQuest(veksel, slot, locations))
 );
 
 // ==================== API-запросы ====================
 
-/** @param {string} url */
-export const fetchJson = async (url) => {
+export const fetchJson = async <T = unknown>(url: string): Promise<T> => {
     const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    const json = await res.json();
-    const quests = json?.data?.quests;
+    const json = await res.json() as T;
+    const infoJson = json as ApiInfoResponse;
+    const quests = infoJson?.data?.quests;
     debugLog('api/info loaded', {
-        state: json?.state,
-        hasData: !!json?.data,
+        state: infoJson?.state,
+        hasData: !!infoJson?.data,
         questContainerType: quests == null ? String(quests) : Array.isArray(quests) ? 'array' : typeof quests,
         questCount: quests && typeof quests === 'object' ? Object.keys(quests).length : 0,
-        weekNumber: json?.data?.week_number,
-        nextWeekAt: json?.data?.next_week_at,
+        weekNumber: infoJson?.data?.week_number,
+        nextWeekAt: infoJson?.data?.next_week_at,
         serverNowIso: NOW_MS ? new Date(NOW_MS).toISOString() : null,
         sampleQuests: quests && typeof quests === 'object' ? Object.values(quests).slice(0, 5).map(summarizeQuestForDebug) : [],
     });
     return json;
 };
 
-/** @param {string} url */
-export const fetchText = async (url) => {
+export const fetchText = async (url: string): Promise<string> => {
     const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
     return res.text();
 };
 
-/** @returns {Promise<ApiInfoResponse>} */
-export const fetchApiInfo = async () => {
+export const fetchApiInfo = async (): Promise<ApiInfoResponse> => {
     const t0 = Date.now();
     const res = await fetch(API_INFO_PATH, { credentials: 'include', cache: 'no-store' });
     const t1 = Date.now();
@@ -844,11 +1009,10 @@ export const fetchApiInfo = async () => {
     } else if (NOW_MS == null) {
         throw new Error('[ArcheAgeExtraUI] Cannot read server Date header');
     }
-    return res.json();
+    return res.json() as Promise<ApiInfoResponse>;
 };
 
-/** @returns {Promise<ApiInfoResponse>} */
-export const getApiInfoCached = async () => {
+export const getApiInfoCached = async (): Promise<ApiInfoResponse> => {
     if (API_INFO_CACHE) return API_INFO_CACHE;
     if (API_INFO_PROMISE) {
         try {
@@ -862,24 +1026,24 @@ export const getApiInfoCached = async () => {
     return API_INFO_CACHE;
 };
 
-export const getUidFromCheckUser = async () => {
-    const json = await fetchJson('/dynamic/auth/?a=checkuser');
+export const getUidFromCheckUser = async (): Promise<string> => {
+    const json = await fetchJson<{ user?: { uid?: string | number } }>('/dynamic/auth/?a=checkuser');
     const uid = json?.user?.uid;
     if (!uid) throw new Error('uid not found');
     return String(uid);
 };
 
-export const showRefreshLoader = () => {
+export const showRefreshLoader = (): void => {
     if (DOM.refreshLoader) DOM.refreshLoader.classList.add('tm-refresh-loader--active');
 };
 
-export const hideRefreshLoader = () => {
+export const hideRefreshLoader = (): void => {
     if (DOM.refreshLoader) DOM.refreshLoader.classList.remove('tm-refresh-loader--active');
 };
 
-export let API_INFO_DATA_JSON = null;
+export let API_INFO_DATA_JSON: string | null = null;
 
-export const refreshApiInfo = async ({ loadAutoClaimState = () => false, claimAllLevelRewards = async () => {} } = {}) => {
+export const refreshApiInfo = async ({ loadAutoClaimState = () => false, claimAllLevelRewards = async () => {} }: RefreshApiInfoOptions = {}): Promise<void> => {
     if (isRefreshing) return;
     isRefreshing = true;
     showRefreshLoader();
@@ -912,25 +1076,24 @@ export const refreshApiInfo = async ({ loadAutoClaimState = () => false, claimAl
     }
 };
 
-export const stopAutoRefresh = () => {
+export const stopAutoRefresh = (): void => {
     if (autoRefreshIntervalId != null) {
         clearInterval(autoRefreshIntervalId);
         autoRefreshIntervalId = null;
     }
 };
 
-/** @param {number} intervalMs */
-export const startAutoRefresh = (intervalMs) => {
+export const startAutoRefresh = (intervalMs: number): void => {
     stopAutoRefresh();
     autoRefreshIntervalId = setInterval(refreshApiInfo, intervalMs);
 };
 
-export const restartAutoRefresh = () => {
+export const restartAutoRefresh = (): void => {
     const interval = document.hidden ? AUTO_REFRESH_INTERVAL_HIDDEN_MS : AUTO_REFRESH_INTERVAL_FOCUSED_MS;
     startAutoRefresh(interval);
 };
 
-export const handleVisibilityChange = () => {
+export const handleVisibilityChange = (): void => {
     if (document.hidden) startAutoRefresh(AUTO_REFRESH_INTERVAL_HIDDEN_MS);
     else {
         refreshApiInfo();
@@ -938,26 +1101,26 @@ export const handleVisibilityChange = () => {
     }
 };
 
-export const parseServersFromCharListHtml = (html) => {
+export const parseServersFromCharListHtml = (html: string): string[] => {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return [...doc.querySelectorAll('li')]
         .map(li => {
             const spans = li.querySelectorAll('span');
             const last = spans?.[spans.length - 1];
-            return last ? last.textContent.trim() : null;
+            return last ? last.textContent?.trim() || null : null;
         })
-        .filter(Boolean);
+        .filter((server): server is string => Boolean(server));
 };
 
-export const pickMainServer = (servers) => {
+export const pickMainServer = (servers: string[]): string | null => {
     if (!servers.length) return null;
-    const counts = new Map();
-    const order = [];
+    const counts = new Map<string, number>();
+    const order: string[] = [];
     for (const s of servers) {
         if (!counts.has(s)) order.push(s);
         counts.set(s, (counts.get(s) || 0) + 1);
     }
-    let best = null;
+    let best: string | null = null;
     let bestCount = -1;
     for (const s of order) {
         const c = counts.get(s);
@@ -966,7 +1129,7 @@ export const pickMainServer = (servers) => {
     return best;
 };
 
-export const resolveVekselUrl = async () => {
+export const resolveVekselUrl = async (): Promise<void> => {
     try {
         const serverIdOverride = loadVekselServerIdOverride();
         if (serverIdOverride) {
@@ -999,7 +1162,7 @@ export const resolveVekselUrl = async () => {
 
 // ==================== UI: карточки и список ====================
 
-export const makeVekselIconLink = ({ href, title, vekselIcon }) => {
+export const makeVekselIconLink = ({ href, title, vekselIcon }: MakeVekselIconLinkParams): HTMLAnchorElement => {
     const a = document.createElement('a');
     a.className = 'tm-veksel-icon-link';
     a.href = href;
@@ -1019,8 +1182,7 @@ export const makeVekselIconLink = ({ href, title, vekselIcon }) => {
     return a;
 };
 
-/** @param {number} amount @param {boolean} isDone */
-export const makeRewardBlock = (amount, isDone) => {
+export const makeRewardBlock = (amount: number, isDone: boolean): HTMLDivElement => {
     const reward = document.createElement('div');
     reward.className = 'tasks__item-reward';
     const name = document.createElement('span');
@@ -1037,15 +1199,14 @@ export const makeRewardBlock = (amount, isDone) => {
     return reward;
 };
 
-/** @param {string} desc */
-export const makeTaskText = (desc) => {
+export const makeTaskText = (desc: string): HTMLDivElement => {
     const t = document.createElement('div');
     t.className = 'tasks__item-text';
     t.textContent = desc || '';
     return t;
 };
 
-export const makeGisaaStatusLine = (info) => {
+export const makeGisaaStatusLine = (info: GisaaInfo | null): HTMLDivElement | null => {
     if (!info) return null;
     const line = document.createElement('div');
     line.className = `tm-gisaa-status tm-gisaa-status--${info.status}`;
@@ -1057,20 +1218,7 @@ export const makeGisaaStatusLine = (info) => {
     return line;
 };
 
-/**
- * @param {Object} params
- * @param {number|null} params.id
- * @param {string} params.short
- * @param {string} params.questTitle
- * @param {Slot|null} [params.slot]
- * @param {'blue_salt'|'north'} [params.veksel]
- * @param {string[]} [params.locations]
- * @param {number[]} [params.availableWeekdays]
- * @param {EventSchedule[]} [params.schedule]
- * @param {Function} params.makeItemIconLink
- * @param {Function} params.makeIconLink
- */
-export const makeLinksRow = ({ id, short, questTitle, slot, veksel, locations, availableWeekdays, schedule, makeItemIconLink, makeIconLink }) => {
+export const makeLinksRow = ({ id, short, questTitle, slot, veksel, locations, availableWeekdays, schedule, makeItemIconLink, makeIconLink }: MakeLinksRowParams): HTMLDivElement => {
     const row = document.createElement('div');
     row.className = 'tm-links-row';
     const leftPart = document.createElement('div');
@@ -1154,18 +1302,7 @@ export const makeLinksRow = ({ id, short, questTitle, slot, veksel, locations, a
     return row;
 };
 
-/**
- * @param {Object} params
- * @param {ApiQuest} params.q
- * @param {number} params.amount
- * @param {number} params.id
- * @param {string} params.short
- * @param {boolean} params.isDone
- * @param {boolean} params.showLastDone
- * @param {Function} params.makeItemIconLink
- * @param {Function} params.makeIconLink
- */
-export const makeTaskCard = ({ q, amount, id, short, isDone, showLastDone, completionTime, isToday, slot, veksel, locations, availableWeekdays, schedule, animateCompletion = false, makeItemIconLink, makeIconLink }) => {
+export const makeTaskCard = ({ q, amount, id, short, isDone, showLastDone, completionTime, isToday, slot, veksel, locations, availableWeekdays, schedule, animateCompletion = false, makeItemIconLink, makeIconLink }: MakeTaskCardParams): HTMLDivElement => {
     const card = document.createElement('div');
     card.className = `tasks__item tasks__item--${amount || 1}`;
     if (isDone) {
@@ -1208,7 +1345,7 @@ export const makeTaskCard = ({ q, amount, id, short, isDone, showLastDone, compl
     return card;
 };
 
-export const updateLevelBlock = (json) => {
+export const updateLevelBlock = (json: ApiInfoResponse): void => {
     const userInfo = json?.data?.user_info;
     if (!userInfo) return;
     const level = Number(userInfo.level || 1);
@@ -1266,7 +1403,7 @@ export const updateLevelBlock = (json) => {
     levelBlock.appendChild(levelNext);
 };
 
-export const updateTasksHeader = (json) => {
+export const updateTasksHeader = (json: ApiInfoResponse): void => {
     const userInfo = json?.data?.user_info;
     if (!userInfo) return;
     const weekExp = Number(userInfo.week_exp || 0);
@@ -1287,7 +1424,7 @@ export const updateTasksHeader = (json) => {
     balanceEl.appendChild(iconPoint);
 };
 
-export const ensureTasksListEl = () => {
+export const ensureTasksListEl = (): Element | null => {
     if (!DOM.tasksList || !DOM.tasksList.isConnected) DOM.tasksList = document.querySelector('.section.tasks .tasks__list');
     if (!DOM.tasksList) {
         debugWarn('tasks list element not found', {
@@ -1299,11 +1436,11 @@ export const ensureTasksListEl = () => {
     return DOM.tasksList;
 };
 
-export const ensureDateNavInHeader = () => {
+export const ensureDateNavInHeader = (): HTMLDivElement | null => {
     if (DOM.nav && DOM.nav.isConnected) return DOM.nav;
     if (!DOM.tasksHeader || !DOM.tasksHeader.isConnected) DOM.tasksHeader = document.querySelector('.section.tasks .tasks__header');
     if (!DOM.tasksHeader) return null;
-    let nav = DOM.tasksHeader.querySelector('.tm-date-nav');
+    let nav = DOM.tasksHeader.querySelector<HTMLDivElement>('.tm-date-nav');
     if (nav) {
         DOM.nav = nav; DOM.label = nav.querySelector('.tm-date-label'); DOM.prevBtn = nav.querySelector('.tm-date-prev'); DOM.nextBtn = nav.querySelector('.tm-date-next'); DOM.todayBtn = nav.querySelector('.tm-date-today');
         return nav;
@@ -1345,7 +1482,8 @@ export const ensureDateNavInHeader = () => {
     return nav;
 };
 
-export const updateDateNavLabel = () => {
+export const updateDateNavLabel = (): void => {
+    if (selectedDayUtcMs == null) return;
     if (!DOM.label) return;
     const parts = getMSKDatePartsFromUtcMs(selectedDayUtcMs);
     const dateStr = formatDMY(parts);
@@ -1367,7 +1505,8 @@ export const updateDateNavLabel = () => {
     updateDateNavButtons();
 };
 
-export const updateDateNavButtons = () => {
+export const updateDateNavButtons = (): void => {
+    if (selectedDayUtcMs == null) return;
     if (!DOM.prevBtn && !DOM.nextBtn) return;
     const curKey = slotKey(selectedDayUtcMs, selectedSegment);
     const minKey = MIN_DAY_UTC_MS != null ? slotKey(MIN_DAY_UTC_MS, MIN_SEG) : null;
@@ -1377,14 +1516,14 @@ export const updateDateNavButtons = () => {
     if (DOM.todayBtn) DOM.todayBtn.disabled = isSameDayByTZ(selectedDayUtcMs, getTodayUtcMsByTZ());
 };
 
-export const onSelectedDateChanged = async () => {
+export const onSelectedDateChanged = async (): Promise<void> => {
     updateDateNavLabel();
     updateDateNavButtons();
     try { await renderTasksForSelectedDay(); }
     catch (e) { console.warn('[ArcheAgeExtraUI] renderTasksForSelectedDay failed:', e); }
 };
 
-export const computeThuSegmentsAvailability = (dayUtcMs, questsArr) => {
+export const computeThuSegmentsAvailability = (dayUtcMs: DayUtcMs, questsArr: ApiQuest[]): { hasPre: boolean; hasPost: boolean } => {
     const preUnix = getUnixForDayAtHour(dayUtcMs, THU_PRE_HOUR);
     const postUnix = getUnixForDayAtHour(dayUtcMs, DEFAULT_HOUR);
     const hasPre = questsArr.some(q => isQuestActiveAtUnix(q, preUnix));
@@ -1392,7 +1531,7 @@ export const computeThuSegmentsAvailability = (dayUtcMs, questsArr) => {
     return { hasPre, hasPost };
 };
 
-export const computeDateBoundsFromApiInfo = async () => {
+export const computeDateBoundsFromApiInfo = async (): Promise<void> => {
     if (MIN_DAY_UTC_MS != null && MAX_DAY_UTC_MS != null) return;
     const json = await getApiInfoCached();
     const questsArr = getQuestsArrayFromInfo(json);
@@ -1421,12 +1560,12 @@ export const computeDateBoundsFromApiInfo = async () => {
     }
 };
 
-export let taskCardFactories = { makeItemIconLink: null, makeIconLink: null };
-export const setTaskCardFactories = (factories) => {
+export let taskCardFactories: TaskCardFactories = { makeItemIconLink: null, makeIconLink: null };
+export const setTaskCardFactories = (factories: Partial<TaskCardFactories>): void => {
     taskCardFactories = { ...taskCardFactories, ...factories };
 };
 
-export const renderTasksForSelectedDay = async ({ animateNewlyDone = false, makeItemIconLink = taskCardFactories.makeItemIconLink, makeIconLink = taskCardFactories.makeIconLink } = {}) => {
+export const renderTasksForSelectedDay = async ({ animateNewlyDone = false, makeItemIconLink = taskCardFactories.makeItemIconLink, makeIconLink = taskCardFactories.makeIconLink }: RenderTasksOptions = {}): Promise<void> => {
     const listEl = ensureTasksListEl();
     if (!listEl) return;
     if (!makeItemIconLink || !makeIconLink) throw new Error('[ArcheAgeExtraUI] makeItemIconLink/makeIconLink are required');
@@ -1438,11 +1577,12 @@ export const renderTasksForSelectedDay = async ({ animateNewlyDone = false, make
     const todayUtc = getTodayUtcMsByTZ();
     const isToday = isSameDayByTZ(selectedDayUtcMs, todayUtc);
     const isThu = isThursdayByTZ(selectedDayUtcMs);
-    let unixPoint;
+    if (selectedDayUtcMs == null) return;
+    let unixPoint: number;
     if (isThu && selectedSegment === 'pre') unixPoint = getUnixForDayAtHour(selectedDayUtcMs, THU_PRE_HOUR);
     else unixPoint = getUnixForDayAtHour(selectedDayUtcMs, DEFAULT_HOUR);
     const active = all.filter(q => isQuestActiveAtUnix(q, unixPoint));
-    const questMetaByApiQuest = new Map(active.map(q => [q, findQuestMetaForMarathonQuest(q)]));
+    const questMetaByApiQuest = new Map<ApiQuest, MarathonQuestMeta | undefined>(active.map(q => [q, findQuestMetaForMarathonQuest(q) as MarathonQuestMeta | undefined]));
     const knownActive = active.filter(q => questMetaByApiQuest.get(q));
     const unknownActive = active.filter(q => !questMetaByApiQuest.get(q));
     debugLog('renderTasksForSelectedDay', {
@@ -1460,8 +1600,7 @@ export const renderTasksForSelectedDay = async ({ animateNewlyDone = false, make
         return Number(a?.id || 0) - Number(b?.id || 0);
     });
     listEl.innerHTML = '';
-    /** @type {Set<number>} */
-    const currentDoneIds = new Set();
+    const currentDoneIds: Set<number> = new Set();
     let renderedCount = 0;
     for (const q of active) {
         const questId = Number(q.id);
@@ -1496,7 +1635,7 @@ export const init = async ({
     initAutoOpenBoxesCheckbox = () => {},
     makeItemIconLink,
     makeIconLink,
-} = {}) => {
+}: InitOptions = {}): Promise<void> => {
     if (makeItemIconLink || makeIconLink) setTaskCardFactories({ makeItemIconLink, makeIconLink });
     installApiInfoInterceptor();
     injectStyles();

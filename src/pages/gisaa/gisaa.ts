@@ -14,11 +14,23 @@ import {
 import { readSharedJson, writeSharedJson } from '../../utils/storage.js';
 import gisaaStyles from './gisaa.scss';
 
+type GisaaIconType = 'archive' | 'sack';
+
+interface HighlightResult {
+    match: string[];
+    exclude: string[];
+    unknown: string[];
+}
+
+interface ApplyHighlightsOptions {
+    scrollNorth?: boolean;
+}
+
 const GISAA_MATCH_CLASS = 'tm-gisaa-match';
 const GISAA_EXCLUDE_CLASS = 'tm-gisaa-exclude';
 const GISAA_UNKNOWN_CLASS = 'tm-gisaa-unknown';
 
-export const injectGisaaStyles = () => {
+export const injectGisaaStyles = (): void => {
     const style = document.createElement('style');
     style.textContent = gisaaStyles;
     document.head.appendChild(style);
@@ -29,7 +41,7 @@ export const injectGisaaStyles = () => {
  * @param {string} resourceName
  * @param {number} amount - количество ресурсов
  */
-export const highlightWestEastRow = (resourceName, amount) => {
+export const highlightWestEastRow = (resourceName: string, amount: number): HighlightResult => {
     const blocks = ['#table-block-west', '#table-block-east'];
     const result = { match: [], exclude: [], unknown: [] };
     for (const blockId of blocks) {
@@ -72,7 +84,7 @@ export const highlightWestEastRow = (resourceName, amount) => {
  * @param {number} amount - количество ресурсов
  * @param {'archive'|'sack'} iconType
  */
-export const highlightNorthRow = (locations, amount, iconType) => {
+export const highlightNorthRow = (locations: string[], amount: number, iconType: GisaaIconType): HighlightResult => {
     const block = document.querySelector('#table-block-north');
     const result = { match: [], exclude: [], unknown: [] };
     if (!block) return result;
@@ -127,10 +139,10 @@ export const highlightNorthRow = (locations, amount, iconType) => {
     return result;
 };
 
-export const saveHighlightResult = (key, result) => {
+export const saveHighlightResult = (key: string, result: HighlightResult): void => {
     if (!key || !result) return;
 
-    const unique = (values) => [...new Set((values || []).filter(Boolean))];
+    const unique = (values: string[]): string[] => [...new Set((values || []).filter(Boolean))];
     const matches = unique(result.match);
     const unknown = unique(result.unknown);
     const excludes = unique(result.exclude);
@@ -150,7 +162,7 @@ export const saveHighlightResult = (key, result) => {
     });
 };
 
-export const applyHighlightsFromUrl = ({ scrollNorth = true } = {}) => {
+export const applyHighlightsFromUrl = ({ scrollNorth = true }: ApplyHighlightsOptions = {}): void => {
     const snapshot = readGisaaTablesSnapshot();
     saveGisaaTablesSnapshot(snapshot);
 
@@ -172,7 +184,7 @@ export const applyHighlightsFromUrl = ({ scrollNorth = true } = {}) => {
     const icon = params.get('icon');
     if (locParam && amount && icon) {
         const locations = locParam.split(',').map(s => s.trim()).filter(Boolean);
-        const result = highlightNorthRow(locations, amount, icon);
+        const result = highlightNorthRow(locations, amount, icon as GisaaIconType);
         saveHighlightResult(
             makeGisaaVekselKey({ type: 'north', amount, iconType: icon, locations }),
             result
@@ -186,11 +198,11 @@ export const applyHighlightsFromUrl = ({ scrollNorth = true } = {}) => {
     }
 };
 
-export const startGisaaResultSync = () => {
+export const startGisaaResultSync = (): void => {
     setInterval(() => applyHighlightsFromUrl({ scrollNorth: false }), 5000);
 };
 
-export function initGisaa() {
+export function initGisaa(): void {
     injectGisaaStyles();
     // Даём странице время загрузиться
     setTimeout(applyHighlightsFromUrl, 500);

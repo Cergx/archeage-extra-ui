@@ -1,19 +1,19 @@
 import { pad2, TZ } from './time.js';
 
 /** Game midnight in Moscow time seconds from day start. */
-export const GAME_MIDNIGHT_MSK_SECONDS = 2 * 3600 + 20 * 60; // 02:20:00 = 8400с
+export const GAME_MIDNIGHT_MSK_SECONDS: number = 2 * 3600 + 20 * 60; // 02:20:00 = 8400с
 
 /** Real seconds in one ArcheAge game day. */
-export const GAME_DAY_REAL_SECONDS = 14400; // 4 часа
+export const GAME_DAY_REAL_SECONDS: number = 14400; // 4 часа
 
 /** Game seconds advanced per real second. */
-export const REAL_TO_GAME_FACTOR = 6; // 1 реальная секунда = 6 игровых
+export const REAL_TO_GAME_FACTOR: number = 6; // 1 реальная секунда = 6 игровых
 
 /**
  * @param {number} serverNowMs Server timestamp in milliseconds.
  * @returns {string} Game time in HH:MM format.
  */
-export const getGameTime = (serverNowMs) => {
+export const getGameTime: (serverNowMs: number) => string = (serverNowMs) => {
     const d = new Date(serverNowMs);
     const parts = new Intl.DateTimeFormat('en-US', {
         timeZone: TZ, hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false,

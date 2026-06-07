@@ -38,6 +38,8 @@ import {
 import { initTooltips, makeItemIconLink } from './components/tooltip/tooltip.js';
 import { makeIconLink, updateRenderedItemIcons } from './components/itemIcon/itemIcon.js';
 
+type TimerId = ReturnType<typeof setInterval>;
+
 // ============================================================
 // ====================== GISAA.RU =============================
 // ============================================================
@@ -53,16 +55,16 @@ if (isGisaaSite) {
 if (!isArcheageSite) {
     // nothing more — exit
 } else {
-    const injectStyles = () => {
+    const injectStyles = (): void => {
         injectItemIconStyles();
         injectMarathonStyles();
     };
 
-    let countdownIntervalId = null;
-    const startCountdownInterval = () => {
+    let countdownIntervalId: TimerId | null = null;
+    const startCountdownInterval = (): void => {
         if (countdownIntervalId != null) return;
         countdownIntervalId = setInterval(() => {
-            document.querySelectorAll('.tm-countdown').forEach(el => {
+            document.querySelectorAll<HTMLElement>('.tm-countdown').forEach((el: HTMLElement) => {
                 const scheduleJson = el.dataset.schedule;
                 if (!scheduleJson) return;
                 try {
@@ -77,7 +79,7 @@ if (!isArcheageSite) {
     };
 
     // --- Server clock on ALL archeage.ru pages ---
-    const openEventsPopupWithDeps = () => openEventsPopup({
+    const openEventsPopupWithDeps = (): void => openEventsPopup({
         loadVekselServerIdOverride,
         saveVekselServerIdOverride,
         resolveVekselUrl,
@@ -86,7 +88,7 @@ if (!isArcheageSite) {
         saveNotificationState,
         updateRenderedItemIcons,
     });
-    const checkEventNotificationsWithDeps = () => checkEventNotifications({
+    const checkEventNotificationsWithDeps = (): void => checkEventNotifications({
         loadNotificationState,
         saveNotificationState,
     });

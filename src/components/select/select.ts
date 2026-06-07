@@ -1,16 +1,22 @@
-/**
- * Создаёт стилизованный select в обёртке itemrestore__select_wrapper.
- * @param {{ options: Array<{value: string|number, label: string}>, selected: string|number, onChange: (value: string) => void }} opts
- * @returns {HTMLDivElement} обёртка с select внутри
- */
-export const makeSelect = ({ options, selected, onChange }) => {
+interface SelectOption {
+    value: string | number;
+    label: string;
+}
+
+interface SelectOpts {
+    options: SelectOption[];
+    selected: string | number;
+    onChange: (value: string) => void;
+}
+
+export const makeSelect: (opts: SelectOpts) => HTMLDivElement = ({ options, selected, onChange }) => {
     const wrapper = document.createElement('div');
     wrapper.className = 'itemrestore__select_wrapper';
     const select = document.createElement('select');
     select.className = 'itemrestore__filter-grades';
     for (const { value, label } of options) {
         const opt = document.createElement('option');
-        opt.value = value;
+        opt.value = String(value);
         opt.textContent = label;
         if (String(value) === String(selected)) opt.selected = true;
         select.appendChild(opt);
@@ -20,20 +26,32 @@ export const makeSelect = ({ options, selected, onChange }) => {
     return wrapper;
 };
 
-// ============================================================
-// ============= Общий блок выбранных предметов ==============
-// ============================================================
+interface MappedItem {
+    iconUrl?: string;
+    name?: string;
+    itemBase?: { id?: number; name?: string };
+    count?: number;
+}
 
-/**
- * Рендерит список выбранных предметов в контейнер.
- * @param {HTMLElement} container - Контейнер для вставки элементов.
- * @param {Array<Object>} items - Массив выбранных предметов.
- * @param {Object} opts
- * @param {string} opts.emptyText - Текст-плейсхолдер, когда список пуст.
- * @param {(item: Object) => void} opts.onRemove - Обработчик удаления предмета.
- * @param {(item: Object) => { iconUrl: string, name: string, itemBase?: ItemBase, count?: number }} opts.mapItem - Маппер предмета в данные для отображения.
- */
-export const renderSelectedItems = (container, items, { emptyText, onRemove, mapItem }, makeItemIconLink) => {
+interface SelectedItemsOpts {
+    emptyText: string;
+    onRemove: (item: unknown) => void;
+    mapItem: (item: unknown) => MappedItem;
+}
+
+type MakeItemIconLinkFn = (params: {
+    item: MappedItem['itemBase'];
+    linked?: boolean;
+    size?: 'small' | 'medium';
+    count?: number;
+}) => HTMLElement;
+
+export const renderSelectedItems: (
+    container: HTMLElement,
+    items: unknown[],
+    opts: SelectedItemsOpts,
+    makeItemIconLink: MakeItemIconLinkFn,
+) => void = (container, items, { emptyText, onRemove, mapItem }, makeItemIconLink) => {
     container.innerHTML = '';
 
     if (items.length === 0) {
@@ -70,7 +88,7 @@ export const renderSelectedItems = (container, items, { emptyText, onRemove, map
 
         const title = document.createElement('div');
         title.className = 'title';
-        title.textContent = mapped.name || mapped.itemBase.name || '';
+        title.textContent = mapped.name || mapped.itemBase?.name || '';
         nameWrap.appendChild(title);
         entry.appendChild(nameWrap);
 

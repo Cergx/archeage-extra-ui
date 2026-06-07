@@ -1,7 +1,13 @@
-import { getItemIconUrlFromParts } from '../../data/items.js';
+import { getItemIconUrlFromParts } from '../../data/items.ts';
 
-/** @param {{ href: string, iconSrc: string, title: string, className?: string }} params */
-export const makeIconLink = ({ href, iconSrc, title, className }) => {
+interface IconLinkParams {
+    href: string;
+    iconSrc: string;
+    title: string;
+    className?: string;
+}
+
+export const makeIconLink: (params: IconLinkParams) => HTMLAnchorElement = ({ href, iconSrc, title, className }) => {
     const a = document.createElement('a');
     a.className = `tm-icon-link ${className || ''}`.trim();
     a.href = href;
@@ -16,11 +22,8 @@ export const makeIconLink = ({ href, iconSrc, title, className }) => {
     return a;
 };
 
-/**
- * Обновляет src у всех иконок предметов согласно текущему выбору пола.
- */
-export const updateRenderedItemIcons = () => {
-    document.querySelectorAll('.tm-item-icon-img[data-icon-template]').forEach(img => {
+export const updateRenderedItemIcons: () => void = () => {
+    document.querySelectorAll<HTMLImageElement>('.tm-item-icon-img[data-icon-template]').forEach(img => {
         img.src = getItemIconUrlFromParts(
             img.dataset.iconTemplate || '',
             img.dataset.iconM || '',

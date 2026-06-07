@@ -1,8 +1,8 @@
 import reloadBtnStyles from './reloadBtn.scss';
 
-export let reloadBtnStylesInjected = false;
+export let reloadBtnStylesInjected: boolean = false;
 
-export const injectReloadBtnStyles = () => {
+export const injectReloadBtnStyles: () => void = () => {
     if (reloadBtnStylesInjected) return;
     reloadBtnStylesInjected = true;
     const style = document.createElement('style');
@@ -10,12 +10,7 @@ export const injectReloadBtnStyles = () => {
     document.head.appendChild(style);
 };
 
-/**
- * Создаёт кнопку ↻ для перезагрузки страницы и вставляет её в заголовок.
- * Автоматически инжектит стили при первом вызове.
- * @param {HTMLElement} header — элемент `.guild_header2`, в который добавляется кнопка.
- */
-export const appendReloadBtn = (header) => {
+export const appendReloadBtn: (header: HTMLElement) => void = (header) => {
     injectReloadBtnStyles();
     header.classList.add('tm-has-reload');
     const btn = document.createElement('button');

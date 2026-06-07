@@ -5,12 +5,66 @@ import { pageDocument, pageWindow } from '../../utils/env.js';
 
 export { getItemIconUrl };
 
+type ItemBase = (typeof ITEMS)[keyof typeof ITEMS];
+type ItemIconLinkFn = (params: { item: ItemBase; linked?: boolean; size?: string }) => HTMLElement;
+type RenderSelectedItemsFn = typeof renderSelectedItems;
+type AppendReloadBtnFn = typeof appendReloadBtn;
+
+interface CartGradeCampaignRule {
+    itemId: number[];
+    campaign: string;
+    grade: number;
+}
+
+export interface CartItem {
+    title: string;
+    count: number;
+    date: Date;
+    itemId: string;
+    campaign: string;
+    disabled: boolean;
+    timerText: string;
+}
+
+export interface CartCharacter {
+    name: string;
+    server: string;
+    value: string;
+    enabled: boolean;
+}
+
+interface CartPopupButton {
+    label: string;
+    icon: string;
+    action: (() => void | Promise<void>) | null;
+}
+
+interface CartPopupParams {
+    title: string;
+    body: string;
+    buttons: CartPopupButton[];
+}
+
+interface CartUIDeps {
+    makeItemIconLink: ItemIconLinkFn;
+    renderSelectedItems?: RenderSelectedItemsFn;
+    appendReloadBtn?: AppendReloadBtnFn;
+    fetchText: (url: string) => Promise<string>;
+    getUidFromCheckUser: () => Promise<string>;
+}
+
+interface InitCartDeps extends Required<Pick<CartUIDeps, 'makeItemIconLink' | 'fetchText' | 'getUidFromCheckUser'>> {
+    injectItemIconStyles: () => void;
+    injectSelectedItemsStyles: () => void;
+    injectCartStyles: () => void;
+}
+
 /**
  * Нормализует название предмета из таблицы корзины.
  * @param {string} itemName
  * @returns {string}
  */
-export const normalizeCartItemName = (itemName) => (
+export const normalizeCartItemName = (itemName: string): string => (
     (itemName || '').trim().replace(/\*$/, '').trim().toLowerCase().replace(/\bc\b/g, 'с').replace(/\s+/g, ' ')
 );
 
@@ -19,7 +73,7 @@ export const normalizeCartItemName = (itemName) => (
  * @param {string} itemName
  * @returns {number|null}
  */
-export const inferGradeFromCartItemName = (itemName) => {
+export const inferGradeFromCartItemName = (itemName: string): number | null => {
     const normalized = normalizeCartItemName(itemName);
     if (!normalized) return null;
 
@@ -31,7 +85,7 @@ export const inferGradeFromCartItemName = (itemName) => {
     return null;
 };
 
-export const CART_GRADE_BY_CAMPAIGN = [
+export const CART_GRADE_BY_CAMPAIGN: CartGradeCampaignRule[] = [
     {
         itemId: [
             45880, 45881, 45882, 45883, 45884, 45885, 45886, // эрнардский мнемоник
@@ -56,7 +110,7 @@ export const CART_GRADE_BY_CAMPAIGN = [
  * @param {string} campaign
  * @returns {number|null}
  */
-export const inferGradeFromCartCampaign = (item, campaign) => {
+export const inferGradeFromCartCampaign = (item: ItemBase, campaign: string): number | null => {
     const normalizedCampaign = normalizeCartItemName(campaign);
     if (!normalizedCampaign) return null;
 
@@ -75,7 +129,7 @@ export const inferGradeFromCartCampaign = (item, campaign) => {
  * @param {string} itemName
  * @returns {string}
  */
-export const stripGradeFromCartItemName = (itemName) => {
+export const stripGradeFromCartItemName = (itemName: string): string => {
     let normalized = normalizeCartItemName(itemName);
     if (!normalized) return '';
 
@@ -95,7 +149,7 @@ export const stripGradeFromCartItemName = (itemName) => {
  * @param {string} [campaign]
  * @returns {ItemBase}
  */
-export const withInferredCartGrade = (item, itemName, campaign = '') => {
+export const withInferredCartGrade = (item: ItemBase, itemName: string, campaign = ''): ItemBase => {
     if (item.grade != null) return item;
 
     const inferredGrade = inferGradeFromCartItemName(itemName) ?? inferGradeFromCartCampaign(item, campaign);
@@ -112,7 +166,7 @@ export const withInferredCartGrade = (item, itemName, campaign = '') => {
  * @param {string} [campaign]
  * @returns {ItemBase|null}
  */
-export const findItemByName = (itemName, campaign = '') => {
+export const findItemByName = (itemName: string, campaign = ''): ItemBase | null => {
     const normalized = normalizeCartItemName(itemName);
     const normalizedWithoutGrade = stripGradeFromCartItemName(itemName);
 
@@ -130,36 +184,16 @@ export const findItemByName = (itemName, campaign = '') => {
 };
 
 /**
- * @typedef {Object} CartItem
- * @property {string} title - Название предмета.
- * @property {number} count - Количество.
- * @property {Date} date - Дата получения.
- * @property {string} itemId - ID предмета (из data-item чекбокса).
- * @property {string} campaign - Название акции.
- * @property {boolean} disabled - Заблокирован (таймер передачи).
- * @property {string} timerText - Текст таймера ("Можно передать через: XXX мин.").
- */
-
-/**
- * @typedef {Object} CartCharacter
- * @property {string} name - Имя персонажа.
- * @property {string} server - Название сервера.
- * @property {string} value - Значение radio (для отправки формы).
- * @property {boolean} enabled - Доступен для выбора.
- */
-
-/**
  * Парсит строки таблицы корзины из DOM.
  * @param {Element} layout - Корневой элемент .cart_layout
  * @returns {CartItem[]}
  */
-export const parseCartItems = (layout) => {
+export const parseCartItems = (layout: Element): CartItem[] => {
     const rows = layout.querySelectorAll('.js-cart-item');
-    /** @type {CartItem[]} */
-    const items = [];
+    const items: CartItem[] = [];
 
     for (const row of rows) {
-        const checkbox = row.querySelector('input[data-item]');
+        const checkbox = row.querySelector<HTMLInputElement>('input[data-item]');
         if (!checkbox) continue;
 
         const nameCell = row.querySelector('.js-cart-item-name');
@@ -205,13 +239,12 @@ export const parseCartItems = (layout) => {
  * Парсит персонажей из DOM.
  * @param {Element} layout - Корневой элемент .cart_layout
  */
-export const parseCartCharacters = (layout) => {
+export const parseCartCharacters = (layout: Element): CartCharacter[] => {
     const labels = layout.querySelectorAll('.char_select label');
-    /** @type {CartCharacter[]} */
-    const chars = [];
+    const chars: CartCharacter[] = [];
 
     for (const label of labels) {
-        const radio = label.querySelector('input[name="shard_char"]');
+        const radio = label.querySelector<HTMLInputElement>('input[name="shard_char"]');
         if (!radio) continue;
 
         const name = label.querySelector('.name')?.textContent?.trim() || '';
@@ -232,7 +265,7 @@ export const parseCartCharacters = (layout) => {
  * @param {CartItem} cartItem
  * @param {Function} makeItemIconLink
  */
-export const makeCartRow = (cartItem, makeItemIconLink) => {
+export const makeCartRow = (cartItem: CartItem, makeItemIconLink: ItemIconLinkFn): HTMLTableRowElement => {
     const tr = pageDocument.createElement('tr');
     tr.className = 'item';
     if (cartItem.disabled) tr.classList.add('disabled');
@@ -241,7 +274,7 @@ export const makeCartRow = (cartItem, makeItemIconLink) => {
     const tdDate = pageDocument.createElement('td');
     tdDate.className = 'gс_1';
     const d = cartItem.date;
-    const pad = (n) => n < 10 ? '0' + n : '' + n;
+    const pad = (n: number): string => n < 10 ? '0' + n : '' + n;
     tdDate.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
     tr.appendChild(tdDate);
 
@@ -294,7 +327,7 @@ export const makeCartRow = (cartItem, makeItemIconLink) => {
  * @param {string} params.body - HTML-содержимое.
  * @param {{ label: string, icon: string, action: function|null }[]} params.buttons
  */
-export const showCartPopup = ({ title, body, buttons }) => {
+export const showCartPopup = ({ title, body, buttons }: CartPopupParams): void => {
     // Подготавливаем скрытый div-источник для popup_open
     let src = pageDocument.getElementById('tm_cart_popup_src');
     if (!src) {
@@ -321,8 +354,8 @@ export const showCartPopup = ({ title, body, buttons }) => {
     // Навешиваем обработчики на кнопки внутри попапа
     const popupBlock = pageDocument.getElementById('popup_block');
     if (popupBlock) {
-        popupBlock.querySelectorAll('a[data-tm-btn]').forEach(a => {
-            const btn = buttons[parseInt(a.dataset.tmBtn)];
+        popupBlock.querySelectorAll<HTMLAnchorElement>('a[data-tm-btn]').forEach((a: HTMLAnchorElement) => {
+            const btn = buttons[parseInt(a.dataset.tmBtn || '', 10)];
             a.addEventListener('click', (e) => {
                 e.preventDefault();
                 pageWindow.popup_close();
@@ -340,7 +373,7 @@ export const showCartPopup = ({ title, body, buttons }) => {
  * @param {Element} origLayout - оригинальный .cart_layout для извлечения разметки персонажей
  * @param {Object} deps
  */
-export const buildCartUI = (cartItems, characters, container, origLayout, deps = {}) => {
+export const buildCartUI = (cartItems: CartItem[], characters: CartCharacter[], container: Element, origLayout: Element, deps: CartUIDeps): void => {
     void characters;
     const {
         makeItemIconLink,
@@ -361,11 +394,11 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
 
     // === Состояние ===
     /** @type {Set<string>} */
-    const selectedIds = new Set();
+    const selectedIds = new Set<string>();
     let selectedChar = '';
 
     /** @type {Map<string, HTMLTableRowElement>} */
-    const rowMap = new Map();
+    const rowMap = new Map<string, HTMLTableRowElement>();
 
     // === Левая панель ===
     const left = pageDocument.createElement('div');
@@ -387,7 +420,7 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
 
     const thead = pageDocument.createElement('thead');
     const headerRow = pageDocument.createElement('tr');
-    for (const [cls, text] of [['gh_1', 'Дата получения'], ['gh_4', ''], ['gh_2', 'Предмет'], ['gh_3', 'Акция']]) {
+    for (const [cls, text] of [['gh_1', 'Дата получения'], ['gh_4', ''], ['gh_2', 'Предмет'], ['gh_3', 'Акция']] as [string, string][]) {
         const th = pageDocument.createElement('th');
         th.className = cls;
         th.textContent = text;
@@ -436,8 +469,8 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
         right.appendChild(origCharSelect);
 
         // Навешиваем свой обработчик выбора
-        origCharSelect.querySelectorAll('.js-char').forEach(label => {
-            const radio = label.querySelector('input[name="shard_char"]');
+        origCharSelect.querySelectorAll<HTMLElement>('.js-char').forEach((label: HTMLElement) => {
+            const radio = label.querySelector<HTMLInputElement>('input[name="shard_char"]');
             if (!radio || radio.disabled) return;
 
             label.addEventListener('click', () => {
@@ -454,15 +487,14 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
                 const html = await fetchText(`/dynamic/user/?a=char_list&u=${encodeURIComponent(uid)}`);
                 const doc = new DOMParser().parseFromString(html, 'text/html');
 
-                /** @type {Map<string, string>} имя → URL лица */
-                const faceMap = new Map();
+                const faceMap = new Map<string, string>();
                 for (const li of doc.querySelectorAll('li[data-face]')) {
                     const name = li.querySelector('strong')?.textContent?.trim();
                     const face = li.getAttribute('data-face');
                     if (name && face) faceMap.set(name, face);
                 }
 
-                origCharSelect.querySelectorAll('label.js-char').forEach(label => {
+                origCharSelect.querySelectorAll<HTMLLabelElement>('label.js-char').forEach((label: HTMLLabelElement) => {
                     const name = label.querySelector('.name')?.textContent?.trim();
                     const face = faceMap.get(name);
                     if (!face) return;
@@ -507,14 +539,14 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
 
     // === Логика ===
 
-    const updateTransferBtn = () => {
+    const updateTransferBtn = (): void => {
         const enabled = selectedIds.size > 0 && !!selectedChar;
         transferBtn.style.opacity = enabled ? '' : '0.5';
         transferBtn.style.pointerEvents = enabled ? '' : 'none';
     };
 
-    const renderSelectedList = () => {
-        const selectedArray = [...selectedIds].map(id => cartItems.find(i => i.itemId === id)).filter(Boolean);
+    const renderSelectedList = (): void => {
+        const selectedArray = [...selectedIds].map(id => cartItems.find(i => i.itemId === id)).filter((item): item is CartItem => Boolean(item));
         renderSelectedItemsFn(selectedWrap, selectedArray, {
             emptyText: 'Выберите предметы для передачи из списка слева',
             onRemove: (cartItem) => deselectItem(cartItem.itemId),
@@ -530,7 +562,7 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
         }, makeItemIconLink);
     };
 
-    const selectItem = (id) => {
+    const selectItem = (id: string): void => {
         selectedIds.add(id);
         const row = rowMap.get(id);
         if (row) row.classList.add('tm-selected');
@@ -538,7 +570,7 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
         updateTransferBtn();
     };
 
-    const deselectItem = (id) => {
+    const deselectItem = (id: string): void => {
         selectedIds.delete(id);
         const row = rowMap.get(id);
         if (row) row.classList.remove('tm-selected');
@@ -552,8 +584,8 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
         const row = rowMap.get(cartItem.itemId);
         if (!row) continue;
 
-        row.addEventListener('click', (e) => {
-            if (e.target.closest('a')) return;
+        row.addEventListener('click', (e: MouseEvent) => {
+            if (e.target instanceof Element && e.target.closest('a')) return;
             if (selectedIds.has(cartItem.itemId)) return;
             selectItem(cartItem.itemId);
         });
@@ -570,13 +602,13 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
                     icon: 'ico_done',
                     action: async () => {
                         const allIds = [...selectedIds];
-                        const chunks = [];
+                        const chunks: string[][] = [];
                         for (let i = 0; i < allIds.length; i += 5) {
                             chunks.push(allIds.slice(i, i + 5));
                         }
 
-                        const messages = [];
-                        const transferred = [];
+                        const messages: string[] = [];
+                        const transferred: string[] = [];
 
                         try {
                             for (const chunk of chunks) {
@@ -627,10 +659,10 @@ export const buildCartUI = (cartItems, characters, container, origLayout, deps =
                                     buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
                                 });
                             }
-                        } catch (e) {
+                        } catch (e: unknown) {
                             showCartPopup({
                                 title: 'Ошибка',
-                                body: `<p>Не удалось выполнить запрос: ${e.message}</p>`,
+                                body: `<p>Не удалось выполнить запрос: ${e instanceof Error ? e.message : String(e)}</p>`,
                                 buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
                             });
                         }
@@ -651,7 +683,7 @@ export const initCart = ({
     makeItemIconLink,
     fetchText,
     getUidFromCheckUser,
-}) => {
+}: InitCartDeps): void => {
     injectItemIconStyles();
     injectSelectedItemsStyles();
     injectCartStyles();
@@ -665,7 +697,7 @@ export const initCart = ({
         obs.disconnect();
 
         const cartItems = parseCartItems(layout);
-        cartItems.sort((a, b) => b.date - a.date);
+        cartItems.sort((a, b) => b.date.getTime() - a.date.getTime());
         const characters = parseCartCharacters(layout);
         const container = pageDocument.getElementById('mr_block_cart');
         if (!container) return;

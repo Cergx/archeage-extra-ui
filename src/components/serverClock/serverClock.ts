@@ -3,23 +3,28 @@ import {
     getServerNowMs,
     getMSKWeekday,
     getMSKTimeOfDaySeconds,
-    setNowMs,
-    setServerTimeOffset,
-    getNowMs,
     syncServerTime,
-} from '../../utils/time.js';
-import { getGameTime } from '../../utils/game-time.js';
-import { formatCountdown, getSecondsUntilNextEvent } from '../../utils/events-time.js';
-import { EVENTS } from '../../data/events.js';
+} from '../../utils/time.ts';
+import { getGameTime } from '../../utils/game-time.ts';
+import { formatCountdown, getSecondsUntilNextEvent } from '../../utils/events-time.ts';
+import { EVENTS } from '../../data/events.ts';
 import serverClockStyles from './serverClock.scss';
 
-export let serverClockEl = null;
-export let serverClockStylesInjected = false;
+interface EventInfo {
+    title: string;
+    secondsUntil: number;
+}
 
-const loadEventVisibility = () => JSON.parse(localStorage.getItem('tm_aa_ev_vis') || '{}');
-const isEventVisible = (ev, vis) => ev.code in vis ? vis[ev.code] : !!ev.defaultVisible;
+export let serverClockEl: HTMLElement | null = null;
+export let serverClockStylesInjected: boolean = false;
 
-export const injectServerClockStyles = () => {
+const loadEventVisibility: () => Record<string, boolean> = () =>
+    JSON.parse(localStorage.getItem('tm_aa_ev_vis') || '{}');
+
+const isEventVisible: (ev: { code: string; defaultVisible?: boolean }, vis: Record<string, boolean>) => boolean =
+    (ev, vis) => ev.code in vis ? vis[ev.code] : !!ev.defaultVisible;
+
+export const injectServerClockStyles: () => void = () => {
     if (serverClockStylesInjected) return;
     serverClockStylesInjected = true;
     const style = document.createElement('style');
@@ -27,13 +32,12 @@ export const injectServerClockStyles = () => {
     document.head.appendChild(style);
 };
 
-/** Находит ближайшее видимое событие из таблицы «Расписание событий». */
-export const getNextVisibleEventInfo = () => {
+export const getNextVisibleEventInfo: () => EventInfo | null = () => {
     const visOverrides = loadEventVisibility();
-    let bestActive = null;
-    let bestUpcoming = null;
+    let bestActive: EventInfo | null = null;
+    let bestUpcoming: EventInfo | null = null;
 
-    for (const ev of EVENTS) {
+    for (const ev of EVENTS as Array<{ code: string; title: string; defaultVisible?: boolean; schedule: Array<{ timeStart: string; timeEnd?: string; weekdays?: number[] }> }>) {
         if (!isEventVisible(ev, visOverrides)) continue;
         const sec = getSecondsUntilNextEvent(ev.schedule);
         if (sec == null) continue;
@@ -52,7 +56,7 @@ export const getNextVisibleEventInfo = () => {
     return bestActive || bestUpcoming;
 };
 
-export const updateServerClockContent = () => {
+export const updateServerClockContent: () => void = () => {
     if (!serverClockEl) return;
     const serverNow = getServerNowMs();
     const d = new Date(serverNow);
@@ -79,7 +83,10 @@ export const updateServerClockContent = () => {
     serverClockEl.innerHTML = `мск: ${mskTime}<br>игровое: ${gameTime}${eventLine}`;
 };
 
-export const initServerClock = async (openEventsPopup, checkEventNotifications) => {
+export const initServerClock: (
+    openEventsPopup: () => void,
+    checkEventNotifications?: () => void,
+) => Promise<void> = async (openEventsPopup, checkEventNotifications) => {
     await syncServerTime();
     injectServerClockStyles();
     serverClockEl = document.createElement('div');

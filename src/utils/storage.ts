@@ -1,5 +1,5 @@
 /** @returns {string} Current Moscow date key in YYYY-MM-DD format. */
-export const getMskDateKey = () => {
+export const getMskDateKey: () => string = () => {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Europe/Moscow',
         year: 'numeric',
@@ -15,7 +15,7 @@ export const getMskDateKey = () => {
  * @param {*} fallback Fallback value when no valid value exists.
  * @returns {*} Parsed shared JSON value or fallback.
  */
-export const readSharedJson = (key, fallback) => {
+export const readSharedJson: <T>(key: string, fallback: T) => T = (key, fallback) => {
     try {
         if (typeof GM_getValue === 'function') {
             const value = GM_getValue(key);
@@ -37,7 +37,7 @@ export const readSharedJson = (key, fallback) => {
  * @param {string} key Storage key.
  * @param {*} value Value to serialize into shared storage.
  */
-export const writeSharedJson = (key, value) => {
+export const writeSharedJson: (key: string, value: unknown) => void = (key, value) => {
     const json = JSON.stringify(value);
     try {
         if (typeof GM_setValue === 'function') {

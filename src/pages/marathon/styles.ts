@@ -1,15 +1,15 @@
 import itemIconStyles from '../../components/itemIcon/itemIcon.scss';
-import selectedItemsStyles from './selectedItems/selectedItems.scss';
-import marathonStyles from './page/page.scss';
+import selectedItemsStyles from './selected-items.scss';
+import marathonStyles from './marathon.scss';
 import cartStyles from '../cart/cart.scss';
 
-export let itemIconStylesInjected = false;
-export let selectedItemsStylesInjected = false;
-export let marathonStylesInjected = false;
-export let cartStylesInjected = false;
+export let itemIconStylesInjected: boolean = false;
+export let selectedItemsStylesInjected: boolean = false;
+export let marathonStylesInjected: boolean = false;
+export let cartStylesInjected: boolean = false;
 
 /** Инжектит стили для иконок предметов (используется на cart и marathon). */
-export const injectItemIconStyles = () => {
+export const injectItemIconStyles = (): void => {
     if (itemIconStylesInjected) return;
     itemIconStylesInjected = true;
     const style = document.createElement('style');
@@ -18,7 +18,7 @@ export const injectItemIconStyles = () => {
 };
 
 /** Инжектит стили для страницы марафона. */
-export const injectMarathonStyles = () => {
+export const injectMarathonStyles = (): void => {
     if (marathonStylesInjected) return;
     marathonStylesInjected = true;
 
@@ -28,7 +28,7 @@ export const injectMarathonStyles = () => {
 };
 
 /** Инжектит стили для страницы корзины. */
-export const injectCartStyles = () => {
+export const injectCartStyles = (): void => {
     if (cartStylesInjected) return;
     cartStylesInjected = true;
 
@@ -38,7 +38,7 @@ export const injectCartStyles = () => {
 };
 
 /** Инжектит стили для блока списка выбранных предметов. */
-export const injectSelectedItemsStyles = () => {
+export const injectSelectedItemsStyles = (): void => {
     if (selectedItemsStylesInjected) return;
     selectedItemsStylesInjected = true;
 

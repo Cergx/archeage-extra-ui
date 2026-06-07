@@ -6,12 +6,18 @@ import {
     WEEKDAY_NAMES,
 } from './time.js';
 
+interface EventSchedule {
+    timeStart: string;
+    timeEnd?: string;
+    weekdays?: number[];
+}
+
 /**
  * Вычисляет секунды до ближайшего события.
  * Возвращает 0, если событие идёт прямо сейчас; положительное число — секунды до начала; null — нет событий.
  * @param {EventSchedule[]} events
  */
-export const getSecondsUntilNextEvent = (events) => {
+export const getSecondsUntilNextEvent: (events: EventSchedule[]) => number | null = (events) => {
     if (!events || !events.length) return null;
 
     const serverNow = getServerNowMs();
@@ -56,11 +62,11 @@ export const getSecondsUntilNextEvent = (events) => {
 };
 
 /** @param {EventSchedule} event */
-export const formatEventTime = (event) =>
+export const formatEventTime: (event: EventSchedule) => string = (event) =>
     event.timeEnd ? `${event.timeStart}–${event.timeEnd}` : event.timeStart;
 
 /** @param {EventSchedule[]} events */
-export const formatEventsToString = (events) => {
+export const formatEventsToString: (events: EventSchedule[]) => string = (events) => {
     if (!events || !events.length) return '';
 
     // Группируем события: с днями недели отдельно, ежедневные отдельно
@@ -92,7 +98,7 @@ export const formatEventsToString = (events) => {
 };
 
 /** @param {number|null} seconds */
-export const formatCountdown = (seconds) => {
+export const formatCountdown: (seconds: number | null) => string = (seconds) => {
     if (seconds == null || seconds < 0) return '';
 
     const d = Math.floor(seconds / 86400);
@@ -112,7 +118,7 @@ export const formatCountdown = (seconds) => {
 };
 
 /** @param {HTMLElement} el @param {number|null} seconds */
-export const updateCountdownEl = (el, seconds) => {
+export const updateCountdownEl: (el: HTMLElement, seconds: number | null) => void = (el, seconds) => {
     el.classList.remove('tm-countdown--active', 'tm-countdown--waiting');
     if (seconds == null) {
         el.textContent = '';

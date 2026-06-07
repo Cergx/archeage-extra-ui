@@ -6,7 +6,7 @@ const sass = require('sass');
 const isProd = process.argv.includes('--prod');
 const isWatch = process.argv.includes('--watch');
 const headerPath = path.join(__dirname, 'src', 'header.js');
-const entryPath = path.join(__dirname, 'src', 'main.js');
+const entryPath = path.join(__dirname, 'src', 'main.ts');
 const outPath = path.join(__dirname, 'ArcheAgeExtraUI.user.js');
 
 const HEADER = fs.readFileSync(headerPath, 'utf-8').trimEnd() + '\n';

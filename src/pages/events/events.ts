@@ -12,6 +12,60 @@ import { SERVERS } from '../../data/servers.js';
 import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom } from '../../data/items.js';
 import eventsStyles from './events.scss';
 
+interface EventQuest {
+    id: number;
+    title: string;
+}
+
+interface EventSchedule {
+    timeStart: string;
+    timeEnd?: string;
+    weekdays?: number[];
+    duration?: number;
+}
+
+interface EventEntry {
+    code: string;
+    title: string;
+    defaultVisible?: boolean;
+    defaultNotifications?: boolean;
+    schedule: EventSchedule[];
+    locations?: string[];
+    quests?: EventQuest[];
+}
+
+type EventVisibilityOverrides = Record<string, boolean>;
+
+export interface NotificationState {
+    enabled: boolean;
+    events: Record<string, boolean>;
+    notified: Record<string, boolean>;
+}
+
+interface NotificationDeps {
+    loadNotificationState: () => NotificationState;
+    saveNotificationState: (state: NotificationState) => void;
+}
+
+interface EventsPopupDeps extends NotificationDeps {
+    loadVekselServerIdOverride: () => string;
+    saveVekselServerIdOverride: (serverId: string) => void;
+    resolveVekselUrl: () => unknown;
+    getVekselAutoOptionText: () => string;
+    updateRenderedItemIcons?: () => void;
+}
+
+interface EventOccurrence {
+    ev: EventEntry;
+    evCode: string;
+    label: string;
+    secondsUntil: number;
+    isActive: boolean;
+    isBeyond: boolean;
+}
+
+type TimerId = ReturnType<typeof setInterval>;
+
 const LS_KEYS = {
     EVENT_VISIBILITY: 'tm_aa_ev_vis',
     NOTIFICATIONS: 'tm_aa_notifications',
@@ -19,7 +73,7 @@ const LS_KEYS = {
 
 export const CODEX_QUEST_BASE = 'https://archeagecodex.com/ru/quest/';
 
-export const loadNotificationState = () => {
+export const loadNotificationState = (): NotificationState => {
     try {
         const raw = localStorage.getItem(LS_KEYS.NOTIFICATIONS);
         if (raw) {
@@ -34,7 +88,7 @@ export const loadNotificationState = () => {
     return { enabled: false, events: {}, notified: {} };
 };
 
-export const saveNotificationState = (state) => {
+export const saveNotificationState = (state: NotificationState): void => {
     try {
         localStorage.setItem(LS_KEYS.NOTIFICATIONS, JSON.stringify(state));
     } catch { /* ignore */ }
@@ -42,7 +96,7 @@ export const saveNotificationState = (state) => {
 
 // --- Event visibility (localStorage) ---
 
-export const loadEventVisibility = () => {
+export const loadEventVisibility = (): EventVisibilityOverrides => {
     try {
         return JSON.parse(localStorage.getItem(LS_KEYS.EVENT_VISIBILITY)) || {};
     } catch {
@@ -50,18 +104,18 @@ export const loadEventVisibility = () => {
     }
 };
 
-export const saveEventVisibility = (overrides) => {
+export const saveEventVisibility = (overrides: EventVisibilityOverrides): void => {
     try {
         localStorage.setItem(LS_KEYS.EVENT_VISIBILITY, JSON.stringify(overrides));
     } catch { /* ignore */ }
 };
 
-export const isEventVisible = (ev, overrides) => {
+export const isEventVisible = (ev: EventEntry, overrides: EventVisibilityOverrides): boolean => {
     if (ev.code in overrides) return overrides[ev.code];
     return !!ev.defaultVisible;
 };
 
-const getMSKDateString = (utcMs) => {
+const getMSKDateString = (utcMs: number): string => {
     const fmt = new Intl.DateTimeFormat('en-CA', {
         timeZone: TZ,
         year: 'numeric',
@@ -71,7 +125,7 @@ const getMSKDateString = (utcMs) => {
     return fmt.format(new Date(utcMs));
 };
 
-const cleanOldNotifiedKeys = (state) => {
+const cleanOldNotifiedKeys = (state: NotificationState): void => {
     const today = getMSKDateString(getServerNowMs());
     const keys = Object.keys(state.notified);
     let changed = false;
@@ -84,7 +138,7 @@ const cleanOldNotifiedKeys = (state) => {
     if (changed) saveNotificationState(state);
 };
 
-const showEventNotification = (ev, entry) => {
+const showEventNotification = (ev: EventEntry, entry: EventSchedule): void => {
     const timeLabel = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
     const location = ev.locations?.length ? ev.locations.join(', ') : '';
     const body = location ? `${timeLabel} — ${location}` : timeLabel;
@@ -93,9 +147,12 @@ const showEventNotification = (ev, entry) => {
     } catch { /* ignore */ }
 };
 
-export const checkEventNotifications = ({ loadNotificationState, saveNotificationState } = {}) => {
+export const checkEventNotifications = ({
+    loadNotificationState,
+    saveNotificationState,
+}: Partial<NotificationDeps> = {}): void => {
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    const state = loadNotificationState();
+    const state = loadNotificationState!();
     if (!state.enabled) return;
 
     cleanOldNotifiedKeys(state);
@@ -133,14 +190,14 @@ export const checkEventNotifications = ({ loadNotificationState, saveNotificatio
         }
     }
 
-    if (changed) saveNotificationState(state);
+    if (changed) saveNotificationState!(state);
 };
 
 // --- Styles ---
 
-export let eventsPopupStylesInjected = false;
+export let eventsPopupStylesInjected: boolean = false;
 
-export const injectEventsPopupStyles = () => {
+export const injectEventsPopupStyles = (): void => {
     if (eventsPopupStylesInjected) return;
     eventsPopupStylesInjected = true;
     const style = document.createElement('style');
@@ -150,19 +207,19 @@ export const injectEventsPopupStyles = () => {
 
 // --- Popup logic ---
 
-let eventsOverlay = null;
-let eventsInterval = null;
-let settingsOverlay = null;
-let evVisOverrides = null;
+let eventsOverlay: HTMLDivElement | null = null;
+let eventsInterval: TimerId | null = null;
+let settingsOverlay: HTMLDivElement | null = null;
+let evVisOverrides: EventVisibilityOverrides = {};
 
-export const closeSettingsPopup = () => {
+export const closeSettingsPopup = (): void => {
     if (settingsOverlay) {
         settingsOverlay.remove();
         settingsOverlay = null;
     }
 };
 
-export const closeEventsPopup = () => {
+export const closeEventsPopup = (): void => {
     closeSettingsPopup();
     if (eventsInterval) {
         clearInterval(eventsInterval);
@@ -174,7 +231,7 @@ export const closeEventsPopup = () => {
     }
 };
 
-export const openSettingsPopup = (onChanged, {
+export const openSettingsPopup = (onChanged: () => void, {
     loadVekselServerIdOverride,
     saveVekselServerIdOverride,
     resolveVekselUrl,
@@ -182,19 +239,19 @@ export const openSettingsPopup = (onChanged, {
     loadNotificationState,
     saveNotificationState,
     updateRenderedItemIcons = () => {},
-} = {}) => {
+}: Partial<EventsPopupDeps> = {}): void => {
     if (settingsOverlay) { closeSettingsPopup(); return; }
 
     settingsOverlay = document.createElement('div');
     settingsOverlay.className = 'tm-popup-overlay';
     settingsOverlay.style.zIndex = '10002';
-    settingsOverlay.addEventListener('mousedown', (e) => {
+    settingsOverlay.addEventListener('mousedown', (e: MouseEvent) => {
         if (e.target === settingsOverlay) closeSettingsPopup();
     });
 
     const panel = document.createElement('div');
     panel.className = 'tm-popup-panel tm-popup-panel--settings';
-    panel.addEventListener('mousedown', (e) => e.stopPropagation());
+    panel.addEventListener('mousedown', (e: MouseEvent) => e.stopPropagation());
 
     // Header
     const header = document.createElement('div');
@@ -234,22 +291,22 @@ export const openSettingsPopup = (onChanged, {
     const autoOption = document.createElement('option');
     autoOption.value = '';
     autoOption.dataset.vekselServerAutoOption = '1';
-    autoOption.textContent = getVekselAutoOptionText();
+    autoOption.textContent = getVekselAutoOptionText!();
     serverSelect.appendChild(autoOption);
 
     Object.entries(SERVERS)
         .sort((a, b) => a[1].localeCompare(b[1], 'ru'))
-        .forEach(([id, name]) => {
+        .forEach(([id, name]: [string, string]) => {
             const option = document.createElement('option');
             option.value = id;
             option.textContent = name;
             serverSelect.appendChild(option);
         });
 
-    serverSelect.value = loadVekselServerIdOverride();
+    serverSelect.value = loadVekselServerIdOverride!();
     serverSelect.addEventListener('change', () => {
-        saveVekselServerIdOverride(serverSelect.value);
-        resolveVekselUrl();
+        saveVekselServerIdOverride!(serverSelect.value);
+        resolveVekselUrl!();
     });
     serverSection.appendChild(serverSelect);
     leftCol.appendChild(serverSection);
@@ -348,7 +405,7 @@ export const openSettingsPopup = (onChanged, {
     const ul = document.createElement('ul');
     ul.className = 'tm-ev-settings-list';
 
-    const notifState = loadNotificationState();
+    const notifState = loadNotificationState!();
 
     for (const ev of EVENTS) {
         const li = document.createElement('li');
@@ -381,8 +438,8 @@ export const openSettingsPopup = (onChanged, {
                 alert('Ваш браузер не поддерживает уведомления.');
                 return;
             }
-            const toggle = () => {
-                const s = loadNotificationState();
+            const toggle = (): void => {
+                const s = loadNotificationState!();
                 const wasOn = ev.code in s.events ? s.events[ev.code] : !!ev.defaultNotifications;
                 const nowOn = !wasOn;
                 if (nowOn === !!ev.defaultNotifications) {
@@ -391,13 +448,13 @@ export const openSettingsPopup = (onChanged, {
                     s.events[ev.code] = nowOn;
                 }
                 if (nowOn) s.enabled = true;
-                saveNotificationState(s);
+                saveNotificationState!(s);
                 bell.classList.toggle('tm-ev-bell--off', !nowOn);
                 const globalBell = document.querySelector('.tm-popup-btn--bell');
                 if (globalBell) globalBell.classList.toggle('tm-popup-btn--bell-off', !s.enabled);
             };
             if (Notification.permission === 'default') {
-                Notification.requestPermission().then((perm) => {
+                Notification.requestPermission().then((perm: NotificationPermission) => {
                     if (perm === 'granted') toggle();
                     else alert('Уведомления заблокированы в настройках браузера.\nРазрешите уведомления для этого сайта и попробуйте снова.');
                 });
@@ -433,7 +490,7 @@ export const openEventsPopup = ({
     loadNotificationState,
     saveNotificationState,
     updateRenderedItemIcons = () => {},
-} = {}) => {
+}: Partial<EventsPopupDeps> = {}): void => {
     if (eventsOverlay) { closeEventsPopup(); return; }
 
     injectEventsPopupStyles();
@@ -441,13 +498,13 @@ export const openEventsPopup = ({
 
     eventsOverlay = document.createElement('div');
     eventsOverlay.className = 'tm-popup-overlay';
-    eventsOverlay.addEventListener('mousedown', (e) => {
+    eventsOverlay.addEventListener('mousedown', (e: MouseEvent) => {
         if (e.target === eventsOverlay) closeEventsPopup();
     });
 
     const panel = document.createElement('div');
     panel.className = 'tm-popup-panel tm-popup-panel--events';
-    panel.addEventListener('mousedown', (e) => e.stopPropagation());
+    panel.addEventListener('mousedown', (e: MouseEvent) => e.stopPropagation());
 
     // Header
     const header = document.createElement('div');
@@ -462,12 +519,12 @@ export const openEventsPopup = ({
     gearBtn.textContent = '⚙';
     gearBtn.title = 'Настройки отображения';
     gearBtn.addEventListener('click', () => openSettingsPopup(renderTable, {
-        loadVekselServerIdOverride,
-        saveVekselServerIdOverride,
-        resolveVekselUrl,
-        getVekselAutoOptionText,
-        loadNotificationState,
-        saveNotificationState,
+        loadVekselServerIdOverride: loadVekselServerIdOverride!,
+        saveVekselServerIdOverride: saveVekselServerIdOverride!,
+        resolveVekselUrl: resolveVekselUrl!,
+        getVekselAutoOptionText: getVekselAutoOptionText!,
+        loadNotificationState: loadNotificationState!,
+        saveNotificationState: saveNotificationState!,
         updateRenderedItemIcons,
     }));
     header.appendChild(gearBtn);
@@ -476,8 +533,8 @@ export const openEventsPopup = ({
     bellBtn.className = 'tm-popup-btn tm-popup-btn--bell';
     bellBtn.textContent = '🔔';
     bellBtn.title = 'Уведомления за 5 минут до событий';
-    const updateBellStyle = () => {
-        const s = loadNotificationState();
+    const updateBellStyle = (): void => {
+        const s = loadNotificationState!();
         bellBtn.classList.toggle('tm-popup-btn--bell-off', !s.enabled);
     };
     updateBellStyle();
@@ -493,9 +550,9 @@ export const openEventsPopup = ({
             alert('Уведомления заблокированы в настройках браузера.\nРазрешите уведомления для этого сайта и попробуйте снова.');
             return;
         }
-        const state = loadNotificationState();
+        const state = loadNotificationState!();
         state.enabled = !state.enabled;
-        saveNotificationState(state);
+        saveNotificationState!(state);
         updateBellStyle();
     });
     header.appendChild(bellBtn);
@@ -533,24 +590,24 @@ export const openEventsPopup = ({
     const DAY_SEC = 86400;
 
     /** Ключи раскрытых <details> — сохраняются между перерисовками */
-    const openDetails = new Set();
+    const openDetails = new Set<string>();
 
     /**
      * Собирает все ближайшие вхождения видимых событий.
      * @returns {{ ev: EventEntry, evCode: string, label: string, secondsUntil: number, isActive: boolean, isBeyond: boolean }[]}
      */
-    const collectOccurrences = () => {
+    const collectOccurrences = (): EventOccurrence[] => {
         const serverNow = getServerNowMs();
         const nowWd = getMSKWeekday(serverNow);
         const nowSec = getMSKTimeOfDaySeconds(serverNow);
 
-        const within = [];
-        const beyond = [];
+        const within: EventOccurrence[] = [];
+        const beyond: EventOccurrence[] = [];
 
         for (const ev of EVENTS) {
             if (!isEventVisible(ev, evVisOverrides)) continue;
             let hasWithin = false;
-            let nearest = null;
+            let nearest: EventOccurrence | null = null;
 
             for (const entry of ev.schedule) {
                 const { hours, minutes } = parseTime(entry.timeStart);
@@ -621,8 +678,8 @@ export const openEventsPopup = ({
     };
 
     /** Формирует строки расписания для раскрывающегося списка */
-    const buildScheduleLines = (schedule) => {
-        const lines = [];
+    const buildScheduleLines = (schedule: EventSchedule[]): string[] => {
+        const lines: string[] = [];
         for (const entry of schedule) {
             const time = entry.timeEnd ? `${entry.timeStart}–${entry.timeEnd}` : entry.timeStart;
             if (entry.weekdays?.length) {
@@ -635,7 +692,7 @@ export const openEventsPopup = ({
         return lines;
     };
 
-    const summaryText = (occ) => {
+    const summaryText = (occ: EventOccurrence): string => {
         if (occ.isActive && occ.secondsUntil < 0) {
             return `${occ.label} — ещё ${formatCountdown(-occ.secondsUntil)}`;
         } else if (occ.isActive) {
@@ -645,14 +702,14 @@ export const openEventsPopup = ({
         }
     };
 
-    const structureKey = (occs) => occs.map(o =>
+    const structureKey = (occs: EventOccurrence[]): string => occs.map(o =>
         `${o.evCode}:${o.label}:${o.isActive}:${o.isBeyond}`
     ).join('|');
 
     let lastKey = '';
-    let summaryEls = [];
+    let summaryEls: HTMLElement[] = [];
 
-    const renderTable = () => {
+    const renderTable = (): void => {
         const occs = collectOccurrences();
         lastKey = structureKey(occs);
         summaryEls = [];
@@ -721,7 +778,7 @@ export const openEventsPopup = ({
         tbody.appendChild(frag);
     };
 
-    const tickTable = () => {
+    const tickTable = (): void => {
         const occs = collectOccurrences();
         const key = structureKey(occs);
 

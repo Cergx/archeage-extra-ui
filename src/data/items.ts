@@ -4,18 +4,16 @@ export const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
 export const LS_KEY_ICON_SEX = 'tm_aa_icon_sex';
 export const LS_KEY_ICON_SCALE = 'tm_aa_icon_scale';
 export const LS_KEY_ICON_SCALE_BROWSER_ZOOM = 'tm_aa_icon_scale_browser_zoom';
-export const LS_KEYS = { ICON_SEX: LS_KEY_ICON_SEX };
+export const LS_KEYS: Record<string, string> = { ICON_SEX: LS_KEY_ICON_SEX };
 
-/**
- * @typedef {Object} Grade
- * @property {string} overlay - URL изображения рамки грейда.
- * @property {string} title - Название грейда.
- * @property {string} color - Цвет грейда (CSS).
- * @property {RegExp[]} [cartNamePatterns] - Паттерны грейда в названии предмета корзины.
- */
+export interface Grade {
+    overlay: string;
+    title: string;
+    color: string;
+    cartNamePatterns?: RegExp[];
+}
 
-/** @type {Grade[]} */
-export const GRADES = [
+export const GRADES: Grade[] = [
     /* 0  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade0.png`, title: 'Бесполезный предмет', color: '#949293' },
     /* 1  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade1.png`, title: 'Обычный предмет', color: '#ba976d', cartNamePatterns: [/^обычн(?:ый|ая|ое|ые)\s+/] },
     /* 2  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade2.png`, title: 'Необычный предмет', color: '#77b064', cartNamePatterns: [/^необычн(?:ый|ая|ое|ые)\s+/] },
@@ -31,14 +29,12 @@ export const GRADES = [
     /* 12 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade12.png`, title: 'Предмет эпохи Двенадцати', color: '#ae98fe', cartNamePatterns: [/\s+эпохи двенадцати$/] },
 ];
 
-/**
- * @typedef {Object} ItemType
- * @property {string} [icon] - URL overlay-изображения типа.
- * @property {string} title - Название типа предмета.
- */
+export interface ItemType {
+    icon?: string;
+    title: string;
+}
 
-/** @type {Record<string, ItemType>} */
-export const ITEM_TYPES = {
+export const ITEM_TYPES: Record<string, ItemType> = {
     'unidentified': { title: 'Неопознанный предмет' },
     'quest':        { title: 'Задание' },
     'magical':      { title: 'Магический предмет' },
@@ -55,13 +51,11 @@ export const ITEM_TYPES = {
     'craftItem':    { title: 'Ремесленный предмет' },
 };
 
-/**
- * @typedef {Object} ItemSubType
- * @property {string} title - Название подтипа предмета.
- */
+export interface ItemSubType {
+    title: string;
+}
 
-/** @type {Record<string, ItemSubType>} */
-export const ITEM_SUB_TYPES = {
+export const ITEM_SUB_TYPES: Record<string, ItemSubType> = {
     'ingot':          { title: 'Слиток металла' },
     'leather':        { title: 'Кожа' },
     'cloth':          { title: 'Ткань' },
@@ -72,13 +66,11 @@ export const ITEM_SUB_TYPES = {
     'windInstrument': { title: 'Духовой инструмент' },
 };
 
-/**
- * @typedef {Object} EquipmentSubType
- * @property {string} title - Название подтипа снаряжения.
- */
+export interface EquipmentSubType {
+    title: string;
+}
 
-/** @type {Record<string, EquipmentSubType>} */
-export const EQUIPMENT_SUB_TYPES = {
+export const EQUIPMENT_SUB_TYPES: Record<string, EquipmentSubType> = {
     'helmet':            { title: 'Шлем' },
     'armor':             { title: 'Нагрудник' },
     'belt':              { title: 'Пояс' },
@@ -98,13 +90,11 @@ export const EQUIPMENT_SUB_TYPES = {
     'costume':           { title: 'Костюм' },
 };
 
-/**
- * @typedef {Object} ItemOverlay
- * @property {string} icon - URL overlay-изображения типа.
- */
+export interface ItemOverlay {
+    icon: string;
+}
 
-/** @type {Record<string, ItemOverlay>} */
-export const ICON_OVERLAY = {
+export const ICON_OVERLAY: Record<string, ItemOverlay> = {
     'unconfirmed': { icon: 'https://archeagecodex.com/items/top_unconfirmed.png' },
     'seal':        { icon: 'https://archeagecodex.com/items/top_seal_08.png' },
     'quest_y':     { icon: 'https://archeagecodex.com/items/top_quest_y.png' },
@@ -120,55 +110,58 @@ export const CURRENCY_ICONS = {
     bronze: 'https://archeagecodex.com/items/bronze.png',
 };
 
-/**
- * @typedef {Object} ItemBase
- * @property {number} id - ID предмета (используется для генерации URL на ArcheageCodex).
- * @property {string} icon - Полный URL иконки. Может содержать плейсхолдер {sex}.
- * @property {string} [iconM] - Значение для {sex} при мужском поле.
- * @property {string} [iconF] - Значение для {sex} при женском поле.
- * @property {number} [grade] - Грейд (индекс в массиве GRADES, 0–12).
- * @property {string} name - Название предмета.
- * @property {string} [type] - Ключ в ITEM_TYPES.
- * @property {string} [overlay] - Ключ в ICON_OVERLAY.
- * @property {string} [subType] - Ключ в ITEM_SUB_TYPES (например, 'ingot', 'costume').
- * @property {string} [equipmentSubType] - Ключ в EQUIPMENT_SUB_TYPES (например, 'helmet').
- * @property {string} [vekselName] - Название предмета для таблицы векселей (если отличается от name).
- * @property {string} [vekselType] - Тип для таблицы векселей ('sack' | 'archive' | 'license').
- * @property {boolean} [isPersonal] - Персональный предмет (отображается в секции требований).
- * @property {string} [description] - Описание предмета (отображается во второй секции всплывашки).
- * @property {string} [useDescription] - Описание использования (выводится под description зелёным цветом).
- * @property {string} [equipDescription] - Описание экипировки (выводится аналогично useDescription).
- * @property {boolean} [isEquipDescriptionTemporary] - Подписывать описание экипировки как временное.
- * @property {number|null} [price] - Цена продажи в бронзе (null = не нужен торговцам).
- * @property {number} [reqLevel] - Требуемый уровень.
- * @property {number} [maxLevel] - Максимальный уровень (0 = текущий максимум).
- * @property {string} [apiCategoryTitle] - Категория предмета из dynamic tooltip API.
- * @property {number|string} [speed] - Сноровка.
- * @property {number|string} [durability] - Прочность.
- * @property {number|string} [dps] - Урон.
- * @property {number|string} [armor] - Защита.
- * @property {number|string} [magicResistance] - Сопротивление.
- * @property {number|string} [mdps] - Сила заклинаний.
- * @property {number|string} [hdps] - Эффективность исцеления.
- * @property {number|string} [str] - Сила.
- * @property {number|string} [dex] - Ловкость.
- * @property {number|string} [sta] - Выносливость.
- * @property {number|string} [int] - Интеллект.
- * @property {number|string} [spi] - Мудрость.
- * @property {Record<string, string>} [buff] - Параметры эффекта.
- * @property {number|string} [buffDuration] - Длительность эффекта в секундах.
- */
+export interface ItemBase {
+    id: number;
+    icon: string;
+    iconM?: string;
+    iconF?: string;
+    grade?: number;
+    name: string;
+    type?: string;
+    overlay?: string;
+    subType?: string;
+    equipmentSubType?: string;
+    vekselName?: string;
+    vekselType?: string;
+    isPersonal?: boolean;
+    description?: string;
+    useDescription?: string;
+    equipDescription?: string;
+    isEquipDescriptionTemporary?: boolean;
+    price?: number | null;
+    reqLevel?: number;
+    maxLevel?: number;
+    apiCategoryTitle?: string;
+    speed?: number | string;
+    durability?: number | string;
+    dps?: number | string;
+    armor?: number | string;
+    magicResistance?: number | string;
+    mdps?: number | string;
+    hdps?: number | string;
+    str?: number | string;
+    dex?: number | string;
+    sta?: number | string;
+    int?: number | string;
+    spi?: number | string;
+    buff?: Record<string, string | number | boolean | null>;
+    buffDuration?: number | string;
+    isGradeInferred?: boolean;
+}
 
-export const snakeToCamel = (value) => (
+type ItemPlaceholderValue = string | number | boolean | null | Record<string, string | number | boolean | null>;
+type ItemPlaceholderFormatter = (value: ItemPlaceholderValue, item?: ItemBase) => string;
+
+export const snakeToCamel = (value: unknown): string => (
     String(value || '').replace(/_([a-z])/g, (_, char) => char.toUpperCase())
 );
 
-export const formatDurationValue = (value) => {
+export const formatDurationValue = (value: unknown): string => {
     const totalSeconds = Math.max(0, Math.floor(Number(value) || 0));
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    const parts = [];
+    const parts: string[] = [];
 
     if (hours) parts.push(`${hours} ч.`);
     if (minutes) parts.push(`${minutes} м.`);
@@ -176,11 +169,11 @@ export const formatDurationValue = (value) => {
     return parts.join(' ') || '0 с.';
 };
 
-const ITEM_PLACEHOLDER_FORMATTERS = {
+const ITEM_PLACEHOLDER_FORMATTERS: Record<string, ItemPlaceholderFormatter> = {
     buffDuration: value => formatDurationValue(value),
 };
 
-export const escapeHtmlAttribute = (value) => (
+export const escapeHtmlAttribute = (value: unknown): string => (
     String(value || '')
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
@@ -188,12 +181,12 @@ export const escapeHtmlAttribute = (value) => (
         .replace(/>/g, '&gt;')
 );
 
-export const decapitalize = (value) => (
+export const decapitalize = (value: unknown): string => (
     String(value || '').replace(/^./, char => char.toLowerCase())
 );
 
-export const getItemPlaceholderValue = (item, field) => {
-    const directValue = item?.[field];
+export const getItemPlaceholderValue = (item: ItemBase | null | undefined, field: string): ItemPlaceholderValue | undefined => {
+    const directValue = (item as Record<string, ItemPlaceholderValue | undefined> | null | undefined)?.[field];
     if (directValue != null) return directValue;
 
     if (!field.startsWith('buff') || !item?.buff || typeof item.buff !== 'object') return null;
@@ -201,7 +194,7 @@ export const getItemPlaceholderValue = (item, field) => {
     return item.buff[buffField] ?? null;
 };
 
-export const resolveItemPlaceholders = (text, item) => (
+export const resolveItemPlaceholders = (text: unknown, item?: ItemBase): string => (
     String(text || '').replace(/#\{([a-zA-Z0-9_]+)\}/g, (match, rawField) => {
         const field = snakeToCamel(rawField);
         const value = getItemPlaceholderValue(item, field);
@@ -220,10 +213,8 @@ export const resolveItemPlaceholders = (text, item) => (
  * |ni;...text...|r       → <span class="inv-ni">text</span>
  * |nr;...text...|r       → <span class="inv-nr">text</span>
  * \n                     → <br>
- * @param {string} text
- * @returns {string} HTML-строка
  */
-export const parseGameMarkup = (text, { preserveNewlines = false } = {}) => {
+export const parseGameMarkup = (text: string, { preserveNewlines = false }: { preserveNewlines?: boolean } = {}): string => {
     if (!text) return '';
     const html = text
         .replace(/\|c([\da-fA-F]{2})([\da-fA-F]{6})(.*?)\|r/g,
@@ -244,58 +235,51 @@ export const parseGameMarkup = (text, { preserveNewlines = false } = {}) => {
     return preserveNewlines ? html : html.replace(/\n/g, '<br/>');
 };
 
-export const hasVisibleTooltipText = (value) => (
+export const hasVisibleTooltipText = (value: unknown): boolean => (
     String(value || '').replace(/\n|<br\s*\/?>/gi, '').trim().length > 0
 );
 
-/**
- * @typedef {string|number|boolean|null|Record<string, string|null|number|boolean>} DynamicTooltipFieldValue
- */
+export type DynamicTooltipFieldValue = string | number | boolean | null | Record<string, string | null | number | boolean>;
 
-/**
- * @typedef {Object} DynamicTooltipKnownFields
- * @property {string} [grade]
- * @property {string} [name]
- * @property {string} [name_metaphone]
- * @property {string} [category_id]
- * @property {string} [level_requirement]
- * @property {string} [level_limit]
- * @property {string} [description]
- * @property {string|null} [refund]
- * @property {string} [gradable]
- * @property {string} [disenchantable]
- * @property {string} [grade_enchantable]
- * @property {string} [fixed_grade]
- * @property {string} [filename]
- * @property {string} [c_dps]
- * @property {string} [c_mdps]
- * @property {string} [c_hdps]
- * @property {string} [c_speed]
- * @property {string} [c_armor]
- * @property {string} [c_magic_resistance]
- * @property {string} [c_str]
- * @property {string} [c_dex]
- * @property {string} [c_sta]
- * @property {string} [c_int]
- * @property {string} [c_spi]
- * @property {string} [c_durability]
- * @property {Record<string, string|null|number|boolean>|null} [buff]
- * @property {string} [num_sockets]
- * @property {string} [dyeing]
- * @property {string} [equip_tooltip]
- * @property {string} [set_description]
- * @property {string} [cat_name]
- * @property {string} [grade_name]
- * @property {string} [grade_color]
- */
+export interface DynamicTooltipKnownFields {
+    grade?: string;
+    name?: string;
+    name_metaphone?: string;
+    category_id?: string;
+    level_requirement?: string;
+    level_limit?: string;
+    description?: string;
+    refund?: string | null;
+    gradable?: string;
+    disenchantable?: string;
+    grade_enchantable?: string;
+    fixed_grade?: string;
+    filename?: string;
+    c_dps?: string;
+    c_mdps?: string;
+    c_hdps?: string;
+    c_speed?: string;
+    c_armor?: string;
+    c_magic_resistance?: string;
+    c_str?: string;
+    c_dex?: string;
+    c_sta?: string;
+    c_int?: string;
+    c_spi?: string;
+    c_durability?: string;
+    buff?: Record<string, string | null | number | boolean> | null;
+    num_sockets?: string;
+    dyeing?: string;
+    equip_tooltip?: string;
+    set_description?: string;
+    cat_name?: string;
+    grade_name?: string;
+    grade_color?: string;
+}
 
-/** @typedef {DynamicTooltipKnownFields & Record<string, DynamicTooltipFieldValue|undefined>} DynamicTooltipData */
+export type DynamicTooltipData = DynamicTooltipKnownFields & Record<string, DynamicTooltipFieldValue | undefined>;
 
-/**
- * @param {DynamicTooltipFieldValue|undefined} value
- * @returns {string|null}
- */
-export const cleanDynamicTooltipMarkup = (value) => {
+export const cleanDynamicTooltipMarkup = (value: DynamicTooltipFieldValue | undefined): string | null => {
     if (value == null) return null;
     let result = String(value)
         .replace(/\\+"/g, '"')
@@ -307,7 +291,7 @@ export const cleanDynamicTooltipMarkup = (value) => {
     return result ? result : null;
 };
 
-export const stripHtmlForMatch = (value) => (
+export const stripHtmlForMatch = (value: unknown): string => (
     String(value || '')
         .replace(/<[^>]*>/g, ' ')
         .replace(/\s+/g, ' ')
@@ -323,18 +307,18 @@ export const ICON_SEX_VALUES = {
     f: { title: 'Женский', field: 'iconF' },
 };
 
-export const loadIconSex = () => {
+export const loadIconSex = (): string => {
     try {
         const sex = localStorage.getItem(LS_KEY_ICON_SEX);
-        return ICON_SEX_VALUES[sex] ? sex : 'm';
+        return sex && ICON_SEX_VALUES[sex as keyof typeof ICON_SEX_VALUES] ? sex : 'm';
     } catch {
         return 'm';
     }
 };
 
-export const saveIconSex = (sex) => {
+export const saveIconSex = (sex: string): void => {
     try {
-        if (ICON_SEX_VALUES[sex]) {
+        if (ICON_SEX_VALUES[sex as keyof typeof ICON_SEX_VALUES]) {
             localStorage.setItem(LS_KEY_ICON_SEX, sex);
         } else {
             localStorage.removeItem(LS_KEY_ICON_SEX);
@@ -344,7 +328,7 @@ export const saveIconSex = (sex) => {
     }
 };
 
-export const loadIconScalePercent = () => {
+export const loadIconScalePercent = (): number => {
     try {
         const raw = localStorage.getItem(LS_KEY_ICON_SCALE);
         if (raw != null) {
@@ -355,7 +339,7 @@ export const loadIconScalePercent = () => {
     return 100;
 };
 
-export const saveIconScalePercent = (val) => {
+export const saveIconScalePercent = (val: number): void => {
     try {
         const intVal = Math.round(val);
         if (Number.isFinite(intVal) && intVal >= 10 && intVal <= 5000) {
@@ -366,41 +350,30 @@ export const saveIconScalePercent = (val) => {
     } catch { /* ignore */ }
 };
 
-export const loadIconScaleBrowserZoom = () => {
+export const loadIconScaleBrowserZoom = (): boolean => {
     try { return localStorage.getItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM) !== 'false'; }
     catch { return true; }
 };
 
-export const saveIconScaleBrowserZoom = (enabled) => {
+export const saveIconScaleBrowserZoom = (enabled: boolean): void => {
     try {
         if (enabled) localStorage.removeItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM);
         else localStorage.setItem(LS_KEY_ICON_SCALE_BROWSER_ZOOM, 'false');
     } catch { /* ignore */ }
 };
 
-/**
- * @param {string} icon
- * @param {string} iconM
- * @param {string} iconF
- * @returns {string}
- */
-export const getItemIconUrlFromParts = (icon, iconM, iconF) => {
+export const getItemIconUrlFromParts = (icon: string, iconM: string, iconF: string): string => {
     const sex = loadIconSex();
     const sexIcon = sex === 'm' ? iconM || iconF || 'm' : iconF || iconM || 'f';
     return sexIcon ? icon.replace(/\{sex\}/g, sexIcon) : icon;
 };
 
-/**
- * @param {ItemBase} item
- * @returns {string}
- */
-export const getItemIconUrl = (item) => (
+export const getItemIconUrl = (item: ItemBase): string => (
     getItemIconUrlFromParts(item?.icon || '', item?.iconM || '', item?.iconF || '')
 );
 
 
-/** @type {Record<number, ItemBase>} */
-export const ITEMS = Object.fromEntries([
+export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8256, type: 'material', subType: 'cloth', icon: `${GMRU_CDN_ICONS}b855c7909baa6f5c5bd6b7dbfc08b865.png`, grade: 1, name: "Ткань" }, // icon_item_0356.png
     { id: 8318, type: 'material', subType: 'ingot', icon: `${GMRU_CDN_ICONS}9d60cae3016a14b2cfc17a90de8e5f5b.png`, grade: 1, name: "Слиток железа" }, // icon_item_quest053.png
     { id: 8337, type: 'material', subType: 'lumber', icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, name: "Упаковка строительной древесины", vekselName: "Строительная древесина" }, // icon_item_0041.png
@@ -592,8 +565,8 @@ export const ITEMS = Object.fromEntries([
     { id: 56010, name: 'Бенедикт', icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyJpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoV2luZG93cykiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OTdFODYzN0UzRTU2MTFGMTg0NDU4NjRGMEZDN0I0MjYiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OTdFODYzN0YzRTU2MTFGMTg0NDU4NjRGMEZDN0I0MjYiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo5N0U4NjM3QzNFNTYxMUYxODQ0NTg2NEYwRkM3QjQyNiIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo5N0U4NjM3RDNFNTYxMUYxODQ0NTg2NEYwRkM3QjQyNiIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PjAKMw0AABTfSURBVHjaNFlpjBzH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' },
 
     { id: 1, type: '', icon: '', grade: 1, name: '' },
-].map(i => [i.id, i]));
+] as ItemBase[]).map(i => [i.id, i])) as Record<number, ItemBase>;
 
-export const getItemCodexUrl = (item) => (
+export const getItemCodexUrl = (item: ItemBase): string => (
     `${CODEX_ITEM_URL}${item.id}/${item.isGradeInferred ? `?grade=${item.grade}` : ''}`
 );

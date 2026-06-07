@@ -1,12 +1,50 @@
 import { API_INFO_CACHE } from './core.js';
 import { pageDocument } from '../../utils/env.js';
 
+type RewardType = 'trial' | 'premium';
+type TimerId = ReturnType<typeof setInterval>;
+
+interface VueStore {
+    state?: {
+        maininfo?: {
+            user_info?: { status?: string };
+            userInfo?: { status?: string };
+            info?: { user_info?: { status?: string } };
+        };
+    };
+    dispatch: (type: string, payload?: unknown) => Promise<unknown> | unknown;
+    commit: (type: string, payload?: unknown) => void;
+}
+
+interface PrizeVm {
+    per_on_page?: number;
+    current_page: number;
+    $nextTick: (callback: () => void) => void;
+}
+
+interface LootboxVm {
+    openBox?: () => void;
+    is_show_popup?: boolean;
+    is_button_pushed?: boolean;
+    getChestNum: number;
+}
+
+interface VueElement extends Element {
+    __vue__?: unknown;
+}
+
+interface LevelPrizeResponse {
+    data?: {
+        farmed_rewards?: Record<string, string[]>;
+    };
+}
+
 export const LS_KEY_AUTO_CLAIM = 'tm_aa_prizes_auto_claim';
 export const LS_KEY_AUTO_OPEN_BOXES = 'tm_aa_auto_open_boxes';
 export const CLAIM_DELAY_MS = 400;
 
 // Загрузить состояние автозабора из localStorage
-export const loadAutoClaimState = () => {
+export const loadAutoClaimState = (): boolean => {
     try {
         return localStorage.getItem(LS_KEY_AUTO_CLAIM) === 'true';
     } catch {
@@ -15,7 +53,7 @@ export const loadAutoClaimState = () => {
 };
 
 /** Сохранить состояние автозабора в localStorage. @param {boolean} enabled */
-export const saveAutoClaimState = (enabled) => {
+export const saveAutoClaimState = (enabled: boolean): void => {
     try {
         localStorage.setItem(LS_KEY_AUTO_CLAIM, enabled ? 'true' : 'false');
     } catch {
@@ -24,7 +62,7 @@ export const saveAutoClaimState = (enabled) => {
 };
 
 // Определить целевой уровень из данных API
-export const getTargetPrizeLevelFromApi = () => {
+export const getTargetPrizeLevelFromApi = (): number => {
     const userInfo = API_INFO_CACHE?.data?.user_info;
     if (!userInfo) return 1;
 
@@ -34,7 +72,7 @@ export const getTargetPrizeLevelFromApi = () => {
     const farmedRewards = userInfo.farmed_rewards?.[farmedKey] || [];
 
     // Преобразуем в Set чисел для быстрого поиска
-    const farmedSet = new Set(farmedRewards.map(x => parseInt(x, 10)));
+    const farmedSet = new Set<number>(farmedRewards.map((x: string) => parseInt(x, 10)));
 
     // Ищем первый незабранный подарок (от 1 до currentLevel)
     for (let level = 1; level <= currentLevel; level++) {
@@ -52,13 +90,13 @@ export const getTargetPrizeLevelFromApi = () => {
  * Корневой элемент Prizes — div.game__right.
  * @returns {Vue|null}
  */
-export const getPrizesVm = () => {
-    const el = pageDocument.querySelector('.game__right');
-    return el?.__vue__ ?? null;
+export const getPrizesVm = (): PrizeVm | null => {
+    const el = pageDocument.querySelector<VueElement>('.game__right');
+    return (el?.__vue__ as PrizeVm | undefined) ?? null;
 };
 
 // Пролистать к первому нужному подарку, выставив current_page напрямую
-export const scrollToFirstRelevantPrize = () => {
+export const scrollToFirstRelevantPrize = (): void => {
     const targetLevel = getTargetPrizeLevelFromApi();
     const vm = getPrizesVm();
     if (!vm) return;
@@ -68,14 +106,15 @@ export const scrollToFirstRelevantPrize = () => {
 };
 
 // Забрать все доступные подарки через родной Vuex store (без кликов по DOM)
-export const claimAllActivePrizes = async () => {
+export const claimAllActivePrizes = async (): Promise<void> => {
     await claimAllLevelRewards();
 };
 
 /** Получить Vuex store родного приложения. */
-export const getVueStore = () => {
+export const getVueStore = (): VueStore | null => {
     const page = pageDocument.querySelector('.page');
-    return page?.parentElement?.__vue__?.$store ?? null;
+    const parent = page?.parentElement as (HTMLElement & { __vue__?: { $store?: VueStore } }) | undefined;
+    return parent?.__vue__?.$store ?? null;
 };
 
 /**
@@ -85,15 +124,15 @@ export const getVueStore = () => {
  * @param {boolean} isPremium
  * @returns {Promise<void>}
  */
-export const farmLevelReward = (level, isPremium) => {
+export const farmLevelReward = (level: number, isPremium: boolean): Promise<unknown> => {
     const store = getVueStore();
     if (!store) return Promise.reject(new Error('Vue store not found'));
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve: (value: unknown) => void, reject: (reason?: unknown) => void) => {
         store.dispatch('maininfo/getLevelPrize', {
             level,
             is_premium: isPremium ? 1 : 0,
-            callback_success: (data) => {
+            callback_success: (data: LevelPrizeResponse) => {
                 // Синхронизируем собственный кэш с обновлёнными данными
                 const userInfo = API_INFO_CACHE?.data?.user_info;
                 if (userInfo && data?.data?.farmed_rewards) {
@@ -113,7 +152,7 @@ export const farmLevelReward = (level, isPremium) => {
  * Не трогает quests/action_info, чтобы не перерисовать блок заданий.
  * Принудительно пересоздаёт компоненты PrizesItem через смену ключа слайдера.
  */
-export const syncNativeRewardsState = () => {
+export const syncNativeRewardsState = (): void => {
     const store = getVueStore();
     if (!store) return;
     const farmedRewards = API_INFO_CACHE?.data?.user_info?.farmed_rewards;
@@ -139,7 +178,7 @@ export const syncNativeRewardsState = () => {
  * После забора точечно обновляет farmed_rewards в нативном store,
  * чтобы UI подарков перерисовался без затрагивания блока заданий.
  */
-export const claimAllLevelRewards = async () => {
+export const claimAllLevelRewards = async (): Promise<void> => {
     const userInfo = API_INFO_CACHE?.data?.user_info;
     if (!userInfo) return;
     if (!getVueStore()) return;
@@ -149,7 +188,7 @@ export const claimAllLevelRewards = async () => {
     const isPremium = status === 'premium';
 
     // Какие типы наград забирать
-    const rewardTypes = isPremium ? ['trial', 'premium'] : ['trial'];
+    const rewardTypes: RewardType[] = isPremium ? ['trial', 'premium'] : ['trial'];
 
     let claimed = false;
 
@@ -162,7 +201,7 @@ export const claimAllLevelRewards = async () => {
             try {
                 await farmLevelReward(level, type === 'premium');
                 claimed = true;
-                await new Promise(r => setTimeout(r, CLAIM_DELAY_MS));
+                await new Promise<void>(r => setTimeout(r, CLAIM_DELAY_MS));
             } catch (e) {
                 console.warn(`[ArcheAgeExtraUI] claimLevelReward(${level}, ${type}) failed:`, e);
             }
@@ -177,7 +216,7 @@ export const claimAllLevelRewards = async () => {
 
 // ==================== Автооткрытие сундуков ====================
 
-export const loadAutoOpenBoxesState = () => {
+export const loadAutoOpenBoxesState = (): boolean => {
     try {
         return localStorage.getItem(LS_KEY_AUTO_OPEN_BOXES) === 'true';
     } catch {
@@ -185,7 +224,7 @@ export const loadAutoOpenBoxesState = () => {
     }
 };
 
-export const saveAutoOpenBoxesState = (enabled) => {
+export const saveAutoOpenBoxesState = (enabled: boolean): void => {
     try {
         localStorage.setItem(LS_KEY_AUTO_OPEN_BOXES, String(enabled));
     } catch {
@@ -197,12 +236,12 @@ export const saveAutoOpenBoxesState = (enabled) => {
  * Получить Vue-инстанс компонента Lootbox.
  * @returns {Vue|null}
  */
-export const getLootboxVm = () => {
-    const el = pageDocument.querySelector('.lootbox');
-    return el?.__vue__ ?? null;
+export const getLootboxVm = (): LootboxVm | null => {
+    const el = pageDocument.querySelector<VueElement>('.lootbox');
+    return (el?.__vue__ as LootboxVm | undefined) ?? null;
 };
 
-export const hasPremiumMarathonAccess = () => {
+export const hasPremiumMarathonAccess = (): boolean => {
     if (API_INFO_CACHE?.data?.user_info?.status === 'premium') return true;
 
     const store = getVueStore();
@@ -211,13 +250,13 @@ export const hasPremiumMarathonAccess = () => {
         || store?.state?.maininfo?.info?.user_info?.status === 'premium';
 };
 
-let autoOpenBoxesIntervalId = null;
+let autoOpenBoxesIntervalId: TimerId | null = null;
 
 /**
  * Проверяет условия и открывает один сундук, если возможно.
  * Вызывается по интервалу.
  */
-export const tryOpenNextBox = () => {
+export const tryOpenNextBox = (): void => {
     if (!loadAutoOpenBoxesState()) return;
 
     const lootbox = getLootboxVm();
@@ -234,12 +273,12 @@ export const tryOpenNextBox = () => {
     lootbox.openBox();
 };
 
-export const startAutoOpenBoxesInterval = () => {
+export const startAutoOpenBoxesInterval = (): void => {
     if (autoOpenBoxesIntervalId != null) return;
     autoOpenBoxesIntervalId = setInterval(tryOpenNextBox, 1000);
 };
 
-export const stopAutoOpenBoxesInterval = () => {
+export const stopAutoOpenBoxesInterval = (): void => {
     if (autoOpenBoxesIntervalId != null) {
         clearInterval(autoOpenBoxesIntervalId);
         autoOpenBoxesIntervalId = null;
@@ -249,7 +288,7 @@ export const stopAutoOpenBoxesInterval = () => {
 /**
  * Инициализация галочки "Открывать при получении" в блоке lootbox.
  */
-export const initAutoOpenBoxesCheckbox = () => {
+export const initAutoOpenBoxesCheckbox = (): void => {
     const lootboxTitle = document.querySelector('.lootbox__title');
     if (!lootboxTitle) return;
 
@@ -286,7 +325,7 @@ export const initAutoOpenBoxesCheckbox = () => {
 };
 
 // Инициализация галочки автозабора
-export const initAutoClaimCheckbox = () => {
+export const initAutoClaimCheckbox = (): void => {
     const prizesTitle = document.querySelector('.prizes__title');
     if (!prizesTitle) return;
 
@@ -318,7 +357,7 @@ export const initAutoClaimCheckbox = () => {
 };
 
 // Инициализация блока подарков
-export const initPrizes = async () => {
+export const initPrizes = async (): Promise<void> => {
     // Ждём появления блока подарков
     const prizesWrap = document.querySelector('.prizes__wrap');
     if (!prizesWrap) return;

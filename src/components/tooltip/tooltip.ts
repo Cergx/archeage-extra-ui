@@ -1,7 +1,6 @@
 import { pageDocument, pageWindow, isArcheageSite } from '../../utils/env.js';
 import tooltipStyles from './tooltip.scss';
 import {
-    ITEMS,
     GRADES,
     ITEM_TYPES,
     ITEM_SUB_TYPES,
@@ -20,35 +19,32 @@ import {
     loadIconScalePercent,
     loadIconScaleBrowserZoom,
 } from '../../data/items.js';
+import type { DynamicTooltipData, DynamicTooltipFieldValue, ItemBase } from '../../data/items.js';
 
-void ITEMS;
+const LS_KEY_DYNAMIC_TOOLTIPS: string = 'tm_aa_dynamic_tooltips';
+const DEBUG_PREFIX: string = '[ArcheAgeExtraUI]';
+const debugWarn = (...args: unknown[]): void => console.warn(DEBUG_PREFIX, ...args);
 
-const LS_KEY_DYNAMIC_TOOLTIPS = 'tm_aa_dynamic_tooltips';
-const DEBUG_PREFIX = '[ArcheAgeExtraUI]';
-const debugWarn = (...args) => console.warn(DEBUG_PREFIX, ...args);
+export const ITEM_STORE: Map<string | number, ItemBase> = new Map();
+export const POPULATING_PROMISES: Map<string | number, Promise<ItemBase | null>> = new Map();
 
-export const ITEM_STORE = new Map();
-export const POPULATING_PROMISES = new Map();
+let globalTooltip: HTMLElement | null = null;
 
-/** @type {HTMLElement|null} */
-let globalTooltip = null;
+const dynamicTooltipCache: Map<string, DynamicTooltipData | null | Promise<DynamicTooltipData | null>> = new Map();
+let activeTooltipKey: string | null = null;
+let tooltipDomInitialized: boolean = false;
 
-/** @type {Map<string, DynamicTooltipData|null|Promise<DynamicTooltipData|null>>} */
-const dynamicTooltipCache = new Map();
-let activeTooltipKey = null;
-let tooltipDomInitialized = false;
+const TOOLTIP_VISIBLE_CLASS: string = 'tm-item-tooltip--visible';
+const TOOLTIP_RIGHT_CLASS: string = 'tm-item-tooltip--right';
+const TOOLTIP_BOTTOM_CLASS: string = 'tm-item-tooltip--bottom';
+const TOOLTIP_WIDTH: number = 248;
 
-const TOOLTIP_VISIBLE_CLASS = 'tm-item-tooltip--visible';
-const TOOLTIP_RIGHT_CLASS = 'tm-item-tooltip--right';
-const TOOLTIP_BOTTOM_CLASS = 'tm-item-tooltip--bottom';
-const TOOLTIP_WIDTH = 248;
-
-const getSystemScale = () => {
+const getSystemScale = (): number => {
     if (loadIconScaleBrowserZoom()) return 1;
     return pageWindow.devicePixelRatio;
 };
 
-const getTooltipContainer = () => {
+const getTooltipContainer = (): HTMLElement => {
     if (globalTooltip) return globalTooltip;
 
     globalTooltip = pageDocument.createElement('div');
@@ -57,7 +53,7 @@ const getTooltipContainer = () => {
     return globalTooltip;
 };
 
-const injectTooltipStyles = () => {
+const injectTooltipStyles = (): void => {
     if (pageDocument.getElementById('tm-item-tooltip-styles')) return;
 
     const style = pageDocument.createElement('style');
@@ -66,17 +62,17 @@ const injectTooltipStyles = () => {
     pageDocument.head.appendChild(style);
 };
 
-const initTooltipDom = () => {
+const initTooltipDom = (): void => {
     injectTooltipStyles();
     getTooltipContainer();
 };
 
-const resolveItemLevelValue = (levelValue, isMaxLevel = false) => {
+const resolveItemLevelValue = (levelValue: number | string | undefined, isMaxLevel: boolean = false): number => {
     if (isMaxLevel && Number(levelValue) === 0) return MAX_LEVEL;
     return Number(levelValue);
 };
 
-const appendItemLevelValue = (container, levelValue, isMaxLevel = false) => {
+const appendItemLevelValue = (container: HTMLElement, levelValue: number | string | undefined, isMaxLevel: boolean = false): void => {
     const level = resolveItemLevelValue(levelValue, isMaxLevel);
     if (Number.isFinite(level) && level > 55) {
         const icon = pageDocument.createElement('img');
@@ -94,7 +90,7 @@ const appendItemLevelValue = (container, levelValue, isMaxLevel = false) => {
     }
 };
 
-const makeRequiredLevelLine = (reqLevel, maxLevel) => {
+const makeRequiredLevelLine = (reqLevel: number | string | undefined, maxLevel: number | string | undefined): HTMLDivElement => {
     const line = pageDocument.createElement('div');
     line.className = 'tm-item-tooltip-level';
     line.appendChild(pageDocument.createTextNode('Требуемый уровень: '));
@@ -109,7 +105,20 @@ const makeRequiredLevelLine = (reqLevel, maxLevel) => {
     return line;
 };
 
-const formatSpeedStat = (value) => {
+type ItemStatValue = number | string;
+
+interface ItemStatEntryConfig {
+    field: keyof Pick<ItemBase, 'speed' | 'durability' | 'dps' | 'armor' | 'magicResistance' | 'mdps' | 'hdps' | 'str' | 'dex' | 'sta' | 'int' | 'spi'>;
+    label: string;
+    colon?: boolean;
+    format?: (value: ItemStatValue) => string;
+}
+
+interface ItemStatEntry extends ItemStatEntryConfig {
+    value: ItemStatValue;
+}
+
+const formatSpeedStat = (value: ItemStatValue): string => {
     const str = String(value).trim();
     if (!str.includes('.')) return `${str}.0`;
 
@@ -117,12 +126,12 @@ const formatSpeedStat = (value) => {
     return `${whole}.${fraction || '0'}`;
 };
 
-const ITEM_UTILITY_STATS = [
+const ITEM_UTILITY_STATS: ItemStatEntryConfig[] = [
     { field: 'speed', label: 'Сноровка', format: formatSpeedStat },
-    { field: 'durability', label: 'Прочность', format: value => `${value}/${value}` },
+    { field: 'durability', label: 'Прочность', format: (value: ItemStatValue): string => `${value}/${value}` },
 ];
 
-const ITEM_COMBAT_STATS = [
+const ITEM_COMBAT_STATS: ItemStatEntryConfig[] = [
     { field: 'dps', label: 'Урон', colon: true },
     { field: 'armor', label: 'Защита', colon: true },
     { field: 'magicResistance', label: 'Сопротивление', colon: true },
@@ -135,19 +144,20 @@ const ITEM_COMBAT_STATS = [
     { field: 'spi', label: 'Мудрость' },
 ];
 
-const isDisplayableItemStatValue = (value) => {
+const isDisplayableItemStatValue = (value: unknown): boolean => {
     if (value == null || value === '') return false;
     const num = Number(value);
     return !Number.isFinite(num) || num !== 0;
 };
 
-const getItemStatEntries = (item, stats) => (
+const getItemStatEntries = (item: ItemBase, stats: ItemStatEntryConfig[]): ItemStatEntry[] => (
     stats
         .map(stat => ({ ...stat, value: item[stat.field] }))
+        .filter((stat): stat is ItemStatEntry => stat.value != null)
         .filter(stat => isDisplayableItemStatValue(stat.value))
 );
 
-const makeItemStatsSection = (entries) => {
+const makeItemStatsSection = (entries: ItemStatEntry[]): HTMLDivElement => {
     const section = pageDocument.createElement('div');
     section.className = 'tm-item-tooltip-stats';
 
@@ -171,7 +181,7 @@ const makeItemStatsSection = (entries) => {
     return section;
 };
 
-const appendPricePart = (container, amount, iconSrc, title) => {
+const appendPricePart = (container: HTMLElement, amount: number, iconSrc: string, title: string): void => {
     const part = pageDocument.createElement('span');
     part.className = 'tm-item-tooltip-price-part';
 
@@ -189,7 +199,7 @@ const appendPricePart = (container, amount, iconSrc, title) => {
     container.appendChild(part);
 };
 
-const makeItemPriceValue = (price) => {
+const makeItemPriceValue = (price: number | string | null): HTMLSpanElement => {
     const value = pageDocument.createElement('span');
     value.className = 'tm-item-tooltip-price-value';
 
@@ -205,18 +215,13 @@ const makeItemPriceValue = (price) => {
     return value;
 };
 
-const getItemDynamicTooltipKey = (item) => {
+const getItemDynamicTooltipKey = (item: ItemBase): string | null => {
     if (item?.id == null || item.id === '') return null;
     const grade = Number.isFinite(Number(item.grade)) ? Number(item.grade) : 0;
     return `${item.id}|${grade}`;
 };
 
-/**
- * @param {number|string} itemId
- * @param {number|string} grade
- * @param {DynamicTooltipData} data
- */
-const saveDynamicTooltipSnapshot = (itemId, grade, data) => {
+const saveDynamicTooltipSnapshot = (itemId: number | string, grade: number | string, data: DynamicTooltipData): void => {
     if (itemId == null || !data) return;
 
     try {
@@ -234,31 +239,19 @@ const saveDynamicTooltipSnapshot = (itemId, grade, data) => {
     }
 };
 
-/**
- * @param {DynamicTooltipFieldValue|undefined} value
- * @returns {string|null}
- */
-const dynamicTooltipFieldValue = (value) => {
+const dynamicTooltipFieldValue = (value: DynamicTooltipFieldValue | undefined): string | null => {
     if (value == null) return null;
     const str = String(value).trim();
     return str ? str : null;
 };
 
-/**
- * @param {DynamicTooltipFieldValue|undefined} value
- * @returns {number|null}
- */
-const dynamicTooltipNumberValue = (value) => {
+const dynamicTooltipNumberValue = (value: DynamicTooltipFieldValue | undefined): number | null => {
     if (value == null || value === '') return null;
     const num = Number(value);
     return Number.isFinite(num) ? num : null;
 };
 
-/**
- * @param {DynamicTooltipFieldValue|undefined} value
- * @returns {number|string|null}
- */
-const dynamicTooltipStatValue = (value) => {
+const dynamicTooltipStatValue = (value: DynamicTooltipFieldValue | undefined): number | string | null => {
     if (value == null || value === '') return null;
     const str = String(value).trim();
     if (!str) return null;
@@ -267,7 +260,7 @@ const dynamicTooltipStatValue = (value) => {
     return Number.isFinite(num) ? num : str;
 };
 
-const DYNAMIC_EQUIP_TOOLTIP_PATTERNS = [
+const DYNAMIC_EQUIP_TOOLTIP_PATTERNS: RegExp[] = [
     /Здоровье/,
     /Защита/,
     /Сопротивление/,
@@ -276,16 +269,12 @@ const DYNAMIC_EQUIP_TOOLTIP_PATTERNS = [
     /Время\s+применения\s+умений/,
 ];
 
-const isDynamicEquipTooltipPart = (value) => {
+const isDynamicEquipTooltipPart = (value: unknown): boolean => {
     const text = stripHtmlForMatch(value);
     return DYNAMIC_EQUIP_TOOLTIP_PATTERNS.some(pattern => pattern.test(text));
 };
 
-/**
- * @param {DynamicTooltipFieldValue|undefined} value
- * @returns {Partial<ItemBase>}
- */
-const mapDynamicEquipTooltip = (value) => {
+const mapDynamicEquipTooltip = (value: DynamicTooltipFieldValue | undefined): Partial<ItemBase> => {
     const raw = dynamicTooltipFieldValue(value);
     if (!raw) return {};
 
@@ -300,14 +289,14 @@ const mapDynamicEquipTooltip = (value) => {
         return useDescription ? { useDescription } : {};
     }
 
-    const equipParts = [];
-    let nextIndex = equipIndex;
+    const equipParts: string[] = [];
+    let nextIndex: number = equipIndex;
     while (nextIndex < parts.length && isDynamicEquipTooltipPart(parts[nextIndex])) {
         equipParts.push(parts[nextIndex]);
         nextIndex++;
     }
 
-    const result = {
+    const result: Partial<ItemBase> = {
         equipDescription: equipParts.join('<br/>'),
     };
 
@@ -321,11 +310,7 @@ const mapDynamicEquipTooltip = (value) => {
     return result;
 };
 
-/**
- * @param {DynamicTooltipData|null} data
- * @returns {Partial<ItemBase>}
- */
-const mapDynamicTooltipToItem = (data) => {
+const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemBase> => {
     if (!data || typeof data !== 'object') return {};
 
     const fixedGrade = dynamicTooltipNumberValue(data.fixed_grade);
@@ -365,37 +350,28 @@ const mapDynamicTooltipToItem = (data) => {
     };
 };
 
-const itemHasTooltipField = (item, field) => (
+const itemHasTooltipField = (item: ItemBase, field: string): boolean => (
     field === 'price'
         ? Object.prototype.hasOwnProperty.call(item, field)
-        : item[field] != null && item[field] !== ''
+        : (item as Record<string, unknown>)[field] != null && (item as Record<string, unknown>)[field] !== ''
 );
 
-/**
- * @param {ItemBase} item
- * @param {DynamicTooltipData|null} data
- * @returns {ItemBase}
- */
-const mergeDynamicTooltipItem = (item, data) => {
+const mergeDynamicTooltipItem = (item: ItemBase, data: DynamicTooltipData | null): ItemBase => {
     const apiItem = mapDynamicTooltipToItem(data);
     const merged = { ...item };
 
     for (const [field, value] of Object.entries(apiItem)) {
         if (field === 'buff') {
-            merged.buff = { ...(value || {}), ...(merged.buff || {}) };
+            merged.buff = { ...((value || {}) as Record<string, string | number | boolean | null>), ...(merged.buff || {}) };
             continue;
         }
-        if (!itemHasTooltipField(merged, field)) merged[field] = value;
+        if (!itemHasTooltipField(merged, field)) (merged as Record<string, unknown>)[field] = value;
     }
 
     return merged;
 };
 
-/**
- * @param {ItemBase} item
- * @returns {Promise<DynamicTooltipData|null>}
- */
-const fetchDynamicTooltipData = async (item) => {
+const fetchDynamicTooltipData = async (item: ItemBase): Promise<DynamicTooltipData | null> => {
     if (!isArcheageSite) return null;
 
     const key = getItemDynamicTooltipKey(item);
@@ -403,14 +379,14 @@ const fetchDynamicTooltipData = async (item) => {
     if (dynamicTooltipCache.has(key)) return dynamicTooltipCache.get(key);
 
     const grade = Number.isFinite(Number(item.grade)) ? Number(item.grade) : 0;
-    const promise = fetch(`/dynamic/tooltip/?a=item&id=${encodeURIComponent(item.id)}&g=${encodeURIComponent(grade)}`, {
+    const promise: Promise<DynamicTooltipData | null> = fetch(`/dynamic/tooltip/?a=item&id=${encodeURIComponent(item.id)}&g=${encodeURIComponent(grade)}`, {
         credentials: 'include',
         cache: 'no-store',
     })
         .then(res => res.ok ? res.json() : null)
-        .then(data => {
-            if (data && typeof data === 'object') saveDynamicTooltipSnapshot(item.id, grade, data);
-            return data && typeof data === 'object' ? data : null;
+        .then((data: unknown) => {
+            if (data && typeof data === 'object') saveDynamicTooltipSnapshot(item.id, grade, data as DynamicTooltipData);
+            return data && typeof data === 'object' ? data as DynamicTooltipData : null;
         })
         .catch(e => {
             debugWarn(`Failed to fetch dynamic tooltip for item ${item.id}:`, e);
@@ -423,7 +399,17 @@ const fetchDynamicTooltipData = async (item) => {
     return data;
 };
 
-export const makeItemIconLink = ({ item, linked = false, size = 'medium', count, noTooltip = false }) => {
+interface MakeItemIconLinkParams {
+    item: ItemBase;
+    linked?: boolean;
+    size?: string;
+    count?: number | string;
+    noTooltip?: boolean;
+}
+
+type ItemIconElement = HTMLAnchorElement | HTMLDivElement;
+
+export const makeItemIconLink = ({ item, linked = false, size = 'medium', count, noTooltip = false }: MakeItemIconLinkParams): ItemIconElement => {
     const icon = pageDocument.createElement(linked ? 'a' : 'div');
     icon.className = `tm-item-icon tm-item-icon--${size}`;
 
@@ -437,7 +423,7 @@ export const makeItemIconLink = ({ item, linked = false, size = 'medium', count,
     const itemImg = pageDocument.createElement('img');
     itemImg.className = 'tm-item-icon-img';
     itemImg.src = getItemIconUrl(item);
-    itemImg.dataset.itemId = item.id;
+    itemImg.dataset.itemId = String(item.id);
     itemImg.dataset.iconTemplate = item.icon || '';
     itemImg.dataset.iconM = item.iconM || '';
     itemImg.dataset.iconF = item.iconF || '';
@@ -463,7 +449,7 @@ export const makeItemIconLink = ({ item, linked = false, size = 'medium', count,
     if (count && count > 1) {
         const countEl = pageDocument.createElement('div');
         countEl.className = 'tm-item-icon-count';
-        countEl.textContent = count;
+        countEl.textContent = String(count);
         icon.appendChild(countEl);
     }
 
@@ -477,9 +463,8 @@ export const makeItemIconLink = ({ item, linked = false, size = 'medium', count,
 
 /**
  * Заполняет тултип данными предмета.
- * @param {ItemBase} item
  */
-const populateTooltip = (item) => {
+const populateTooltip = (item: ItemBase): void => {
     const tooltip = getTooltipContainer();
     tooltip.innerHTML = '';
 
@@ -629,7 +614,7 @@ const populateTooltip = (item) => {
     }
 };
 
-const positionTooltip = (anchorEl) => {
+const positionTooltip = (anchorEl: HTMLElement): void => {
     const tooltip = getTooltipContainer();
     const rect = anchorEl.getBoundingClientRect();
     const screenScale = getSystemScale();
@@ -668,10 +653,8 @@ const positionTooltip = (anchorEl) => {
 
 /**
  * Показывает тултип рядом с элементом.
- * @param {HTMLElement} anchorEl
- * @param {ItemBase} item
  */
-export const showTooltip = (anchorEl, item) => {
+export const showTooltip = (anchorEl: HTMLElement, item: ItemBase): void => {
     initTooltipDom();
     const tooltipKey = getItemDynamicTooltipKey(item) || `${Date.now()}:${Math.random()}`;
     activeTooltipKey = tooltipKey;
@@ -687,40 +670,47 @@ export const showTooltip = (anchorEl, item) => {
 };
 
 /** Скрывает тултип. */
-export const hideTooltip = () => {
+export const hideTooltip = (): void => {
     activeTooltipKey = null;
     if (globalTooltip) {
         globalTooltip.classList.remove(TOOLTIP_VISIBLE_CLASS, TOOLTIP_RIGHT_CLASS, TOOLTIP_BOTTOM_CLASS);
     }
 };
 
-const getDelegatedTooltipItem = (target) => {
-    const icon = target?.closest?.('.tm-item-icon[data-item-id], [data-tm-tooltip-item-id], [data-item-id]');
+interface DelegatedTooltipItem {
+    icon: HTMLElement;
+    item: ItemBase;
+}
+
+const getDelegatedTooltipItem = (target: EventTarget | null): DelegatedTooltipItem | null => {
+    const icon = target instanceof Element
+        ? target.closest<HTMLElement>('.tm-item-icon[data-item-id], [data-tm-tooltip-item-id], [data-item-id]')
+        : null;
     const itemId = icon?.dataset?.tmTooltipItemId || icon?.dataset?.itemId;
     if (!itemId) return null;
 
-    const item = ITEM_STORE.get(String(itemId)) || ITEM_STORE.get(Number(itemId)) || ITEMS[itemId];
+    const item = ITEM_STORE.get(String(itemId)) || ITEM_STORE.get(Number(itemId));
     return item ? { icon, item } : null;
 };
 
-export const handleItemIconMouseEnter = (event) => {
+export const handleItemIconMouseEnter = (event: MouseEvent): void => {
     const found = getDelegatedTooltipItem(event.target);
     if (found) showTooltip(found.icon, found.item);
 };
 
-export const initTooltips = () => {
+export const initTooltips = (): void => {
     initTooltipDom();
     if (tooltipDomInitialized) return;
     tooltipDomInitialized = true;
 
     pageDocument.addEventListener('mouseover', (event) => {
         const found = getDelegatedTooltipItem(event.target);
-        if (!found || found.icon.contains(event.relatedTarget)) return;
+        if (!found || found.icon.contains(event.relatedTarget as Node | null)) return;
         showTooltip(found.icon, found.item);
     });
     pageDocument.addEventListener('mouseout', (event) => {
         const found = getDelegatedTooltipItem(event.target);
-        if (!found || found.icon.contains(event.relatedTarget)) return;
+        if (!found || found.icon.contains(event.relatedTarget as Node | null)) return;
         hideTooltip();
     });
 };
