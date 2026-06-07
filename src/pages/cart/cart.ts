@@ -711,5 +711,9 @@ export const initCart = ({
         });
     });
 
-    cartObserver.observe(pageDocument.body, { childList: true, subtree: true });
+    const startCartObserver = () => {
+        cartObserver.observe(pageDocument.body, { childList: true, subtree: true });
+    };
+    if (pageDocument.body) startCartObserver();
+    else pageDocument.addEventListener('DOMContentLoaded', startCartObserver);
 };

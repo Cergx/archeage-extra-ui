@@ -1,3 +1,4 @@
+import { appendStyleElement } from '../../utils/dom.js';
 import itemIconStyles from '../../components/itemIcon/itemIcon.scss';
 import selectedItemsStyles from './selected-items.scss';
 import marathonStyles from './marathon.scss';
@@ -14,7 +15,7 @@ export const injectItemIconStyles = (): void => {
     itemIconStylesInjected = true;
     const style = document.createElement('style');
     style.textContent = itemIconStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 /** Инжектит стили для страницы марафона. */
@@ -24,7 +25,7 @@ export const injectMarathonStyles = (): void => {
 
     const style = document.createElement('style');
     style.textContent = marathonStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 /** Инжектит стили для страницы корзины. */
@@ -34,7 +35,7 @@ export const injectCartStyles = (): void => {
 
     const style = document.createElement('style');
     style.textContent = cartStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 /** Инжектит стили для блока списка выбранных предметов. */
@@ -44,5 +45,5 @@ export const injectSelectedItemsStyles = (): void => {
 
     const style = document.createElement('style');
     style.textContent = selectedItemsStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };

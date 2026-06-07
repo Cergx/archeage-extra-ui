@@ -5,11 +5,30 @@ const sass = require('sass');
 
 const isProd = process.argv.includes('--prod');
 const isWatch = process.argv.includes('--watch');
-const headerPath = path.join(__dirname, 'src', 'header.js');
-const entryPath = path.join(__dirname, 'src', 'main.ts');
-const outPath = path.join(__dirname, 'ArcheAgeExtraUI.user.js');
+const isChrome = process.argv.includes('--chrome');
 
-const HEADER = fs.readFileSync(headerPath, 'utf-8').trimEnd() + '\n';
+const entryPath = path.join(__dirname, 'src', 'main.ts');
+
+const META = JSON.parse(fs.readFileSync(path.join(__dirname, 'src', 'meta.json'), 'utf-8'));
+
+const HEADER = isChrome ? '' : (
+`// ==UserScript==
+// @name         ${META.name}
+// @namespace    https://archeage.ru/
+// @version      ${META.version}
+// @description  ${META.description}
+// @author       Cergx
+${META.matches.map(m => `// @match        ${m}`).join('\n')}
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=archeage.ru
+// @grant        unsafeWindow
+// @grant        GM_getValue
+// @grant        GM_setValue
+// ==/UserScript==
+`);
+
+const outPath = isChrome
+    ? path.join(__dirname, 'dist', 'chrome', 'contentScript.js')
+    : path.join(__dirname, 'ArcheAgeExtraUI.user.js');
 
 function createScssPlugin(prod) {
   return {
@@ -35,7 +54,20 @@ function createScssPlugin(prod) {
   };
 }
 
+function createAdapterPlugin(chrome) {
+  if (!chrome) return null;
+  return {
+    name: 'chrome-adapter',
+    setup(build) {
+      build.onResolve({ filter: /adapter\/env\.js$/ }, args => {
+        return { path: path.resolve(__dirname, 'src', 'adapter', 'env.chrome.ts') };
+      });
+    },
+  };
+}
+
 const scssPlugin = createScssPlugin(isProd);
+const adapterPlugin = createAdapterPlugin(isChrome);
 
 const buildOptions = {
   entryPoints: [entryPath],
@@ -49,7 +81,7 @@ const buildOptions = {
   keepNames: !isProd,
   legalComments: 'none',
   logLevel: 'info',
-  plugins: [scssPlugin],
+  plugins: [scssPlugin, adapterPlugin].filter(Boolean),
 };
 
 function fixVarDeclarations(code) {
@@ -57,15 +89,50 @@ function fixVarDeclarations(code) {
 }
 
 function writeOutput(bundled) {
+  const dir = path.dirname(outPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const code = HEADER + (isProd ? bundled : fixVarDeclarations(bundled));
   fs.writeFileSync(outPath, code);
-  console.log(`[build:${isProd ? 'prod' : 'dev'}]`, outPath, `(${(code.length / 1024).toFixed(1)} KB)`);
+  const target = isChrome ? (isProd ? 'chrome-prod' : 'chrome') : (isProd ? 'prod' : 'dev');
+  console.log(`[build:${target}]`, outPath, `(${(code.length / 1024).toFixed(1)} KB)`);
 }
 
 async function build() {
   try {
     const result = await esbuild.build(buildOptions);
     writeOutput(result.outputFiles[0].text);
+
+    if (isChrome) {
+      const iconSrc = path.join(__dirname, 'src', 'icons', 'icon128.png');
+      const iconDest = path.join(__dirname, 'dist', 'chrome', 'icon128.png');
+      if (fs.existsSync(iconSrc)) fs.copyFileSync(iconSrc, iconDest);
+
+      const pageScriptSrc = path.join(__dirname, 'src', 'adapter', 'pageScript.js');
+      const pageScriptDest = path.join(__dirname, 'dist', 'chrome', 'pageScript.js');
+      fs.copyFileSync(pageScriptSrc, pageScriptDest);
+
+      const manifest = {
+        manifest_version: 3,
+        name: META.name,
+        version: META.version,
+        description: META.description,
+        icons: { '128': 'icon128.png' },
+        content_scripts: [{
+          matches: META.matches,
+          js: ['pageScript.js'],
+          run_at: 'document_start',
+          world: 'MAIN',
+        }, {
+          matches: META.matches,
+          js: ['contentScript.js'],
+          run_at: 'document_start',
+        }],
+      };
+      fs.writeFileSync(
+        path.join(__dirname, 'dist', 'chrome', 'manifest.json'),
+        JSON.stringify(manifest, null, 2),
+      );
+    }
   } catch (e) {
     console.error('[build] Failed:', e);
     process.exit(1);
@@ -93,7 +160,7 @@ if (isWatch) {
           });
         },
       },
-    ],
+    ].filter(Boolean),
   }).then(ctx => {
     ctx.watch();
     console.log('[build:dev] Watching for changes...');

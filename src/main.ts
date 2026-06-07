@@ -45,7 +45,11 @@ type TimerId = ReturnType<typeof setInterval>;
 // ============================================================
 
 if (isGisaaSite) {
-    initGisaa();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGisaa);
+    } else {
+        initGisaa();
+    }
 }
 
 // ============================================================
@@ -92,7 +96,12 @@ if (!isArcheageSite) {
         loadNotificationState,
         saveNotificationState,
     });
-    initServerClock(openEventsPopupWithDeps, checkEventNotificationsWithDeps);
+    const startServerClock = () => initServerClock(openEventsPopupWithDeps, checkEventNotificationsWithDeps);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => startServerClock());
+    } else {
+        startServerClock();
+    }
 
     // --- Page routing ---
     if (isCartPage) {
@@ -111,11 +120,17 @@ if (!isArcheageSite) {
             startCart();
         }
     } else if (isItemRestorePage) {
-        initItemRestore({
+        const startIR = () => initItemRestore({
             injectItemIconStyles,
             injectSelectedItemsStyles,
             makeItemIconLink,
         });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startIR);
+        } else {
+            startIR();
+        }
     } else if (location.pathname.startsWith('/promo/marathon')) {
         const observer = new MutationObserver(() => {
             if (document.querySelector('.section.tasks')) {
@@ -132,7 +147,11 @@ if (!isArcheageSite) {
             }
         });
 
-        observer.observe(document.body, { childList: true, subtree: true });
+        const startObserver = () => {
+            observer.observe(document.body, { childList: true, subtree: true });
+        };
+        if (document.body) startObserver();
+        else document.addEventListener('DOMContentLoaded', startObserver);
         setTimeout(() => {
             if (!document.querySelector('.section.tasks')) {
                 debugWarn('marathon tasks section did not appear after 10s', {

@@ -26,8 +26,6 @@ import { updateLevelBlock } from '../../components/levelBlock/levelBlock.js';
 import { initDateNavDeps, ensureDateNavInHeader, updateDateNavLabel, updateDateNavButtons } from '../../components/dateNav/dateNav.js';
 import {
     initApiDeps,
-    installApiInfoInterceptor,
-    normalizeUrlToPath,
     API_INFO_CACHE,
     API_INFO_PROMISE,
     API_INFO_DATA_JSON,
@@ -49,8 +47,6 @@ import {
 export { formatTimeMSK };
 export {
     initApiDeps,
-    installApiInfoInterceptor,
-    normalizeUrlToPath,
     API_INFO_CACHE,
     API_INFO_PROMISE,
     API_INFO_DATA_JSON,
@@ -1203,7 +1199,7 @@ export const init = async ({
         onSelectedDateChanged,
         renderTasksForSelectedDay,
     });
-    installApiInfoInterceptor();
+    fetchApiInfo().catch(() => {});  // sync server time on init
     injectStyles();
     debugLog('init marathon page', {
         path: location.pathname,

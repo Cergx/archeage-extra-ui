@@ -1,8 +1,6 @@
-/** Page window object from the userscript page context. */
-export const pageWindow: Window & typeof globalThis = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+import { pageWindow, pageDocument } from '../adapter/env.js';
 
-/** Page document object from the userscript page context. */
-export const pageDocument: Document = pageWindow.document || document;
+export { pageWindow, pageDocument };
 
 /** Whether current page is on gisaa.ru. */
 export const isGisaaSite: boolean = location.hostname.includes('gisaa.ru');

@@ -1,4 +1,5 @@
 import { pageDocument, pageWindow, isArcheageSite } from '../../utils/env.js';
+import { appendStyleElement } from '../../utils/dom.js';
 import tooltipStyles from './tooltip.scss';
 import {
     GRADES,
@@ -59,7 +60,7 @@ const injectTooltipStyles = (): void => {
     const style = pageDocument.createElement('style');
     style.id = 'tm-item-tooltip-styles';
     style.textContent = tooltipStyles;
-    pageDocument.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 const initTooltipDom = (): void => {

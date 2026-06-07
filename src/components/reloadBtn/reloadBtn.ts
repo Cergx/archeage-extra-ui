@@ -1,3 +1,4 @@
+import { appendStyleElement } from '../../utils/dom.js';
 import reloadBtnStyles from './reloadBtn.scss';
 
 export let reloadBtnStylesInjected: boolean = false;
@@ -7,7 +8,7 @@ export const injectReloadBtnStyles: () => void = () => {
     reloadBtnStylesInjected = true;
     const style = document.createElement('style');
     style.textContent = reloadBtnStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 export const appendReloadBtn: (header: HTMLElement) => void = (header) => {

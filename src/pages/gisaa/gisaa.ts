@@ -5,6 +5,7 @@ import {
     readGisaaTablesSnapshot,
     saveGisaaTablesSnapshot,
 } from '../../utils/gisaa.js';
+import { appendStyleElement } from '../../utils/dom.js';
 import gisaaStyles from './gisaa.scss';
 
 type GisaaIconType = 'archive' | 'sack';
@@ -26,7 +27,7 @@ const GISAA_UNKNOWN_CLASS = 'tm-gisaa-unknown';
 export const injectGisaaStyles = (): void => {
     const style = document.createElement('style');
     style.textContent = gisaaStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 /**

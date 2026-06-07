@@ -6,6 +6,7 @@ import {
     WEEKDAY_NAMES,
     parseTime,
 } from '../../utils/time.js';
+import { appendStyleElement } from '../../utils/dom.js';
 import { formatCountdown } from '../../utils/events-time.js';
 import { EVENTS } from '../../data/events.js';
 import { SERVERS } from '../../data/servers.js';
@@ -203,7 +204,7 @@ export const injectEventsPopupStyles = (): void => {
     eventsPopupStylesInjected = true;
     const style = document.createElement('style');
     style.textContent = eventsStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 // --- Popup logic ---

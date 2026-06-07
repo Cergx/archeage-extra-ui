@@ -3,6 +3,7 @@ import {
     getServerNowMs,
     syncServerTime,
 } from '../../utils/time.ts';
+import { appendStyleElement } from '../../utils/dom.js';
 import { getGameTime } from '../../utils/game-time.ts';
 import { formatCountdown, getSecondsUntilNextEvent } from '../../utils/events-time.ts';
 import { EVENTS } from '../../data/events.ts';
@@ -27,7 +28,7 @@ export const injectServerClockStyles: () => void = () => {
     serverClockStylesInjected = true;
     const style = document.createElement('style');
     style.textContent = serverClockStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 export const getNextVisibleEventInfo: () => EventInfo | null = () => {

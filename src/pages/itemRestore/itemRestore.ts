@@ -1,4 +1,6 @@
 import { pageWindow } from '../../utils/env.js';
+import { appendStyleElement } from '../../utils/dom.js';
+import { onIrData } from '../../adapter/env.js';
 import itemRestoreStyles from './itemRestore.scss';
 import { ITEMS, GRADES } from '../../data/items.js';
 import type { ItemBase } from '../../data/items.js';
@@ -730,7 +732,7 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
 export const injectItemRestoreStyles = (): void => {
     const style = document.createElement('style');
     style.textContent = itemRestoreStyles;
-    document.head.appendChild(style);
+    appendStyleElement(style);
 };
 
 export const initItemRestore = ({ injectItemIconStyles, injectSelectedItemsStyles, makeItemIconLink }: InitItemRestoreDeps): void => {
@@ -738,34 +740,8 @@ export const initItemRestore = ({ injectItemIconStyles, injectSelectedItemsStyle
     injectSelectedItemsStyles();
     injectItemRestoreStyles();
 
-    // Перехватываем fetch-ответы Vue-приложения
     const intercepted: InterceptedResponses = { grades: null, info: null, items: null };
     let interceptedCount = 0;
-
-    const origFetch = pageWindow.fetch.bind(pageWindow);
-    pageWindow.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
-        const res = await origFetch(...args);
-        const urlStr = typeof args[0] === 'string' ? args[0] : String(args[0]?.url || args[0]);
-        const path = urlStr.split('?')[0] + '?' + (urlStr.split('?')[1] || '');
-
-        if (urlStr.includes('a=get_item_grades')) {
-            intercepted.grades = await res.clone().json();
-            interceptedCount++;
-        } else if (urlStr.includes('a=get_restore_info')) {
-            intercepted.info = await res.clone().json();
-            interceptedCount++;
-        } else if (urlStr.includes('a=get_user_items')) {
-            intercepted.items = await res.clone().json();
-            interceptedCount++;
-        }
-
-        if (interceptedCount === 3) {
-            interceptedCount = -1; // prevent re-entry
-            tryBuild();
-        }
-
-        return res;
-    };
 
     const tryBuild = (): void => {
         const app = document.getElementById('app_itemrestore');
@@ -783,5 +759,41 @@ export const initItemRestore = ({ injectItemIconStyles, injectSelectedItemsStyle
         app.className = '';
         app.innerHTML = '';
         buildItemRestoreUI(app, grades, info, items, { makeItemIconLink });
+    };
+
+    // Chrome: ждём IR_DATA от page-script
+    if (onIrData) {
+        onIrData((data) => {
+            intercepted.grades = data.grades;
+            intercepted.info = data.info;
+            intercepted.items = data.items;
+            tryBuild();
+        });
+        return;
+    }
+
+    // Tampermonkey: перехватываем fetch страницы
+    const origFetch = pageWindow.fetch.bind(pageWindow);
+    pageWindow.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
+        const res = await origFetch(...args);
+        const urlStr = typeof args[0] === 'string' ? args[0] : String(args[0]?.url || args[0]);
+
+        if (urlStr.includes('a=get_item_grades')) {
+            intercepted.grades = await res.clone().json();
+            interceptedCount++;
+        } else if (urlStr.includes('a=get_restore_info')) {
+            intercepted.info = await res.clone().json();
+            interceptedCount++;
+        } else if (urlStr.includes('a=get_user_items')) {
+            intercepted.items = await res.clone().json();
+            interceptedCount++;
+        }
+
+        if (interceptedCount >= 3) {
+            interceptedCount = -1;
+            tryBuild();
+        }
+
+        return res;
     };
 };

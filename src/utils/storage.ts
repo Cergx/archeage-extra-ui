@@ -1,4 +1,6 @@
-/** @returns {string} Current Moscow date key in YYYY-MM-DD format. */
+import { readSharedValue, writeSharedValue } from '../adapter/env.js';
+
+/** @returns Current Moscow date key in YYYY-MM-DD format. */
 export const getMskDateKey: () => string = () => {
     const parts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Europe/Moscow',
@@ -10,46 +12,18 @@ export const getMskDateKey: () => string = () => {
     return `${map.year}-${map.month}-${map.day}`;
 };
 
-/**
- * @param {string} key Storage key.
- * @param {*} fallback Fallback value when no valid value exists.
- * @returns {*} Parsed shared JSON value or fallback.
- */
 export const readSharedJson: <T>(key: string, fallback: T) => T = (key, fallback) => {
     try {
-        if (typeof GM_getValue === 'function') {
-            const value = GM_getValue(key);
-            return value ? JSON.parse(value) : fallback;
-        }
-    } catch {
-        // ignore
-    }
-
-    try {
-        const value = localStorage.getItem(key);
+        const value = readSharedValue(key);
         return value ? JSON.parse(value) : fallback;
     } catch {
         return fallback;
     }
 };
 
-/**
- * @param {string} key Storage key.
- * @param {*} value Value to serialize into shared storage.
- */
 export const writeSharedJson: (key: string, value: unknown) => void = (key, value) => {
-    const json = JSON.stringify(value);
     try {
-        if (typeof GM_setValue === 'function') {
-            GM_setValue(key, json);
-            return;
-        }
-    } catch {
-        // ignore
-    }
-
-    try {
-        localStorage.setItem(key, json);
+        writeSharedValue(key, JSON.stringify(value));
     } catch {
         // ignore
     }

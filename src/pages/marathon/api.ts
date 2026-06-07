@@ -30,55 +30,6 @@ let deps: ApiDeps | null = null;
 
 export const initApiDeps = (d: ApiDeps): void => { deps = d; };
 
-// ==================== Fetch interceptor ====================
-
-export const normalizeUrlToPath = (url: string | URL): string => {
-    try { return new URL(url, location.href).pathname; }
-    catch { return String(url || ''); }
-};
-
-export const installApiInfoInterceptor = (): void => {
-    if ((window as any).__tmAA_fetchPatched) return;
-    (window as any).__tmAA_fetchPatched = true;
-
-    const origFetch = window.fetch.bind(window);
-
-    window.fetch = (async (...args) => {
-        const input = args[0];
-        const urlStr =
-            typeof input === 'string' ? input :
-                (input && typeof input === 'object' && 'url' in input) ? (input as any).url :
-                    String(input);
-
-        const path = normalizeUrlToPath(urlStr);
-        const t0 = Date.now();
-        const res = await origFetch(...args);
-        const t1 = Date.now();
-
-        if (!deps) return res;
-
-        if (path === deps.API_INFO_PATH) {
-            if (NOW_MS == null) {
-                const dateHeader = res.headers.get('Date');
-                const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
-                if (Number.isFinite(parsed)) {
-                    const halfRtt = (t1 - t0) / 2;
-                    setNowMs(parsed + halfRtt);
-                }
-            }
-
-            if (API_INFO_PROMISE == null) {
-                API_INFO_PROMISE = res.clone().json() as Promise<ApiInfoResponse>;
-                API_INFO_PROMISE
-                    .then((json: ApiInfoResponse) => { API_INFO_CACHE = json; })
-                    .catch(() => {});
-            }
-        }
-
-        return res;
-    }) as typeof window.fetch;
-};
-
 // ==================== Состояние ====================
 
 export let API_INFO_CACHE: ApiInfoResponse | null = null;

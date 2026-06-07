@@ -1,6 +1,26 @@
 import { API_INFO_CACHE } from './core.js';
 import { pageDocument } from '../../utils/env.js';
 
+const waitForElement = (selector: string, timeoutMs = 5000): Promise<Element | null> => {
+    const existing = document.querySelector(selector);
+    if (existing) return Promise.resolve(existing);
+
+    return new Promise(resolve => {
+        const observer = new MutationObserver(() => {
+            const el = document.querySelector(selector);
+            if (el) {
+                resolve(el);
+                clearTimeout(timer);
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        const timer = setTimeout(() => {
+            observer.disconnect();
+            resolve(document.querySelector(selector));
+        }, timeoutMs);
+    });
+};
+
 type RewardType = 'trial' | 'premium';
 type TimerId = ReturnType<typeof setInterval>;
 
@@ -95,14 +115,16 @@ export const getPrizesVm = (): PrizeVm | null => {
     return (el?.__vue__ as PrizeVm | undefined) ?? null;
 };
 
-// Пролистать к первому нужному подарку, выставив current_page напрямую
 export const scrollToFirstRelevantPrize = (): void => {
     const targetLevel = getTargetPrizeLevelFromApi();
-    const vm = getPrizesVm();
-    if (!vm) return;
 
-    const perPage = vm.per_on_page || 10;
-    vm.current_page = Math.floor((targetLevel - 1) / perPage);
+    const vm = getPrizesVm();
+    if (vm) {
+        const perPage = vm.per_on_page || 10;
+        vm.current_page = Math.floor((targetLevel - 1) / perPage);
+    }
+
+    window.postMessage({ source: 'tmAA-cs', type: 'SCROLL_PRIZES', level: targetLevel }, '*');
 };
 
 // Забрать все доступные подарки через родной Vuex store (без кликов по DOM)
@@ -358,14 +380,10 @@ export const initAutoClaimCheckbox = (): void => {
 
 // Инициализация блока подарков
 export const initPrizes = async (): Promise<void> => {
-    // Ждём появления блока подарков
-    const prizesWrap = document.querySelector('.prizes__wrap');
+    const prizesWrap = await waitForElement('.prizes__wrap');
     if (!prizesWrap) return;
 
-    // Добавляем галочку автозабора
     initAutoClaimCheckbox();
-
-    // Пролистываем к первому нужному подарку
     scrollToFirstRelevantPrize();
 
     // Автозабор при загрузке (кликаем по DOM, т.к. блок подарков уже отрендерен)
