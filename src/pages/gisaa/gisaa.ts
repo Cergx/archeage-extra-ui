@@ -1,17 +1,10 @@
 import {
-    normalizeGisaaPart,
     makeGisaaVekselKey,
     saveGisaaVekselInfo,
-    getSavedGisaaVekselInfo,
-    getSavedGisaaTablesSnapshot,
-    cleanGisaaText,
-    parseGisaaMaxCell,
     parseGisaaRow,
-    readGisaaTableRows,
     readGisaaTablesSnapshot,
     saveGisaaTablesSnapshot,
 } from '../../utils/gisaa.js';
-import { readSharedJson, writeSharedJson } from '../../utils/storage.js';
 import gisaaStyles from './gisaa.scss';
 
 type GisaaIconType = 'archive' | 'sack';

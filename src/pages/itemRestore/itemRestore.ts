@@ -1,4 +1,4 @@
-import { pageWindow, pageDocument } from '../../utils/env.js';
+import { pageWindow } from '../../utils/env.js';
 import itemRestoreStyles from './itemRestore.scss';
 import { ITEMS, GRADES } from '../../data/items.js';
 import type { ItemBase } from '../../data/items.js';

@@ -1,5 +1,4 @@
 import {
-    NOW_MS,
     pad2,
     nowMs,
     getMSKDatePartsFromUtcMs,
@@ -13,10 +12,7 @@ import {
     isThursdayByTZ,
     initServerTimeOffset,
     getNowUnix,
-    setNowMs,
-    setServerTimeOffset,
 } from '../../utils/time.js';
-import { pageWindow } from '../../utils/env.js';
 import { makeGisaaVekselKey, getSavedGisaaVekselInfo, getSavedGisaaTablesSnapshot } from '../../utils/gisaa.js';
 import {
     ICON_GISAA_OVERLAY,
@@ -28,8 +24,49 @@ import type { ItemBase } from '../../data/items.js';
 import { makeTaskCard } from '../../components/taskCard/taskCard.js';
 import { updateLevelBlock } from '../../components/levelBlock/levelBlock.js';
 import { initDateNavDeps, ensureDateNavInHeader, updateDateNavLabel, updateDateNavButtons } from '../../components/dateNav/dateNav.js';
+import {
+    initApiDeps,
+    installApiInfoInterceptor,
+    normalizeUrlToPath,
+    API_INFO_CACHE,
+    API_INFO_PROMISE,
+    API_INFO_DATA_JSON,
+    isRefreshing,
+    fetchJson,
+    fetchText,
+    fetchApiInfo,
+    getApiInfoCached,
+    getUidFromCheckUser,
+    refreshApiInfo,
+    startAutoRefresh,
+    stopAutoRefresh,
+    restartAutoRefresh,
+    showRefreshLoader,
+    hideRefreshLoader,
+    setApiInfoDataJson,
+} from './api.js';
 
 export { formatTimeMSK };
+export {
+    initApiDeps,
+    installApiInfoInterceptor,
+    normalizeUrlToPath,
+    API_INFO_CACHE,
+    API_INFO_PROMISE,
+    API_INFO_DATA_JSON,
+    isRefreshing,
+    fetchJson,
+    fetchText,
+    fetchApiInfo,
+    getApiInfoCached,
+    getUidFromCheckUser,
+    refreshApiInfo,
+    startAutoRefresh,
+    stopAutoRefresh,
+    restartAutoRefresh,
+    showRefreshLoader,
+    hideRefreshLoader,
+};
 
 // ==================== Константы ====================
 
@@ -38,8 +75,6 @@ export const JUST_DONE_CLASS: string = 'tm-task-just-completed';
 // TZ, MSK_OFFSET_HOURS → imported from utils.js
 export const THU_PRE_HOUR: number = 3;
 export const DEFAULT_HOUR: number = 16;
-/** Эндпоинт информации о марафоне. Ответ: {@link ApiInfoResponse}. */
-export const API_INFO_PATH: string = '/minigames/marathon_of_heroes/api/info';
 export const LS_KEYS: Record<string, string> = {
     HIDE_DONE: 'tm_aa_hide_done',
     AUTO_CLAIM: 'tm_aa_auto_claim',
@@ -342,14 +377,8 @@ export interface PaginationPageItemParams {
 export let selectedDayUtcMs: DayUtcMs | null = null;
 export let selectedSegment: Segment = 'auto';
 
-export let API_INFO_CACHE: ApiInfoResponse | null = null;
-export let API_INFO_PROMISE: Promise<ApiInfoResponse> | null = null;
 // NOW_MS, SERVER_TIME_OFFSET → imported from utils.js
-
-export const AUTO_REFRESH_INTERVAL_FOCUSED_MS: number = 30000;
-export const AUTO_REFRESH_INTERVAL_HIDDEN_MS: number = 1800000;
-export let autoRefreshIntervalId: ReturnType<typeof setInterval> | null = null;
-export let isRefreshing: boolean = false;
+export const autoRefreshIntervalRef: { current: ReturnType<typeof setInterval> | null } = { current: null };
 
 /** ID квестов, которые были выполнены на прошлой отрисовке */
 export let previouslyDoneQuestIds: Set<number> = new Set();
@@ -375,56 +404,6 @@ export const clearDOMCache = (): void => {
     for (const key of Object.keys(DOM) as (keyof DOMCache)[]) {
         DOM[key] = null;
     }
-};
-
-// ==================== Перехват API ====================
-
-export const normalizeUrlToPath = (url: string | URL): string => {
-    try {
-        return new URL(url, location.href).pathname;
-    } catch {
-        return String(url || '');
-    }
-};
-
-export const installApiInfoInterceptor = (): void => {
-    if (pageWindow.__tmAA_fetchPatched) return;
-    pageWindow.__tmAA_fetchPatched = true;
-
-    const origFetch = pageWindow.fetch.bind(pageWindow);
-
-    pageWindow.fetch = async (...args) => {
-        const input = args[0];
-        const urlStr =
-            typeof input === 'string' ? input :
-                (input && typeof input === 'object' && 'url' in input) ? input.url :
-                    String(input);
-
-        const path = normalizeUrlToPath(urlStr);
-        const t0 = Date.now();
-        const res = await origFetch(...args);
-        const t1 = Date.now();
-
-        if (path === API_INFO_PATH) {
-            if (NOW_MS == null) {
-                const dateHeader = res.headers.get('Date');
-                const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
-                if (Number.isFinite(parsed)) {
-                    const halfRtt = (t1 - t0) / 2;
-                    setNowMs(parsed + halfRtt);
-                }
-            }
-
-            if (API_INFO_PROMISE == null) {
-                API_INFO_PROMISE = res.clone().json() as Promise<ApiInfoResponse>;
-                API_INFO_PROMISE
-                    .then((json: ApiInfoResponse) => { API_INFO_CACHE = json; })
-                    .catch(() => {});
-            }
-        }
-
-        return res;
-    };
 };
 
 // ==================== Форматирование title квеста ====================
@@ -962,135 +941,11 @@ export const getGisaaVekselInfoForQuest = (veksel: string | undefined, slot: Slo
     || getSavedGisaaVekselInfo(getGisaaVekselKeyForQuest(veksel, slot, locations))
 );
 
-// ==================== API-запросы ====================
-
-export const fetchJson = async <T = unknown>(url: string): Promise<T> => {
-    const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    const json = await res.json() as T;
-    const infoJson = json as ApiInfoResponse;
-    const quests = infoJson?.data?.quests;
-    debugLog('api/info loaded', {
-        state: infoJson?.state,
-        hasData: !!infoJson?.data,
-        questContainerType: quests == null ? String(quests) : Array.isArray(quests) ? 'array' : typeof quests,
-        questCount: quests && typeof quests === 'object' ? Object.keys(quests).length : 0,
-        weekNumber: infoJson?.data?.week_number,
-        nextWeekAt: infoJson?.data?.next_week_at,
-        serverNowIso: NOW_MS ? new Date(NOW_MS).toISOString() : null,
-        sampleQuests: quests && typeof quests === 'object' ? Object.values(quests).slice(0, 5).map(summarizeQuestForDebug) : [],
-    });
-    return json;
-};
-
-export const fetchText = async (url: string): Promise<string> => {
-    const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    return res.text();
-};
-
-export const fetchApiInfo = async (): Promise<ApiInfoResponse> => {
-    const t0 = Date.now();
-    const res = await fetch(API_INFO_PATH, { credentials: 'include', cache: 'no-store' });
-    const t1 = Date.now();
-    if (!res.ok) throw new Error(`api/info failed: ${res.status}`);
-    const dateHeader = res.headers.get('Date');
-    const parsed = dateHeader ? Date.parse(dateHeader) : NaN;
-    if (Number.isFinite(parsed)) {
-        const halfRtt = (t1 - t0) / 2;
-        setNowMs(parsed + halfRtt);
-    } else if (NOW_MS == null) {
-        throw new Error('[ArcheAgeExtraUI] Cannot read server Date header');
-    }
-    return res.json() as Promise<ApiInfoResponse>;
-};
-
-export const getApiInfoCached = async (): Promise<ApiInfoResponse> => {
-    if (API_INFO_CACHE) return API_INFO_CACHE;
-    if (API_INFO_PROMISE) {
-        try {
-            API_INFO_CACHE = await API_INFO_PROMISE;
-            return API_INFO_CACHE;
-        } catch {
-            // fallback to manual fetch
-        }
-    }
-    API_INFO_CACHE = await fetchApiInfo();
-    return API_INFO_CACHE;
-};
-
-export const getUidFromCheckUser = async (): Promise<string> => {
-    const json = await fetchJson<{ user?: { uid?: string | number } }>('/dynamic/auth/?a=checkuser');
-    const uid = json?.user?.uid;
-    if (!uid) throw new Error('uid not found');
-    return String(uid);
-};
-
-export const showRefreshLoader = (): void => {
-    if (DOM.refreshLoader) DOM.refreshLoader.classList.add('tm-refresh-loader--active');
-};
-
-export const hideRefreshLoader = (): void => {
-    if (DOM.refreshLoader) DOM.refreshLoader.classList.remove('tm-refresh-loader--active');
-};
-
-export let API_INFO_DATA_JSON: string | null = null;
-
-export const refreshApiInfo = async ({ loadAutoClaimState = () => false, claimAllLevelRewards = async () => {} }: RefreshApiInfoOptions = {}): Promise<void> => {
-    if (isRefreshing) return;
-    isRefreshing = true;
-    showRefreshLoader();
-    try {
-        const prevDataJson = API_INFO_DATA_JSON;
-        API_INFO_CACHE = null;
-        API_INFO_PROMISE = null;
-        API_INFO_CACHE = await fetchApiInfo();
-        if (NOW_MS !== null) {
-            setServerTimeOffset(NOW_MS - Date.now());
-        }
-        const oldSelectedKey = slotKey(selectedDayUtcMs, selectedSegment);
-        const newTodayUtc = getTodayUtcMsByTZ();
-        const newTodaySegment = effectiveSegment(newTodayUtc, 'auto');
-        const newTodayKey = slotKey(newTodayUtc, newTodaySegment);
-        const dayChanged = oldSelectedKey !== newTodayKey && oldSelectedKey < newTodayKey;
-        if (dayChanged) applySlot(newTodayUtc, 'auto');
-        const newDataJson = JSON.stringify(API_INFO_CACHE?.data);
-        API_INFO_DATA_JSON = newDataJson;
-        if (newDataJson === prevDataJson && !dayChanged) return;
-        updateQuestHistory();
-        if (dayChanged) await onSelectedDateChanged();
-        else await renderTasksForSelectedDay({ animateNewlyDone: true });
-        if (loadAutoClaimState()) await claimAllLevelRewards();
-    } catch (e) {
-        console.warn('[ArcheAgeExtraUI] refreshApiInfo failed:', e);
-    } finally {
-        isRefreshing = false;
-        hideRefreshLoader();
-    }
-};
-
-export const stopAutoRefresh = (): void => {
-    if (autoRefreshIntervalId != null) {
-        clearInterval(autoRefreshIntervalId);
-        autoRefreshIntervalId = null;
-    }
-};
-
-export const startAutoRefresh = (intervalMs: number): void => {
-    stopAutoRefresh();
-    autoRefreshIntervalId = setInterval(refreshApiInfo, intervalMs);
-};
-
-export const restartAutoRefresh = (): void => {
-    const interval = document.hidden ? AUTO_REFRESH_INTERVAL_HIDDEN_MS : AUTO_REFRESH_INTERVAL_FOCUSED_MS;
-    startAutoRefresh(interval);
-};
-
 export const handleVisibilityChange = (): void => {
-    if (document.hidden) startAutoRefresh(AUTO_REFRESH_INTERVAL_HIDDEN_MS);
+    if (document.hidden) restartAutoRefresh();
     else {
         refreshApiInfo();
-        startAutoRefresh(AUTO_REFRESH_INTERVAL_FOCUSED_MS);
+        restartAutoRefresh();
     }
 };
 
@@ -1262,7 +1117,7 @@ export const renderTasksForSelectedDay = async ({ animateNewlyDone = false, make
     if (!listEl) return;
     if (!makeItemIconLink || !makeIconLink) throw new Error('[ArcheAgeExtraUI] makeItemIconLink/makeIconLink are required');
     const json = await getApiInfoCached();
-    API_INFO_DATA_JSON = JSON.stringify(json?.data);
+    setApiInfoDataJson(JSON.stringify(json?.data));
     const all = getQuestsArrayFromInfo(json);
     updateLevelBlock(json);
     updateTasksHeader(json);
@@ -1330,6 +1185,24 @@ export const init = async ({
     makeIconLink,
 }: InitOptions = {}): Promise<void> => {
     if (makeItemIconLink || makeIconLink) setTaskCardFactories({ makeItemIconLink, makeIconLink });
+    initApiDeps({
+        debugLog,
+        debugWarn,
+        DOM,
+        autoRefreshIntervalId: autoRefreshIntervalRef,
+        AUTO_REFRESH_INTERVAL_FOCUSED_MS: 30000,
+        AUTO_REFRESH_INTERVAL_HIDDEN_MS: 1800000,
+        API_INFO_PATH: '/minigames/marathon_of_heroes/api/info',
+        getSelectedDayUtcMs: () => selectedDayUtcMs,
+        getSelectedSegment: () => selectedSegment,
+        getSlotKey: (day, seg) => slotKey(day, seg),
+        getTodayUtcMsByTZ,
+        getEffectiveSegment: effectiveSegment,
+        applySlot,
+        updateQuestHistory,
+        onSelectedDateChanged,
+        renderTasksForSelectedDay,
+    });
     installApiInfoInterceptor();
     injectStyles();
     debugLog('init marathon page', {
@@ -1382,7 +1255,6 @@ export const init = async ({
     catch (e) { console.warn('[ArcheAgeExtraUI] initPrizes failed:', e); }
     try { initAutoOpenBoxesCheckbox(); }
     catch (e) { console.warn('[ArcheAgeExtraUI] initAutoOpenBoxesCheckbox failed:', e); }
-    const initialInterval = document.hidden ? AUTO_REFRESH_INTERVAL_HIDDEN_MS : AUTO_REFRESH_INTERVAL_FOCUSED_MS;
-    startAutoRefresh(initialInterval);
+    restartAutoRefresh();
     document.addEventListener('visibilitychange', handleVisibilityChange);
 };

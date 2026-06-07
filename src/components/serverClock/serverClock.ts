@@ -1,8 +1,6 @@
 import {
     TZ,
     getServerNowMs,
-    getMSKWeekday,
-    getMSKTimeOfDaySeconds,
     syncServerTime,
 } from '../../utils/time.ts';
 import { getGameTime } from '../../utils/game-time.ts';

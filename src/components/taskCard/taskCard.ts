@@ -1,5 +1,5 @@
 import { formatQuestTitle } from '../../pages/marathon/core.js';
-import type { Slot, GisaaInfo, MakeLinksRowParams, MakeTaskCardParams, MakeVekselIconLinkParams, VekselType } from '../../pages/marathon/core.js';
+import type { GisaaInfo, MakeLinksRowParams, MakeTaskCardParams } from '../../pages/marathon/core.js';
 import {
     DONE_CLASS,
     JUST_DONE_CLASS,
