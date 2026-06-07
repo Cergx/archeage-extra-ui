@@ -1,12 +1,8 @@
 import {
-    TZ,
-    MSK_OFFSET_HOURS,
     NOW_MS,
-    SERVER_TIME_OFFSET,
     pad2,
     nowMs,
     getMSKDatePartsFromUtcMs,
-    formatDMY,
     formatTimeMSK,
     dayUtcMsFromUnixByTZ,
     getTodayUtcMsByTZ,
@@ -16,27 +12,24 @@ import {
     isSameDayByTZ,
     isThursdayByTZ,
     initServerTimeOffset,
-    getTodayWeekdayMonFirst,
     getNowUnix,
     setNowMs,
-    formatAvailableWeekdaysStatus,
     setServerTimeOffset,
 } from '../../utils/time.js';
-import { formatEventsToString, getSecondsUntilNextEvent, updateCountdownEl } from '../../utils/events-time.js';
 import { pageWindow } from '../../utils/env.js';
 import { makeGisaaVekselKey, getSavedGisaaVekselInfo, getSavedGisaaTablesSnapshot } from '../../utils/gisaa.js';
 import {
-    CODEX_BASE,
-    ICON_QUEST,
-    ICON_VEKSEL,
-    ICON_VEKSEL_NORTH,
     ICON_GISAA_OVERLAY,
     VEKSEL_BASE,
     findQuestMetaForMarathonQuest,
 } from '../../data/quests.js';
 import { SERVERS } from '../../data/servers.js';
-import { getItemCodexUrl } from '../../data/items.js';
 import type { ItemBase } from '../../data/items.js';
+import { makeTaskCard } from '../../components/taskCard/taskCard.js';
+import { updateLevelBlock } from '../../components/levelBlock/levelBlock.js';
+import { initDateNavDeps, ensureDateNavInHeader, updateDateNavLabel, updateDateNavButtons } from '../../components/dateNav/dateNav.js';
+
+export { formatTimeMSK };
 
 // ==================== Константы ====================
 
@@ -1182,227 +1175,6 @@ export const makeVekselIconLink = ({ href, title, vekselIcon }: MakeVekselIconLi
     return a;
 };
 
-export const makeRewardBlock = (amount: number, isDone: boolean): HTMLDivElement => {
-    const reward = document.createElement('div');
-    reward.className = 'tasks__item-reward';
-    const name = document.createElement('span');
-    name.className = 'tasks__item-reward-name';
-    name.textContent = 'Награда:';
-    reward.appendChild(name);
-    const n = Math.max(0, Math.min(20, amount));
-    const cls = isDone ? 'icon-point--received' : 'icon-point--not-received';
-    for (let i = 0; i < n; i++) {
-        const icon = document.createElement('div');
-        icon.className = `icon-point ${cls}`;
-        reward.appendChild(icon);
-    }
-    return reward;
-};
-
-export const makeTaskText = (desc: string): HTMLDivElement => {
-    const t = document.createElement('div');
-    t.className = 'tasks__item-text';
-    t.textContent = desc || '';
-    return t;
-};
-
-export const makeGisaaStatusLine = (info: GisaaInfo | null): HTMLDivElement | null => {
-    if (!info) return null;
-    const line = document.createElement('div');
-    line.className = `tm-gisaa-status tm-gisaa-status--${info.status}`;
-    if (info.status === 'available') {
-        const places = (info.locations || []).filter(location => !/^copy$/i.test(String(location).trim())).join(' / ');
-        line.textContent = places ? `Сегодня можно выполнить: ${places}` : 'Сегодня можно выполнить';
-    } else if (info.status === 'unavailable') line.textContent = 'Сегодня нельзя выполнить';
-    else return null;
-    return line;
-};
-
-export const makeLinksRow = ({ id, short, questTitle, slot, veksel, locations, availableWeekdays, schedule, makeItemIconLink, makeIconLink }: MakeLinksRowParams): HTMLDivElement => {
-    const row = document.createElement('div');
-    row.className = 'tm-links-row';
-    const leftPart = document.createElement('div');
-    leftPart.className = 'tm-links-left';
-    const item = slot?.item;
-    if (item?.id) {
-        const hasIcon = item.icon && item.grade;
-        if (hasIcon) leftPart.appendChild(makeItemIconLink({ item, linked: true, size: 'small', count: slot.count }));
-        else if (item.name) {
-            const nameLink = document.createElement('a');
-            nameLink.className = 'tm-item-name-link';
-            nameLink.href = getItemCodexUrl(item);
-            nameLink.target = '_blank';
-            nameLink.rel = 'noopener noreferrer';
-            nameLink.textContent = item.name;
-            leftPart.appendChild(nameLink);
-        }
-    }
-    const hasLocations = locations && locations.length > 0;
-    const hasShort = !!short;
-    const availableWeekdaysStatus = formatAvailableWeekdaysStatus(availableWeekdays);
-    const hasAvailableWeekdays = !!availableWeekdaysStatus;
-    const hasSchedule = schedule && schedule.length > 0;
-    const gisaaInfo = getGisaaVekselInfoForQuest(veksel, slot, locations);
-    if (hasLocations || hasShort || hasAvailableWeekdays || hasSchedule || gisaaInfo) {
-        const infoWrapper = document.createElement('div');
-        infoWrapper.className = 'tm-info-wrapper';
-        if (hasLocations || hasShort) {
-            const infoLine = document.createElement('div');
-            infoLine.className = 'tm-info-line';
-            if (hasLocations) {
-                const locEl = document.createElement('span');
-                locEl.className = 'tm-locations';
-                locEl.textContent = locations.join(' / ');
-                infoLine.appendChild(locEl);
-            }
-            if (hasShort) {
-                const d = document.createElement('span');
-                d.className = 'tm-short';
-                d.innerHTML = short;
-                infoLine.appendChild(d);
-            }
-            infoWrapper.appendChild(infoLine);
-        }
-        if (hasAvailableWeekdays) {
-            const daysEl = document.createElement('div');
-            daysEl.className = 'tm-available-days';
-            daysEl.textContent = availableWeekdaysStatus;
-            infoWrapper.appendChild(daysEl);
-        }
-        if (hasSchedule) {
-            const eventsEl = document.createElement('div');
-            eventsEl.className = 'tm-events';
-            eventsEl.textContent = formatEventsToString(schedule);
-            const countdown = document.createElement('span');
-            countdown.className = 'tm-countdown';
-            countdown.dataset.schedule = JSON.stringify(schedule);
-            const seconds = getSecondsUntilNextEvent(schedule);
-            updateCountdownEl(countdown, seconds);
-            eventsEl.appendChild(countdown);
-            infoWrapper.appendChild(eventsEl);
-        }
-        const gisaaStatusLine = makeGisaaStatusLine(gisaaInfo);
-        if (gisaaStatusLine) infoWrapper.appendChild(gisaaStatusLine);
-        leftPart.appendChild(infoWrapper);
-    }
-    row.appendChild(leftPart);
-    const icons = document.createElement('div');
-    icons.className = 'tm-icons';
-    row.appendChild(icons);
-    const codexTitle = questTitle ? `${formatQuestTitle(questTitle)} - ArcheageCodex` : 'Открыть задание в ArcheageCodex';
-    if (id) icons.appendChild(makeIconLink({ href: `${CODEX_BASE}${id}/`, iconSrc: ICON_QUEST, title: codexTitle, className: 'tm-codex-link' }));
-    if (veksel === 'blue_salt' || veksel === 'north') {
-        const link = makeVekselIconLink({ href: buildVekselUrl(veksel, slot, locations), title: 'Открыть таблицу векселей', vekselIcon: veksel === 'blue_salt' ? ICON_VEKSEL : ICON_VEKSEL_NORTH });
-        link.classList.add('tm-veksel-link');
-        link.dataset.veksel = veksel;
-        if (slot) link.dataset.slot = JSON.stringify(slot);
-        if (locations) link.dataset.locations = JSON.stringify(locations);
-        icons.appendChild(link);
-    }
-    return row;
-};
-
-export const makeTaskCard = ({ q, amount, id, short, isDone, showLastDone, completionTime, isToday, slot, veksel, locations, availableWeekdays, schedule, animateCompletion = false, makeItemIconLink, makeIconLink }: MakeTaskCardParams): HTMLDivElement => {
-    const card = document.createElement('div');
-    card.className = `tasks__item tasks__item--${amount || 1}`;
-    if (isDone) {
-        card.classList.add(DONE_CLASS);
-        if (animateCompletion) {
-            card.classList.add(JUST_DONE_CLASS);
-            card.addEventListener('animationend', () => { card.classList.remove(JUST_DONE_CLASS); }, { once: true });
-        }
-        const done = document.createElement('div');
-        done.className = 'tasks__item-done';
-        const row = document.createElement('div');
-        row.className = 'tm-done-row';
-        const maxStep = Number(q?.max_completed_step || 0);
-        const progress = Number(q?.progress || 0);
-        const progressEl = document.createElement('span');
-        progressEl.className = 'tm-done-progress';
-        if (maxStep === 0 && isToday) progressEl.textContent = 'Можно выполнить повторно';
-        else if (maxStep === 0) progressEl.textContent = '';
-        else progressEl.textContent = `${progress}/${maxStep}`;
-        row.appendChild(progressEl);
-        const checkEl = document.createElement('span');
-        checkEl.className = 'tm-done-check';
-        checkEl.textContent = '✔';
-        row.appendChild(checkEl);
-        done.appendChild(row);
-        if (showLastDone) {
-            const time = formatTimeMSK(completionTime || 0);
-            if (time) {
-                const timeEl = document.createElement('span');
-                timeEl.className = 'tm-done-time';
-                timeEl.textContent = time;
-                done.appendChild(timeEl);
-            }
-        }
-        card.appendChild(done);
-    }
-    card.appendChild(makeRewardBlock(amount, isDone));
-    card.appendChild(makeTaskText(q.description));
-    card.appendChild(makeLinksRow({ id, short, questTitle: q.title, slot, veksel, locations, availableWeekdays, schedule, makeItemIconLink, makeIconLink }));
-    return card;
-};
-
-export const updateLevelBlock = (json: ApiInfoResponse): void => {
-    const userInfo = json?.data?.user_info;
-    if (!userInfo) return;
-    const level = Number(userInfo.level || 1);
-    const expTotal = Number(userInfo.exp_total || 0);
-    const expForLevel = Number(json?.data?.action_info?.exp_for_level || 10);
-    const progress = expTotal - (level - 1) * expForLevel;
-    const clampedProgress = Math.max(0, Math.min(expForLevel, progress));
-    const levelBlock = document.querySelector('.level');
-    if (!levelBlock) return;
-    levelBlock.innerHTML = '';
-    const levelCurrent = document.createElement('div');
-    levelCurrent.className = 'level__current';
-    const levelCurrentTitle = document.createElement('div');
-    levelCurrentTitle.className = 'level__current-title';
-    levelCurrentTitle.textContent = 'Ваш уровень:';
-    levelCurrent.appendChild(levelCurrentTitle);
-    const iconLevel = document.createElement('div');
-    iconLevel.className = 'icon_level';
-    const iconLevelText = document.createElement('div');
-    iconLevelText.className = 'icon_level-text';
-    iconLevelText.textContent = String(level);
-    iconLevel.appendChild(iconLevelText);
-    const iconsStar = document.createElement('div');
-    iconsStar.className = 'icons-star';
-    iconLevel.appendChild(iconsStar);
-    levelCurrent.appendChild(iconLevel);
-    const iconInfo = document.createElement('div');
-    iconInfo.className = 'icon-info tooltip-on';
-    const tooltipWrap = document.createElement('div');
-    tooltipWrap.className = 'tooltip-wrap';
-    const tooltip = document.createElement('div');
-    tooltip.className = 'tooltip';
-    const tooltipText = document.createElement('div');
-    tooltipText.className = 'tooltip__text';
-    tooltipText.textContent = 'Выполняйте внутриигровые задания — и получайте за это уровни в событии «Марафон героев»!';
-    tooltip.appendChild(tooltipText);
-    tooltipWrap.appendChild(tooltip);
-    iconInfo.appendChild(tooltipWrap);
-    levelCurrent.appendChild(iconInfo);
-    levelBlock.appendChild(levelCurrent);
-    const levelNext = document.createElement('div');
-    levelNext.className = 'level__next';
-    const levelNextTitle = document.createElement('div');
-    levelNextTitle.className = 'level__next-title';
-    levelNextTitle.textContent = 'Прогресс до следующего уровня:';
-    levelNext.appendChild(levelNextTitle);
-    const levelNextList = document.createElement('div');
-    levelNextList.className = 'level__next-list';
-    for (let i = 0; i < expForLevel; i++) {
-        const iconPoint = document.createElement('div');
-        iconPoint.className = i < clampedProgress ? 'icon-point icon-point--received' : 'icon-point icon-point--not-received';
-        levelNextList.appendChild(iconPoint);
-    }
-    levelNext.appendChild(levelNextList);
-    levelBlock.appendChild(levelNext);
-};
-
 export const updateTasksHeader = (json: ApiInfoResponse): void => {
     const userInfo = json?.data?.user_info;
     if (!userInfo) return;
@@ -1434,86 +1206,6 @@ export const ensureTasksListEl = (): Element | null => {
         });
     }
     return DOM.tasksList;
-};
-
-export const ensureDateNavInHeader = (): HTMLDivElement | null => {
-    if (DOM.nav && DOM.nav.isConnected) return DOM.nav;
-    if (!DOM.tasksHeader || !DOM.tasksHeader.isConnected) DOM.tasksHeader = document.querySelector('.section.tasks .tasks__header');
-    if (!DOM.tasksHeader) return null;
-    let nav = DOM.tasksHeader.querySelector<HTMLDivElement>('.tm-date-nav');
-    if (nav) {
-        DOM.nav = nav; DOM.label = nav.querySelector('.tm-date-label'); DOM.prevBtn = nav.querySelector('.tm-date-prev'); DOM.nextBtn = nav.querySelector('.tm-date-next'); DOM.todayBtn = nav.querySelector('.tm-date-today');
-        return nav;
-    }
-    const wrapper = document.createElement('div');
-    wrapper.className = 'tm-nav-wrapper';
-    const todayBtn = document.createElement('button');
-    todayBtn.className = 'tm-date-btn tm-date-today'; todayBtn.type = 'button'; todayBtn.textContent = 'Сегодня';
-    nav = document.createElement('div'); nav.className = 'tm-date-nav';
-    const left = document.createElement('button'); left.className = 'tm-date-btn tm-date-prev'; left.type = 'button'; left.textContent = '←';
-    const right = document.createElement('button'); right.className = 'tm-date-btn tm-date-next'; right.type = 'button'; right.textContent = '→';
-    const label = document.createElement('div'); label.className = 'tm-date-label'; label.textContent = '...';
-    nav.appendChild(left); nav.appendChild(label); nav.appendChild(right);
-    const hideDoneLabel = document.createElement('label'); hideDoneLabel.className = 'tm-hide-done-label';
-    const hideDoneCheckbox = document.createElement('input'); hideDoneCheckbox.type = 'checkbox'; hideDoneCheckbox.className = 'tm-hide-done-checkbox';
-    const hideDoneText = document.createTextNode(' Скрыть выполненные');
-    hideDoneLabel.appendChild(hideDoneCheckbox); hideDoneLabel.appendChild(hideDoneText);
-    const refreshBtn = document.createElement('button');
-    refreshBtn.type = 'button'; refreshBtn.className = 'tm-refresh-btn'; refreshBtn.title = 'Обновить данные'; refreshBtn.innerHTML = '&#x21bb;';
-    DOM.refreshLoader = refreshBtn;
-    refreshBtn.addEventListener('click', () => { refreshApiInfo(); restartAutoRefresh(); });
-    wrapper.appendChild(todayBtn); wrapper.appendChild(nav); wrapper.appendChild(hideDoneLabel); wrapper.appendChild(refreshBtn);
-    DOM.tasksHeader.insertAdjacentElement('afterbegin', wrapper);
-    DOM.nav = nav; DOM.label = label; DOM.prevBtn = left; DOM.nextBtn = right; DOM.todayBtn = todayBtn; DOM.hideDoneCheckbox = hideDoneCheckbox;
-    const savedState = loadHideDoneState();
-    hideDoneCheckbox.checked = savedState;
-    if (savedState) {
-        const listEl = ensureTasksListEl();
-        if (listEl) listEl.classList.add('tm-hide-done');
-    }
-    hideDoneCheckbox.addEventListener('change', () => {
-        const listEl = ensureTasksListEl();
-        if (listEl) listEl.classList.toggle('tm-hide-done', hideDoneCheckbox.checked);
-        saveHideDoneState(hideDoneCheckbox.checked);
-    });
-    left.addEventListener('click', async () => { const prev = getPrevSlot(selectedDayUtcMs, selectedSegment); applySlot(prev.dayUtcMs, prev.segment); await onSelectedDateChanged(); });
-    right.addEventListener('click', async () => { const next = getNextSlot(selectedDayUtcMs, selectedSegment); applySlot(next.dayUtcMs, next.segment); await onSelectedDateChanged(); });
-    todayBtn.addEventListener('click', async () => { applySlot(getTodayUtcMsByTZ(), 'auto'); await onSelectedDateChanged(); });
-    return nav;
-};
-
-export const updateDateNavLabel = (): void => {
-    if (selectedDayUtcMs == null) return;
-    if (!DOM.label) return;
-    const parts = getMSKDatePartsFromUtcMs(selectedDayUtcMs);
-    const dateStr = formatDMY(parts);
-    const isThu = isThursdayByTZ(selectedDayUtcMs);
-    let suffix = '';
-    if (isThu && selectedSegment === 'pre') suffix = 'до 09:00';
-    else if (isThu && selectedSegment === 'post') suffix = 'после 09:00';
-    DOM.label.innerHTML = '';
-    const dateEl = document.createElement('span');
-    dateEl.className = 'tm-date-label-date';
-    dateEl.textContent = dateStr;
-    DOM.label.appendChild(dateEl);
-    if (suffix) {
-        const suffixEl = document.createElement('span');
-        suffixEl.className = 'tm-date-label-suffix';
-        suffixEl.textContent = suffix;
-        DOM.label.appendChild(suffixEl);
-    }
-    updateDateNavButtons();
-};
-
-export const updateDateNavButtons = (): void => {
-    if (selectedDayUtcMs == null) return;
-    if (!DOM.prevBtn && !DOM.nextBtn) return;
-    const curKey = slotKey(selectedDayUtcMs, selectedSegment);
-    const minKey = MIN_DAY_UTC_MS != null ? slotKey(MIN_DAY_UTC_MS, MIN_SEG) : null;
-    const maxKey = MAX_DAY_UTC_MS != null ? slotKey(MAX_DAY_UTC_MS, MAX_SEG) : null;
-    if (DOM.prevBtn) DOM.prevBtn.disabled = (minKey != null && curKey <= minKey);
-    if (DOM.nextBtn) DOM.nextBtn.disabled = (maxKey != null) && (curKey >= maxKey);
-    if (DOM.todayBtn) DOM.todayBtn.disabled = isSameDayByTZ(selectedDayUtcMs, getTodayUtcMsByTZ());
 };
 
 export const onSelectedDateChanged = async (): Promise<void> => {
@@ -1617,6 +1309,7 @@ export const renderTasksForSelectedDay = async ({ animateNewlyDone = false, make
             slot: meta?.slot || null, veksel: meta?.veksel, locations: meta?.locations,
             availableWeekdays: meta?.availableWeekdays, schedule: meta?.schedule, animateCompletion: isNewlyDone,
             makeItemIconLink, makeIconLink,
+            buildVekselUrl, getGisaaVekselInfoForQuest, makeVekselIconLink,
         });
         listEl.appendChild(card);
         renderedCount++;
@@ -1651,6 +1344,25 @@ export const init = async ({
     catch (e) { console.warn('[ArcheAgeExtraUI] getUidFromCheckUser failed:', e); }
     initServerTimeOffset();
     startCountdownInterval();
+    initDateNavDeps({
+        DOM,
+        getSelectedDay: () => selectedDayUtcMs,
+        getSelectedSegment: () => selectedSegment,
+        loadHideDoneState,
+        saveHideDoneState,
+        ensureTasksListEl,
+        getPrevSlot,
+        getNextSlot,
+        applySlot,
+        onSelectedDateChanged,
+        refreshApiInfo,
+        restartAutoRefresh,
+        slotKey,
+        getMinDay: () => MIN_DAY_UTC_MS,
+        getMaxDay: () => MAX_DAY_UTC_MS,
+        getMinSegment: () => MIN_SEG,
+        getMaxSegment: () => MAX_SEG,
+    });
     ensureDateNavInHeader();
     try { await computeDateBoundsFromApiInfo(); }
     catch (e) { console.warn('[ArcheAgeExtraUI] computeDateBoundsFromApiInfo failed:', e); }

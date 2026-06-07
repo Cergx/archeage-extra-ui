@@ -10,6 +10,7 @@ import { formatCountdown } from '../../utils/events-time.js';
 import { EVENTS } from '../../data/events.js';
 import { SERVERS } from '../../data/servers.js';
 import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom } from '../../data/items.js';
+import { createPopup } from '../../components/popup/popup.js';
 import eventsStyles from './events.scss';
 
 interface EventQuest {
@@ -212,23 +213,19 @@ let eventsInterval: TimerId | null = null;
 let settingsOverlay: HTMLDivElement | null = null;
 let evVisOverrides: EventVisibilityOverrides = {};
 
+let settingsClose: (() => void) | null = null;
+let eventsClose: (() => void) | null = null;
+
 export const closeSettingsPopup = (): void => {
-    if (settingsOverlay) {
-        settingsOverlay.remove();
-        settingsOverlay = null;
-    }
+    if (settingsClose) { settingsClose(); settingsClose = null; settingsOverlay = null; }
+    else if (settingsOverlay) { settingsOverlay.remove(); settingsOverlay = null; }
 };
 
 export const closeEventsPopup = (): void => {
     closeSettingsPopup();
-    if (eventsInterval) {
-        clearInterval(eventsInterval);
-        eventsInterval = null;
-    }
-    if (eventsOverlay) {
-        eventsOverlay.remove();
-        eventsOverlay = null;
-    }
+    if (eventsInterval) { clearInterval(eventsInterval); eventsInterval = null; }
+    if (eventsClose) { eventsClose(); eventsClose = null; eventsOverlay = null; }
+    else if (eventsOverlay) { eventsOverlay.remove(); eventsOverlay = null; }
 };
 
 export const openSettingsPopup = (onChanged: () => void, {
@@ -242,34 +239,19 @@ export const openSettingsPopup = (onChanged: () => void, {
 }: Partial<EventsPopupDeps> = {}): void => {
     if (settingsOverlay) { closeSettingsPopup(); return; }
 
-    settingsOverlay = document.createElement('div');
-    settingsOverlay.className = 'tm-popup-overlay';
-    settingsOverlay.style.zIndex = '10002';
-    settingsOverlay.addEventListener('mousedown', (e: MouseEvent) => {
-        if (e.target === settingsOverlay) closeSettingsPopup();
+    const popup = createPopup({
+        panelClass: 'tm-popup-panel--settings',
+        title: 'Настройки',
+        onClose: () => {
+            settingsOverlay = null;
+            settingsClose = null;
+        },
     });
-
-    const panel = document.createElement('div');
-    panel.className = 'tm-popup-panel tm-popup-panel--settings';
-    panel.addEventListener('mousedown', (e: MouseEvent) => e.stopPropagation());
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'tm-popup-header';
-    const title = document.createElement('div');
-    title.className = 'tm-popup-title';
-    title.textContent = 'Настройки';
-    header.appendChild(title);
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'tm-popup-btn';
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', closeSettingsPopup);
-    header.appendChild(closeBtn);
-    panel.appendChild(header);
+    settingsOverlay = popup.overlay;
+    settingsClose = popup.close;
 
     // Body
-    const body = document.createElement('div');
-    body.className = 'tm-popup-body tm-popup-body--settings';
+    popup.body.className = 'tm-popup-body tm-popup-body--settings';
 
     const leftCol = document.createElement('div');
     leftCol.className = 'tm-settings-left';
@@ -475,11 +457,8 @@ export const openSettingsPopup = (onChanged: () => void, {
 
     eventsSection.appendChild(ul);
     rightCol.appendChild(eventsSection);
-    body.appendChild(leftCol);
-    body.appendChild(rightCol);
-    panel.appendChild(body);
-    settingsOverlay.appendChild(panel);
-    document.body.appendChild(settingsOverlay);
+    popup.body.appendChild(leftCol);
+    popup.body.appendChild(rightCol);
 };
 
 export const openEventsPopup = ({
@@ -496,24 +475,6 @@ export const openEventsPopup = ({
     injectEventsPopupStyles();
     evVisOverrides = loadEventVisibility();
 
-    eventsOverlay = document.createElement('div');
-    eventsOverlay.className = 'tm-popup-overlay';
-    eventsOverlay.addEventListener('mousedown', (e: MouseEvent) => {
-        if (e.target === eventsOverlay) closeEventsPopup();
-    });
-
-    const panel = document.createElement('div');
-    panel.className = 'tm-popup-panel tm-popup-panel--events';
-    panel.addEventListener('mousedown', (e: MouseEvent) => e.stopPropagation());
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'tm-popup-header';
-    const title = document.createElement('div');
-    title.className = 'tm-popup-title';
-    title.textContent = 'Расписание событий';
-    header.appendChild(title);
-
     const gearBtn = document.createElement('button');
     gearBtn.className = 'tm-popup-btn';
     gearBtn.textContent = '⚙';
@@ -527,7 +488,6 @@ export const openEventsPopup = ({
         saveNotificationState: saveNotificationState!,
         updateRenderedItemIcons,
     }));
-    header.appendChild(gearBtn);
 
     const bellBtn = document.createElement('button');
     bellBtn.className = 'tm-popup-btn tm-popup-btn--bell';
@@ -555,19 +515,24 @@ export const openEventsPopup = ({
         saveNotificationState!(state);
         updateBellStyle();
     });
-    header.appendChild(bellBtn);
 
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'tm-popup-btn';
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', closeEventsPopup);
-    header.appendChild(closeBtn);
-    panel.appendChild(header);
+    const popup = createPopup({
+        panelClass: 'tm-popup-panel--events',
+        title: 'Расписание событий',
+        extraButtons: [gearBtn, bellBtn],
+        onClose: () => {
+            if (eventsInterval) {
+                clearInterval(eventsInterval);
+                eventsInterval = null;
+            }
+            eventsOverlay = null;
+            eventsClose = null;
+        },
+    });
+    eventsOverlay = popup.overlay;
+    eventsClose = popup.close;
 
     // Body
-    const body = document.createElement('div');
-    body.className = 'tm-popup-body';
-
     const table = document.createElement('table');
     table.className = 'tm-events-table';
     const thead = document.createElement('thead');
@@ -582,10 +547,7 @@ export const openEventsPopup = ({
 
     const tbody = document.createElement('tbody');
     table.appendChild(tbody);
-    body.appendChild(table);
-    panel.appendChild(body);
-    eventsOverlay.appendChild(panel);
-    document.body.appendChild(eventsOverlay);
+    popup.body.appendChild(table);
 
     const DAY_SEC = 86400;
 
