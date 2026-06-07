@@ -1,4 +1,3 @@
-:root { --tm-screen-scale: 1; }
 .tm-item-icon {
   position: relative;
   display: inline-block;
@@ -69,6 +68,24 @@
   text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;
   pointer-events: none;
   z-index: 3;
+}
+
+.tm-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  transition: box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.tm-icon-link:hover {
+  transform: translateY(-1px);
+}
+
+.tm-icon-link img {
+  width: 30px;
+  display: block;
 }
 
 /* Всплывашка предмета (глобальная, в body) */

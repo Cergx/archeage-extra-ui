@@ -3,21 +3,10 @@ import selectedItemsStyles from './selectedItems/selectedItems.scss';
 import marathonStyles from './page/page.scss';
 import cartStyles from '../cart/cart.scss';
 
-const DONE_CLASS = 'tm-task-completed';
-const JUST_DONE_CLASS = 'tm-task-just-completed';
-
 export let itemIconStylesInjected = false;
 export let selectedItemsStylesInjected = false;
 export let marathonStylesInjected = false;
 export let cartStylesInjected = false;
-
-const getSystemScale = () => window.devicePixelRatio / (window.visualViewport?.scale || 1);
-
-const getEffectiveScale = () => 1 / getSystemScale();
-
-export const updateTooltipScale = (tooltip) => {
-    tooltip.style.setProperty('--tm-tooltip-scale', `${getEffectiveScale()}`);
-};
 
 /** Инжектит стили для иконок предметов (используется на cart и marathon). */
 export const injectItemIconStyles = () => {
