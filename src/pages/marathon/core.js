@@ -19,6 +19,7 @@ import {
     getTodayWeekdayMonFirst,
     getNowUnix,
     setNowMs,
+    formatAvailableWeekdaysStatus,
     setServerTimeOffset,
 } from '../../utils/time.js';
 import { formatEventsToString, getSecondsUntilNextEvent, updateCountdownEl } from '../../utils/events-time.js';
