@@ -1,0 +1,89 @@
+.tm-item-icon {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tm-item-icon--small {
+  width: 30px;
+  height: 30px;
+  font-size: 11.5px;
+}
+
+.tm-item-icon--medium {
+  width: 42px;
+  height: 42px;
+  font-size: 11.5px;
+}
+
+.tm-item-icon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  box-shadow:
+          inset 0 0 12px rgba(255, 255, 255, 0.35),
+          inset 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.tm-item-icon:hover::after {
+  opacity: 1;
+}
+
+.tm-item-icon-img {
+  position: relative;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tm-item-icon-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.tm-item-icon-grade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tm-item-icon-count {
+  position: absolute;
+  right: 9%;
+  bottom: 12.5%;
+  line-height: 0.5;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: -1px -2px 2px #000, 1px 1px 2px #000;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.tm-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  transition: box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.tm-icon-link:hover {
+  transform: translateY(-1px);
+}
+
+.tm-icon-link img {
+  width: 30px;
+  display: block;
+}

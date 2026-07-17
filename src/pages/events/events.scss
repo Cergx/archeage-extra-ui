@@ -1,0 +1,218 @@
+.tm-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0,0,0,0.45);
+  color: #2D364E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tm-popup-panel {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;
+}
+.tm-popup-panel--events {
+  width: 1000px;
+  max-width: 95vw;
+}
+.tm-popup-panel--settings {
+  width: 680px;
+  max-width: 95vw;
+  max-height: 80vh;
+}
+.tm-popup-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ddd;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.tm-popup-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0;
+}
+.tm-popup-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #555;
+  line-height: 1;
+}
+.tm-popup-btn:hover {
+  background: #eee;
+  color: #000;
+}
+.tm-popup-body {
+  overflow-y: auto;
+  padding: 0;
+  flex: 1;
+}
+.tm-popup-body--settings {
+  display: flex;
+  gap: 24px;
+  padding: 12px 16px;
+  overflow: hidden;
+}
+.tm-settings-left {
+  flex: 0 0 280px;
+  min-width: 0;
+}
+.tm-settings-right {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+.tm-settings-section {
+  margin-bottom: 14px;
+}
+.tm-settings-section:last-child {
+  margin-bottom: 0;
+}
+.tm-settings-section-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+.tm-settings-server-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 6px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+  color: #2D364E;
+  font: inherit;
+}
+/* Events table */
+.tm-events-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tm-events-table th {
+  background: #3d2a5a;
+  color: #fff;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: normal;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: none;
+}
+.tm-events-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid #ddd;
+  vertical-align: top;
+}
+.tm-events-table tr:nth-child(even) td {
+  background: #f5f5f5;
+}
+.tm-events-table tr.tm-event-active td {
+  background: #d4edda;
+}
+.tm-events-table tr.tm-event-beyond td {
+  opacity: 0.6;
+}
+.tm-events-table .tm-event-time {
+  white-space: nowrap;
+  font-family: monospace;
+  font-size: 13px;
+}
+.tm-event-time details {
+  cursor: pointer;
+}
+.tm-event-time summary {
+  display: list-item;
+}
+.tm-event-time summary::marker {
+  font-size: 10px;
+}
+.tm-event-time .tm-schedule-detail {
+  margin-top: 4px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #555;
+  white-space: normal;
+}
+.tm-event-time--active summary {
+  color: #155724;
+  font-weight: bold;
+}
+.tm-event-time--waiting summary {
+  color: #856404;
+}
+.tm-events-table a {
+  color: #2a6496;
+  text-decoration: none;
+}
+.tm-events-table a:hover {
+  text-decoration: underline;
+}
+/* Settings checkboxes */
+.tm-ev-settings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tm-ev-settings-list li {
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tm-ev-settings-list label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.tm-ev-settings-list input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.tm-popup-btn--bell { font-size: 16px; }
+.tm-popup-btn--bell-off { opacity: 0.4; }
+.tm-ev-bell {
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  user-select: none;
+  border: none;
+  background: none;
+  vertical-align: middle;
+}
+.tm-ev-bell--off { opacity: 0.25; }
+.tm-scale-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tm-scale-input {
+  width: 75px;
+  padding: 4px 6px;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  font: inherit;
+}
+.tm-scale-suffix { color: #555; }
+.tm-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tm-zoom-cb:disabled + .tm-zoom-label { opacity: 0.5; }
+.tm-zoom-label { cursor: pointer; user-select: none; font-size: 13px; }

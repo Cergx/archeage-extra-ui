@@ -1,0 +1,19 @@
+{
+  "name": "archeage-extra-ui",
+  "version": "4.10.0",
+  "private": true,
+  "description": "Доработка страниц марафона, корзины и восстановления предметов",
+  "scripts": {
+    "build": "npm run build:tm:dev",
+    "build:tm:dev": "node build.js",
+    "build:tm:prod": "node build.js --prod",
+    "build:chrome": "node build.js --chrome",
+    "build:chrome:prod": "node build.js --chrome --prod",
+    "build:chrome:zip": "npm run build:chrome:prod && cd dist/chrome && zip -r ../../chrome-extension.zip .",
+    "watch": "node build.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12",
+    "sass": "^1.100.0"
+  }
+}

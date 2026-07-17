@@ -1,2 +1,7 @@
 .idea/
 .test/
+node_modules/
+dist/
+
+ArcheAgeExtraUI.user.js
+chrome-extension.zip

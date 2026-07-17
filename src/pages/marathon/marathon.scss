@@ -1,0 +1,442 @@
+.tm-task-completed {
+  background-color: #fff0e2bf;
+}
+
+/* Анимация "только что выполнено" */
+@keyframes tm-just-completed-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7), inset 0 0 20px rgba(76, 175, 80, 0.3);
+    transform: scale(1);
+  }
+  15% {
+    box-shadow: 0 0 25px 8px rgba(76, 175, 80, 0.6), inset 0 0 30px rgba(76, 175, 80, 0.4);
+    transform: scale(1.02);
+  }
+  30% {
+    box-shadow: 0 0 35px 12px rgba(255, 215, 0, 0.5), inset 0 0 40px rgba(255, 215, 0, 0.3);
+    transform: scale(1.03);
+  }
+  50% {
+    box-shadow: 0 0 20px 6px rgba(76, 175, 80, 0.4), inset 0 0 25px rgba(76, 175, 80, 0.2);
+    transform: scale(1.01);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent, inset 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+
+@keyframes tm-just-completed-bg {
+  0% { background-color: #fff0e2bf; }
+  20% { background-color: rgba(76, 175, 80, 0.35); }
+  40% { background-color: rgba(255, 215, 0, 0.3); }
+  60% { background-color: rgba(76, 175, 80, 0.25); }
+  100% { background-color: #fff0e2bf; }
+}
+
+@keyframes tm-checkmark-pop {
+  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+  50% { transform: scale(1.4) rotate(10deg); opacity: 1; }
+  70% { transform: scale(0.9) rotate(-5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.tm-task-just-completed {
+  animation:
+          tm-just-completed-glow 2s ease-out forwards,
+          tm-just-completed-bg 2s ease-out forwards;
+  position: relative;
+  z-index: 9;
+}
+
+.tm-task-just-completed .tm-done-check {
+  animation: tm-checkmark-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation-delay: 0.2s;
+  transform: scale(0);
+}
+
+.tasks__item {
+  overflow: visible;
+}
+
+.tasks__item-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.tm-done-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tm-done-time {
+  font-size: 12px;
+}
+
+.tm-done-progress {
+  font-size: 12px;
+}
+
+.tm-done-check {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  color: #3cb45a;
+}
+
+.tm-links-row {
+  margin-top: 6px;
+  display: flex;
+  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1;
+}
+
+.tm-links-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tm-item-name-link {
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+.tm-item-name-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.tm-info-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tm-info-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.tm-locations {
+  font-size: 12px;
+  line-height: 1.25;
+  opacity: 0.85;
+}
+
+.tm-short {
+  font-size: 12px;
+  line-height: 1.25;
+  opacity: 0.85;
+}
+
+.tm-available-days {
+  font-size: 12px;
+  line-height: 1.25;
+  color: #8a6230;
+  font-weight: 600;
+}
+
+.tm-gisaa-status {
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.tm-gisaa-status--available {
+  color: #3f8f3a;
+}
+
+.tm-gisaa-status--unavailable {
+  color: #b04a44;
+}
+
+.tm-short a {
+  color: inherit;
+}
+
+.tm-events {
+  font-size: 12px;
+  line-height: 1.25;
+  opacity: 0.85;
+}
+
+.tm-inline-icon {
+  display: inline-block;
+  position: relative;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.tm-inline-icon img:first-child {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tm-inline-icon-grade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.tm-countdown {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tm-countdown.tm-countdown--active {
+  color: #4caf50;
+}
+.tm-countdown.tm-countdown--waiting {
+  color: #d02e2e;
+}
+
+.tm-icons {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.tm-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  transition: box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.tm-icon-link:hover {
+  transform: translateY(-1px);
+}
+
+.tm-icon-link img {
+  width: 30px;
+  display: block;
+}
+
+.tm-veksel-icon-link {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.tm-veksel-icon-link:hover {
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.tm-veksel-icon-main {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tm-veksel-icon-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.tm-nav-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.tm-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 1300px) {
+  .tm-nav-wrapper {
+    padding: 0 20px;
+  }
+}
+
+.tm-date-btn {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255,0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.tm-date-btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.tm-date-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 150px;
+  text-align: center;
+}
+
+.tm-date-label-date {
+  font-size: 16px;
+}
+
+.tm-date-label-suffix {
+  font-size: 12px;
+  opacity: 0.75;
+  line-height: 1;
+}
+
+.tasks__header {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tm-date-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tm-hide-done-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.tm-hide-done-label:hover {
+  opacity: 1;
+}
+
+.tm-hide-done-checkbox {
+  cursor: pointer;
+}
+
+.tm-hide-done .tm-task-completed {
+  display: none;
+}
+
+.tm-refresh-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tm-refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.tm-refresh-btn:active {
+  transform: scale(0.92);
+}
+
+.tm-refresh-loader--active {
+  pointer-events: none;
+  animation: tm-spin 0.7s linear infinite;
+}
+
+@keyframes tm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Автозабор подарков */
+.prizes__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tm-auto-claim-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: normal;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tm-auto-claim-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Автооткрытие сундуков */
+.lootbox__title {
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.lootbox__title .icon-info {
+  margin-left: 0;
+}
+
+.tm-auto-open-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: normal;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  text-transform: none;
+}
+
+.tm-auto-open-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.pagination__item--ellipsis {
+  cursor: default;
+  color: #777;
+}

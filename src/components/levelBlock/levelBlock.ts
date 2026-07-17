@@ -1,0 +1,60 @@
+import type { ApiInfoResponse } from '../../pages/marathon/core.js';
+
+/** Рендерит блок уровня марафона: текущий уровень + прогресс до следующего. */
+export const updateLevelBlock = (json: ApiInfoResponse): void => {
+    const userInfo = json?.data?.user_info;
+    if (!userInfo) return;
+    const level = Number(userInfo.level || 1);
+    const expTotal = Number(userInfo.exp_total || 0);
+    const expForLevel = Number(json?.data?.action_info?.exp_for_level || 10);
+    const progress = expTotal - (level - 1) * expForLevel;
+    const clampedProgress = Math.max(0, Math.min(expForLevel, progress));
+    const levelBlock = document.querySelector('.level');
+    if (!levelBlock) return;
+    levelBlock.innerHTML = '';
+    const levelCurrent = document.createElement('div');
+    levelCurrent.className = 'level__current';
+    const levelCurrentTitle = document.createElement('div');
+    levelCurrentTitle.className = 'level__current-title';
+    levelCurrentTitle.textContent = 'Ваш уровень:';
+    levelCurrent.appendChild(levelCurrentTitle);
+    const iconLevel = document.createElement('div');
+    iconLevel.className = 'icon_level';
+    const iconLevelText = document.createElement('div');
+    iconLevelText.className = 'icon_level-text';
+    iconLevelText.textContent = String(level);
+    iconLevel.appendChild(iconLevelText);
+    const iconsStar = document.createElement('div');
+    iconsStar.className = 'icons-star';
+    iconLevel.appendChild(iconsStar);
+    levelCurrent.appendChild(iconLevel);
+    const iconInfo = document.createElement('div');
+    iconInfo.className = 'icon-info tooltip-on';
+    const tooltipWrap = document.createElement('div');
+    tooltipWrap.className = 'tooltip-wrap';
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    const tooltipText = document.createElement('div');
+    tooltipText.className = 'tooltip__text';
+    tooltipText.textContent = 'Выполняйте внутриигровые задания — и получайте за это уровни в событии «Марафон героев»!';
+    tooltip.appendChild(tooltipText);
+    tooltipWrap.appendChild(tooltip);
+    iconInfo.appendChild(tooltipWrap);
+    levelCurrent.appendChild(iconInfo);
+    levelBlock.appendChild(levelCurrent);
+    const levelNext = document.createElement('div');
+    levelNext.className = 'level__next';
+    const levelNextTitle = document.createElement('div');
+    levelNextTitle.className = 'level__next-title';
+    levelNextTitle.textContent = 'Прогресс до следующего уровня:';
+    levelNext.appendChild(levelNextTitle);
+    const levelNextList = document.createElement('div');
+    levelNextList.className = 'level__next-list';
+    for (let i = 0; i < expForLevel; i++) {
+        const iconPoint = document.createElement('div');
+        iconPoint.className = i < clampedProgress ? 'icon-point icon-point--received' : 'icon-point icon-point--not-received';
+        levelNextList.appendChild(iconPoint);
+    }
+    levelNext.appendChild(levelNextList);
+    levelBlock.appendChild(levelNext);
+};

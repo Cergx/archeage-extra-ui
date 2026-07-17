@@ -1,0 +1,171 @@
+// ============================================================
+// Entry point — wires together all modules
+// ============================================================
+
+import {
+    isGisaaSite,
+    isArcheageSite,
+    isCartPage,
+    isItemRestorePage,
+} from './utils/env.js';
+import { updateCountdownEl, getSecondsUntilNextEvent } from './utils/events-time.js';
+
+import { initGisaa } from './pages/gisaa/gisaa.js';
+
+import { initServerClock } from './components/serverClock/serverClock.js';
+import { openEventsPopup, checkEventNotifications, loadNotificationState, saveNotificationState } from './pages/events/events.js';
+
+import { initCart } from './pages/cart/cart.js';
+import { initItemRestore } from './pages/itemRestore/itemRestore.js';
+
+import {
+    init as initMarathon,
+    debugWarn,
+    fetchText,
+    getUidFromCheckUser,
+    loadVekselServerIdOverride,
+    saveVekselServerIdOverride,
+    resolveVekselUrl,
+    getVekselAutoOptionText,
+} from './pages/marathon/core.js';
+import { initPrizes, initAutoOpenBoxesCheckbox } from './pages/marathon/prizes.js';
+import {
+    injectItemIconStyles,
+    injectSelectedItemsStyles,
+    injectMarathonStyles,
+    injectCartStyles,
+} from './pages/marathon/styles.js';
+import { initTooltips, makeItemIconLink } from './components/tooltip/tooltip.js';
+import { makeIconLink, updateRenderedItemIcons } from './components/itemIcon/itemIcon.js';
+
+type TimerId = ReturnType<typeof setInterval>;
+
+// ============================================================
+// ====================== GISAA.RU =============================
+// ============================================================
+
+if (isGisaaSite) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGisaa);
+    } else {
+        initGisaa();
+    }
+}
+
+// ============================================================
+// ===================== ARCHEAGE.RU ===========================
+// ============================================================
+
+if (!isArcheageSite) {
+    // nothing more — exit
+} else {
+    const injectStyles = (): void => {
+        injectItemIconStyles();
+        injectMarathonStyles();
+    };
+
+    let countdownIntervalId: TimerId | null = null;
+    const startCountdownInterval = (): void => {
+        if (countdownIntervalId != null) return;
+        countdownIntervalId = setInterval(() => {
+            document.querySelectorAll<HTMLElement>('.tm-countdown').forEach((el: HTMLElement) => {
+                const scheduleJson = el.dataset.schedule;
+                if (!scheduleJson) return;
+                try {
+                    const schedule = JSON.parse(scheduleJson);
+                    const seconds = getSecondsUntilNextEvent(schedule);
+                    updateCountdownEl(el, seconds);
+                } catch {
+                    // ignore
+                }
+            });
+        }, 1000);
+    };
+
+    // --- Server clock on ALL archeage.ru pages ---
+    const openEventsPopupWithDeps = (): void => openEventsPopup({
+        loadVekselServerIdOverride,
+        saveVekselServerIdOverride,
+        resolveVekselUrl,
+        getVekselAutoOptionText,
+        loadNotificationState,
+        saveNotificationState,
+        updateRenderedItemIcons,
+    });
+    const checkEventNotificationsWithDeps = (): void => checkEventNotifications({
+        loadNotificationState,
+        saveNotificationState,
+    });
+    const startServerClock = () => initServerClock(openEventsPopupWithDeps, checkEventNotificationsWithDeps);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => startServerClock());
+    } else {
+        startServerClock();
+    }
+
+    // --- Page routing ---
+    if (isCartPage) {
+        const startCart = () => initCart({
+            injectItemIconStyles,
+            injectSelectedItemsStyles,
+            injectCartStyles,
+            makeItemIconLink,
+            fetchText,
+            getUidFromCheckUser,
+        });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startCart);
+        } else {
+            startCart();
+        }
+    } else if (isItemRestorePage) {
+        const startIR = () => initItemRestore({
+            injectItemIconStyles,
+            injectSelectedItemsStyles,
+            makeItemIconLink,
+        });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startIR);
+        } else {
+            startIR();
+        }
+    } else if (location.pathname.startsWith('/promo/marathon')) {
+        const observer = new MutationObserver(() => {
+            if (document.querySelector('.section.tasks')) {
+                observer.disconnect();
+                initMarathon({
+                    injectStyles,
+                    startCountdownInterval,
+                    initPrizes,
+                    initAutoOpenBoxesCheckbox,
+                    makeItemIconLink,
+                    makeIconLink,
+                });
+                initTooltips();
+            }
+        });
+
+        const startObserver = () => {
+            observer.observe(document.body, { childList: true, subtree: true });
+        };
+        if (document.body) startObserver();
+        else document.addEventListener('DOMContentLoaded', startObserver);
+        setTimeout(() => {
+            if (!document.querySelector('.section.tasks')) {
+                debugWarn('marathon tasks section did not appear after 10s', {
+                    path: location.pathname,
+                    sections: [...document.querySelectorAll('section, .section')]
+                        .slice(0, 20)
+                        .map(el => ({
+                            tag: el.tagName,
+                            className: el.className,
+                            id: el.id,
+                            text: el.textContent?.trim().slice(0, 120),
+                        })),
+                });
+            }
+        }, 10000);
+    }
+}
