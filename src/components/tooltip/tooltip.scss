@@ -108,6 +108,19 @@
   text-align: right;
 }
 
+.tm-item-tooltip-sockets {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 0 2px;
+}
+
+.tm-item-tooltip-enhancements {
+  padding: 0 3px;
+  letter-spacing: 0.03em;
+}
+
 .tm-item-tooltip-equipment-subtype {
   padding: 0 3px;
   letter-spacing: 0.03em;
@@ -143,7 +156,7 @@
 .tm-item-tooltip-price-value {
   color: #cfd6e0;
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 4px;
@@ -161,6 +174,12 @@
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
+}
+
+.tm-item-tooltip-loader {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 .orange_text,

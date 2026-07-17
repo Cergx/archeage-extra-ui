@@ -10,11 +10,15 @@ type ItemIconLinkFn = (params: { item: ItemBase; linked?: boolean; size?: string
 type RenderSelectedItemsFn = typeof renderSelectedItems;
 type AppendReloadBtnFn = typeof appendReloadBtn;
 
-interface CartGradeCampaignRule {
+type CartGradeCampaignRule = {
+    itemId: number;
+    campaign: string;
+    grade?: never;
+} | {
     itemId: number[];
     campaign: string;
     grade: number;
-}
+};
 
 export interface CartItem {
     title: string;
@@ -87,6 +91,22 @@ export const inferGradeFromCartItemName = (itemName: string): number | null => {
 
 export const CART_GRADE_BY_CAMPAIGN: CartGradeCampaignRule[] = [
     {
+        itemId: 34981, // Детеныш Гартарейн
+        campaign: 'Подарки за слияние серверов',
+    },
+    {
+        itemId: 46695, // Белоснежный олененок
+        campaign: 'С Днем рождения, ArcheAge!',
+    },
+    {
+        itemId: 50914, // Рубиновый эликсир
+        campaign: 'Игра стоит свеч',
+    },
+    {
+        itemId: 46701, // Снежный кабаненок
+        campaign: 'Счастливого 2025 года!',
+    },
+    {
         itemId: [
             45880, 45881, 45882, 45883, 45884, 45885, 45886, // эрнардский мнемоник
             45985, 45986, 45987, 45988, 45989, 45990, 45991, // смотритель тайных архивов
@@ -115,13 +135,53 @@ export const inferGradeFromCartCampaign = (item: ItemBase, campaign: string): nu
     if (!normalizedCampaign) return null;
 
     const rule = CART_GRADE_BY_CAMPAIGN.find(entry => {
-        if (!entry.itemId.includes(item.id)) return false;
+        const itemIds = Array.isArray(entry.itemId) ? entry.itemId : [entry.itemId];
+        if (!itemIds.includes(item.id)) return false;
 
         const normalizedRuleCampaign = normalizeCartItemName(entry.campaign);
         return normalizedRuleCampaign && normalizedCampaign.includes(normalizedRuleCampaign);
     });
 
     return rule?.grade ?? null;
+};
+
+const getCartItemSearchName = (item: ItemBase): string => item.searchName?.trim() || item.name || '';
+
+/** Убирает конечное количество вида "(х30)", " (x3)" или "(× 5)". */
+export const stripCountFromCartItemName = (itemName: string): string => (
+    normalizeCartItemName(itemName).replace(/\s*\(\s*[xх×]\s*\d+\s*\)\s*$/, '').trim()
+);
+
+const getCartItemNameVariants = (itemName: string): string[] => {
+    const normalized = normalizeCartItemName(itemName);
+    const normalizedWithoutCount = stripCountFromCartItemName(itemName);
+
+    return [...new Set([
+        normalized,
+        stripGradeFromCartItemName(normalized),
+        normalizedWithoutCount,
+        stripGradeFromCartItemName(normalizedWithoutCount),
+    ])];
+};
+
+const findItemFromCartCampaign = (itemName: string, campaign: string): ItemBase | null => {
+    const normalizedCampaign = normalizeCartItemName(campaign);
+    if (!normalizedCampaign) return null;
+
+    const normalizedNames = new Set(getCartItemNameVariants(itemName));
+
+    for (const rule of CART_GRADE_BY_CAMPAIGN) {
+        // Массив задает группу предметов для назначения грейда, число - точный предмет кампании.
+        if (Array.isArray(rule.itemId)) continue;
+
+        const normalizedRuleCampaign = normalizeCartItemName(rule.campaign);
+        if (!normalizedRuleCampaign || !normalizedCampaign.includes(normalizedRuleCampaign)) continue;
+
+        const item = ITEMS[rule.itemId];
+        if (item && normalizedNames.has(normalizeCartItemName(getCartItemSearchName(item)))) return item;
+    }
+
+    return null;
 };
 
 /**
@@ -161,23 +221,34 @@ export const withInferredCartGrade = (item: ItemBase, itemName: string, campaign
 };
 
 /**
- * Находит предмет в ITEMS по названию (name).
+ * Находит предмет в ITEMS сначала по searchName, затем по name у предметов без searchName.
  * @param {string} itemName
  * @param {string} [campaign]
  * @returns {ItemBase|null}
  */
 export const findItemByName = (itemName: string, campaign = ''): ItemBase | null => {
-    const normalized = normalizeCartItemName(itemName);
-    const normalizedWithoutGrade = stripGradeFromCartItemName(itemName);
+    const targetNames = getCartItemNameVariants(itemName);
+    const campaignItem = findItemFromCartCampaign(itemName, campaign);
 
-    for (const item of Object.values(ITEMS)) {
-        const name = normalizeCartItemName(item.name || '');
-        if (name === normalized) return withInferredCartGrade(item, itemName, campaign);
+    if (campaignItem) return withInferredCartGrade(campaignItem, itemName, campaign);
+
+    const items = Object.values(ITEMS);
+    for (const targetName of targetNames) {
+        for (const item of items) {
+            if (!item.searchName?.trim()) continue;
+            if (normalizeCartItemName(item.searchName) === targetName) {
+                return withInferredCartGrade(item, itemName, campaign);
+            }
+        }
     }
 
-    for (const item of Object.values(ITEMS)) {
-        const name = normalizeCartItemName(item.name || '');
-        if (name === normalizedWithoutGrade) return withInferredCartGrade(item, itemName, campaign);
+    for (const targetName of targetNames) {
+        for (const item of items) {
+            if (item.searchName?.trim()) continue;
+            if (normalizeCartItemName(item.name || '') === targetName) {
+                return withInferredCartGrade(item, itemName, campaign);
+            }
+        }
     }
 
     return null;

@@ -1,6 +1,6 @@
 import { appendStyleElement } from '../../utils/dom.js';
 import itemIconStyles from '../../components/itemIcon/itemIcon.scss';
-import selectedItemsStyles from './selected-items.scss';
+import selectedItemsStyles from './selectedItems.scss';
 import marathonStyles from './marathon.scss';
 import cartStyles from '../cart/cart.scss';
 

@@ -1,5 +1,7 @@
 import { pageDocument, pageWindow, isArcheageSite } from '../../utils/env.js';
 import { appendStyleElement } from '../../utils/dom.js';
+import { makeEmptyCell } from '../emptyCell/emptyCell.js';
+import { makeLoader } from '../loader/loader.js';
 import tooltipStyles from './tooltip.scss';
 import {
     GRADES,
@@ -23,6 +25,7 @@ import {
 import type { DynamicTooltipData, DynamicTooltipFieldValue, ItemBase } from '../../data/items.js';
 
 const LS_KEY_DYNAMIC_TOOLTIPS: string = 'tm_aa_dynamic_tooltips';
+const DYNAMIC_TOOLTIP_TTL_MS: number = 7 * 24 * 60 * 60 * 1000;
 const DEBUG_PREFIX: string = '[ArcheAgeExtraUI]';
 const debugWarn = (...args: unknown[]): void => console.warn(DEBUG_PREFIX, ...args);
 
@@ -222,13 +225,47 @@ const getItemDynamicTooltipKey = (item: ItemBase): string | null => {
     return `${item.id}|${grade}`;
 };
 
+interface DynamicTooltipSnapshot {
+    id: string;
+    grade: string;
+    updatedAt: number;
+    data: DynamicTooltipData;
+}
+
+const loadDynamicTooltipSnapshot = (item: ItemBase): DynamicTooltipSnapshot | null => {
+    const key = getItemDynamicTooltipKey(item);
+    if (!key) return null;
+
+    try {
+        const raw = localStorage.getItem(LS_KEY_DYNAMIC_TOOLTIPS);
+        if (!raw) return null;
+
+        const all = JSON.parse(raw) as Record<string, DynamicTooltipSnapshot | undefined>;
+        const snapshot = all[key] || all[String(item.id)];
+        const grade = Number.isFinite(Number(item.grade)) ? Number(item.grade) : 0;
+
+        return snapshot?.data && String(snapshot.id) === String(item.id) && String(snapshot.grade) === String(grade)
+            ? snapshot
+            : null;
+    } catch (e) {
+        debugWarn('Failed to load dynamic tooltip snapshot:', e);
+        return null;
+    }
+};
+
+const isDynamicTooltipSnapshotFresh = (snapshot: DynamicTooltipSnapshot | null): boolean => (
+    snapshot !== null
+    && Number.isFinite(snapshot.updatedAt)
+    && Date.now() - snapshot.updatedAt < DYNAMIC_TOOLTIP_TTL_MS
+);
+
 const saveDynamicTooltipSnapshot = (itemId: number | string, grade: number | string, data: DynamicTooltipData): void => {
     if (itemId == null || !data) return;
 
     try {
         const raw = localStorage.getItem(LS_KEY_DYNAMIC_TOOLTIPS);
         const all = raw ? JSON.parse(raw) : {};
-        all[String(itemId)] = {
+        all[`${itemId}|${grade ?? 0}`] = {
             id: String(itemId),
             grade: String(grade ?? 0),
             updatedAt: Date.now(),
@@ -316,7 +353,7 @@ const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemB
 
     const fixedGrade = dynamicTooltipNumberValue(data.fixed_grade);
     const apiGrade = dynamicTooltipNumberValue(data.grade);
-    const grade = fixedGrade != null && fixedGrade >= 0 ? fixedGrade : apiGrade;
+    const grade = apiGrade ?? (fixedGrade != null && fixedGrade >= 0 ? fixedGrade : null);
     const reqLevel = dynamicTooltipNumberValue(data.level_requirement);
     const maxLevel = dynamicTooltipNumberValue(data.level_limit);
     const hasRefund = Object.prototype.hasOwnProperty.call(data, 'refund');
@@ -329,6 +366,7 @@ const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemB
         ...(dynamicTooltipFieldValue(data.filename) ? { icon: dynamicTooltipFieldValue(data.filename) } : {}),
         ...(dynamicTooltipFieldValue(data.name) ? { name: dynamicTooltipFieldValue(data.name) } : {}),
         ...(grade != null && grade >= 0 ? { grade } : {}),
+        ...(fixedGrade != null ? { fixedGrade } : {}),
         ...(description ? { description } : {}),
         ...equipTooltipFields,
         ...(setDescription ? { equipDescription: setDescription } : {}),
@@ -348,6 +386,9 @@ const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemB
         ...(dynamicTooltipStatValue(data.c_sta) != null ? { sta: dynamicTooltipStatValue(data.c_sta) } : {}),
         ...(dynamicTooltipStatValue(data.c_int) != null ? { int: dynamicTooltipStatValue(data.c_int) } : {}),
         ...(dynamicTooltipStatValue(data.c_spi) != null ? { spi: dynamicTooltipStatValue(data.c_spi) } : {}),
+        ...(dynamicTooltipNumberValue(data.num_sockets) != null ? { numSockets: dynamicTooltipNumberValue(data.num_sockets) } : {}),
+        ...(dynamicTooltipFieldValue(data.gradable) ? { isGradable: dynamicTooltipFieldValue(data.gradable) === 't' } : {}),
+        ...(dynamicTooltipFieldValue(data.grade_enchantable) ? { isGradeEnchantable: dynamicTooltipFieldValue(data.grade_enchantable) === 't' } : {}),
     };
 };
 
@@ -378,6 +419,12 @@ const fetchDynamicTooltipData = async (item: ItemBase): Promise<DynamicTooltipDa
     const key = getItemDynamicTooltipKey(item);
     if (!key) return null;
     if (dynamicTooltipCache.has(key)) return dynamicTooltipCache.get(key);
+
+    const snapshot = loadDynamicTooltipSnapshot(item);
+    if (isDynamicTooltipSnapshotFresh(snapshot)) {
+        dynamicTooltipCache.set(key, snapshot.data);
+        return snapshot.data;
+    }
 
     const grade = Number.isFinite(Number(item.grade)) ? Number(item.grade) : 0;
     const promise: Promise<DynamicTooltipData | null> = fetch(`/dynamic/tooltip/?a=item&id=${encodeURIComponent(item.id)}&g=${encodeURIComponent(grade)}`, {
@@ -541,6 +588,36 @@ const populateTooltip = (item: ItemBase): void => {
         tooltip.appendChild(makeItemStatsSection(combatStatEntries));
     }
 
+    const socketCount = Math.max(0, Math.floor(Number(item.numSockets) || 0));
+    if (socketCount > 0) {
+        const sep = pageDocument.createElement('div');
+        sep.className = 'tm-item-tooltip-sep';
+        tooltip.appendChild(sep);
+
+        const sockets = pageDocument.createElement('div');
+        sockets.className = 'tm-item-tooltip-sockets';
+        for (let index = 0; index < socketCount; index++) sockets.appendChild(makeEmptyCell());
+        tooltip.appendChild(sockets);
+    }
+
+    if (item.isGradable && item.grade != null && item.fixedGrade != null) {
+        const sep = pageDocument.createElement('div');
+        sep.className = 'tm-item-tooltip-sep';
+        tooltip.appendChild(sep);
+
+        const enhancements = pageDocument.createElement('div');
+        enhancements.className = 'tm-item-tooltip-enhancements';
+
+        const maxGrade = item.fixedGrade === -1 ? GRADES.length - 1 : item.fixedGrade;
+        const rankLine = pageDocument.createElement('div');
+        rankLine.className = 'orange_text';
+        rankLine.innerHTML = item.grade === maxGrade
+            ? 'Максимальный ранг'
+            : `Максимальный ранг:<br/>(${GRADES[maxGrade]?.title || maxGrade})`;
+        enhancements.appendChild(rankLine);
+        tooltip.appendChild(enhancements);
+    }
+
     const equipmentSubTypeInfo = EQUIPMENT_SUB_TYPES[item.equipmentSubType];
     if (equipmentSubTypeInfo?.title) {
         const sep = pageDocument.createElement('div');
@@ -657,15 +734,32 @@ const positionTooltip = (anchorEl: HTMLElement): void => {
  */
 export const showTooltip = (anchorEl: HTMLElement, item: ItemBase): void => {
     initTooltipDom();
-    const tooltipKey = getItemDynamicTooltipKey(item) || `${Date.now()}:${Math.random()}`;
+    const dynamicTooltipKey = getItemDynamicTooltipKey(item);
+    const tooltipKey = dynamicTooltipKey || `${Date.now()}:${Math.random()}`;
+    const snapshot = loadDynamicTooltipSnapshot(item);
+    if (dynamicTooltipKey && isDynamicTooltipSnapshotFresh(snapshot) && !dynamicTooltipCache.has(tooltipKey)) {
+        dynamicTooltipCache.set(tooltipKey, snapshot.data);
+    }
+    const cachedData = dynamicTooltipCache.get(tooltipKey);
+    const sessionData = cachedData && !(cachedData instanceof Promise) ? cachedData : null;
+    const displayedData = sessionData || snapshot?.data;
+    const isDynamicDataLoading = isArcheageSite && dynamicTooltipKey !== null
+        && (!dynamicTooltipCache.has(tooltipKey) || cachedData instanceof Promise);
     activeTooltipKey = tooltipKey;
-    populateTooltip(item);
+    populateTooltip(displayedData ? mergeDynamicTooltipItem(item, displayedData) : item);
+    if (isDynamicDataLoading) {
+        getTooltipContainer().appendChild(makeLoader({
+            label: 'Загрузка дополнительной информации',
+            className: 'tm-item-tooltip-loader',
+        }));
+    }
     positionTooltip(anchorEl);
 
     fetchDynamicTooltipData(item).then(data => {
-        if (!data || activeTooltipKey !== tooltipKey) return;
+        if (activeTooltipKey !== tooltipKey) return;
 
-        populateTooltip(mergeDynamicTooltipItem(item, data));
+        if (data) populateTooltip(mergeDynamicTooltipItem(item, data));
+        else getTooltipContainer().querySelector('.tm-item-tooltip-loader')?.remove();
         positionTooltip(anchorEl);
     });
 };

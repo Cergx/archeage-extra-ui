@@ -62,7 +62,7 @@ interface PopupParams {
     buttons: PopupButton[];
 }
 
-type MakeItemIconLinkFn = (params: { item: ItemBase; linked?: boolean; size?: string }) => HTMLElement;
+type MakeItemIconLinkFn = (params: { item: ItemBase; linked?: boolean; size?: string; count?: number }) => HTMLElement;
 
 interface ItemRestoreUIDeps {
     makeItemIconLink: MakeItemIconLinkFn;
@@ -588,8 +588,9 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
                 iconUrl: item.iconurl || '',
                 name: item.gi_name || '',
                 itemBase: toItemBase(item),
+                count: parseInt(item.stack, 10) || 1,
             }),
-        });
+        }, makeItemIconLink);
         restoreBtn.classList.toggle('active', selectedItems.length > 0);
     };
 
