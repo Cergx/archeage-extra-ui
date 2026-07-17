@@ -1,7 +1,7 @@
 {
   "name": "ArcheAgeExtraUI",
   "description": "Доработка страниц марафона, корзины и восстановления предметов",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "matches": [
     "*://archeage.ru/*",
     "*://gisaa.ru/veksel/*"

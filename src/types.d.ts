@@ -8,3 +8,8 @@ declare function GM_getValue(key: string): string | undefined;
 
 /** GM_setValue — write a value to userscript storage. */
 declare function GM_setValue(key: string, value: string): void;
+
+declare module '*.png' {
+    const dataUrl: string;
+    export default dataUrl;
+}

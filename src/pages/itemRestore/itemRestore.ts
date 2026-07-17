@@ -9,6 +9,8 @@ import { SERVERS } from '../../data/servers.js';
 import { makeSelect, renderSelectedItems } from '../../components/select/select.js';
 import { appendReloadBtn } from '../../components/reloadBtn/reloadBtn.js';
 
+const LS_KEY_ITEM_RESTORE_ITEMS = 'tm_aa_itemrestore_items';
+
 // ============================================================
 // =================== ITEMRESTORE PAGE ======================
 // ============================================================
@@ -38,6 +40,64 @@ export interface IRItem {
     shard_id: number;
     selected?: boolean;
 }
+
+type ItemRestoreCatalogData = Pick<IRItem,
+    'type' | 'grade' | 'gi_name' | 'gi_description' | 'gi_filename' | 'gi_refund' | 'gg_id' | 'color' | 'bind' | 'iconurl'
+>;
+
+interface ItemRestoreCatalogSnapshot {
+    id: string;
+    grade: string;
+    updatedAt: number;
+    data: Partial<ItemRestoreCatalogData>;
+}
+
+export const saveItemRestoreCatalog = (items: IRItem[]): void => {
+    if (items.length === 0) return;
+
+    try {
+        const raw = localStorage.getItem(LS_KEY_ITEM_RESTORE_ITEMS);
+        const catalog = raw
+            ? JSON.parse(raw) as Record<string, ItemRestoreCatalogSnapshot>
+            : {};
+        const updatedAt = Date.now();
+
+        for (const item of items) {
+            if (!item.type) continue;
+
+            const id = String(item.type);
+            const grade = String(item.grade ?? 0);
+            const previousData = catalog[`${id}|${grade}`]?.data || {};
+            const currentData: Partial<ItemRestoreCatalogData> = {
+                type: item.type,
+                grade: item.grade,
+                gi_name: item.gi_name,
+                gi_description: item.gi_description,
+                gi_filename: item.gi_filename,
+                gi_refund: item.gi_refund,
+                gg_id: item.gg_id,
+                color: item.color,
+                bind: item.bind,
+                iconurl: item.iconurl,
+            };
+            const data = { ...previousData };
+            for (const [field, value] of Object.entries(currentData)) {
+                if (value !== '' && value !== undefined) (data as Record<string, unknown>)[field] = value;
+            }
+
+            catalog[`${id}|${grade}`] = {
+                id,
+                grade,
+                updatedAt,
+                data,
+            };
+        }
+
+        localStorage.setItem(LS_KEY_ITEM_RESTORE_ITEMS, JSON.stringify(catalog));
+    } catch (e) {
+        console.warn('[ArcheAgeExtraUI] Failed to save item restore catalog:', e);
+    }
+};
 
 interface IRGrade {
     id: number | string;
@@ -144,8 +204,12 @@ export const showItemRestorePopup = ({ title, body, buttons }: PopupParams): voi
  * @param {Array<{id: number, name: string}>} grades
  * @param {{lastRestored_at: number, restoreIsAvailable: number, restoredByeLastMonth: number}} info
  * @param {Array<Object>} items
+ * @param {ItemRestoreUIDeps} deps
  */
-export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], info: IRInfo, items: IRItem[], { makeItemIconLink }: ItemRestoreUIDeps): void => {
+export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], info: IRInfo, items: IRItem[], deps: ItemRestoreUIDeps): void => {
+    const { makeItemIconLink } = deps;
+    saveItemRestoreCatalog(items);
+
     // --- State ---
     const allItems: IRItem[] = items.map(item => ({ ...item, selected: false }));
     const selectedItems: IRItem[] = [];

@@ -80,6 +80,7 @@ const buildOptions = {
   minify: isProd,
   keepNames: !isProd,
   legalComments: 'none',
+  loader: { '.png': 'dataurl' },
   logLevel: 'info',
   plugins: [scssPlugin, adapterPlugin].filter(Boolean),
 };

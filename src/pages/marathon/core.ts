@@ -82,6 +82,7 @@ export const LS_KEYS: Record<string, string> = {
     ICON_SEX: 'tm_aa_icon_sex',
     NOTIFICATIONS: 'tm_aa_notifications',
     DYNAMIC_TOOLTIPS: 'tm_aa_dynamic_tooltips',
+    ITEM_RESTORE_ITEMS: 'tm_aa_itemrestore_items',
 };
 export const HISTORY_MAX_ENTRIES: number = 500;
 export const HISTORY_PER_PAGE: number = 10;
