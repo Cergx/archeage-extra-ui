@@ -1,0 +1,13 @@
+/* Западная (синяя) тема сайта */
+.type_b {
+  --theme-bg2: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/themes/char_blue/bg2.png);
+  --theme-slider: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/themes/char_blue/slider_num_bg.png);
+  --theme-char-select: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/themes/char_blue/char_menu.png);
+}
+
+/* Восточная (жёлтая) тема сайта */
+.type_y {
+  --theme-bg2: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/themes/char_yellow/bg2.png);
+  --theme-slider: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/themes/char_yellow/slider_num_bg.png);
+  --theme-char-select: url(https://aa.cdn.gmru.net/static/aa.mail.ru/img/main/themes/char_yellow/char_menu.png);
+}

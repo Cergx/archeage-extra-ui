@@ -10,9 +10,15 @@ import { appendStyleElement } from '../../utils/dom.js';
 import { formatCountdown } from '../../utils/events-time.js';
 import { EVENTS } from '../../data/events.js';
 import { SERVERS } from '../../data/servers.js';
-import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom } from '../../data/items.js';
+import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom, loadInterfaceTheme, saveInterfaceTheme, loadTooltipTheme, saveTooltipTheme } from '../../data/items.js';
 import { createPopup } from '../../components/popup/popup.js';
+import { updateInterfaceTheme, updateTooltipTheme } from '../../components/tooltip/tooltip.js';
+import { createCheckbox } from '../../components/checkbox/checkbox.js';
+import { createSelect } from '../../components/select/select.js';
+import { createInput } from '../../components/input/input.js';
 import eventsStyles from './events.scss';
+import { injectScrollbarStyles } from '../../components/scrollbar/scrollbar.js';
+import { applySiteTheme, loadSiteTheme, saveSiteTheme } from '../../components/siteTheme/siteTheme.js';
 
 interface EventQuest {
     id: number;
@@ -202,6 +208,7 @@ export let eventsPopupStylesInjected: boolean = false;
 export const injectEventsPopupStyles = (): void => {
     if (eventsPopupStylesInjected) return;
     eventsPopupStylesInjected = true;
+    injectScrollbarStyles();
     const style = document.createElement('style');
     style.textContent = eventsStyles;
     appendStyleElement(style);
@@ -268,28 +275,19 @@ export const openSettingsPopup = (onChanged: () => void, {
     serverTitle.textContent = 'Основной сервер';
     serverSection.appendChild(serverTitle);
 
-    const serverSelect = document.createElement('select');
-    serverSelect.className = 'tm-settings-server-select';
-
-    const autoOption = document.createElement('option');
-    autoOption.value = '';
-    autoOption.dataset.vekselServerAutoOption = '1';
-    autoOption.textContent = getVekselAutoOptionText!();
-    serverSelect.appendChild(autoOption);
-
-    Object.entries(SERVERS)
+    const serverOptions = Object.entries(SERVERS)
         .sort((a, b) => a[1].localeCompare(b[1], 'ru'))
-        .forEach(([id, name]: [string, string]) => {
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = name;
-            serverSelect.appendChild(option);
-        });
-
-    serverSelect.value = loadVekselServerIdOverride!();
-    serverSelect.addEventListener('change', () => {
-        saveVekselServerIdOverride!(serverSelect.value);
-        resolveVekselUrl!();
+        .map(([id, name]: [string, string]) => ({ value: id, label: name }));
+    const serverSelect = createSelect({
+        options: [
+            { value: '', label: getVekselAutoOptionText!(), dataset: { vekselServerAutoOption: '1' } },
+            ...serverOptions,
+        ],
+        value: loadVekselServerIdOverride!(),
+        onChange: value => {
+            saveVekselServerIdOverride!(value);
+            resolveVekselUrl!();
+        },
     });
     serverSection.appendChild(serverSelect);
     leftCol.appendChild(serverSection);
@@ -302,21 +300,14 @@ export const openSettingsPopup = (onChanged: () => void, {
     sexTitle.textContent = 'Пол';
     sexSection.appendChild(sexTitle);
 
-    const sexSelect = document.createElement('select');
-    sexSelect.className = 'tm-settings-server-select';
-
-    Object.entries(ICON_SEX_VALUES).forEach(([value, info]) => {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = info.title;
-        sexSelect.appendChild(option);
-    });
-
-    sexSelect.value = loadIconSex();
-    sexSelect.addEventListener('change', () => {
-        saveIconSex(sexSelect.value);
-        updateRenderedItemIcons();
-        onChanged();
+    const sexSelect = createSelect({
+        options: Object.entries(ICON_SEX_VALUES).map(([value, info]) => ({ value, label: info.title })),
+        value: loadIconSex(),
+        onChange: value => {
+            saveIconSex(value);
+            updateRenderedItemIcons();
+            onChanged();
+        },
     });
     sexSection.appendChild(sexSelect);
     leftCol.appendChild(sexSection);
@@ -332,13 +323,14 @@ export const openSettingsPopup = (onChanged: () => void, {
     const scaleRow = document.createElement('div');
     scaleRow.className = 'tm-scale-row';
 
-    const scaleInput = document.createElement('input');
-    scaleInput.type = 'number';
-    scaleInput.className = 'tm-scale-input';
-    scaleInput.step = '5';
-    scaleInput.min = '10';
-    scaleInput.max = '5000';
-    scaleInput.value = loadIconScalePercent();
+    const scaleInput = createInput({
+        type: 'number',
+        className: 'tm-scale-input',
+        value: loadIconScalePercent(),
+        step: 5,
+        min: 10,
+        max: 5000,
+    });
 
     const scaleSuffix = document.createElement('span');
     scaleSuffix.className = 'tm-scale-suffix';
@@ -358,24 +350,84 @@ export const openSettingsPopup = (onChanged: () => void, {
     scaleRow.appendChild(scaleSuffix);
     scaleSection.appendChild(scaleRow);
 
-    const zoomCb = document.createElement('input');
-    zoomCb.type = 'checkbox';
-    zoomCb.className = 'tm-zoom-cb';
-    zoomCb.id = 'tm-scale-browser-zoom';
-    zoomCb.checked = loadIconScaleBrowserZoom();
-    zoomCb.disabled = window.devicePixelRatio === 1;
-    zoomCb.addEventListener('change', () => saveIconScaleBrowserZoom(zoomCb.checked));
-    const zoomLabel = document.createElement('label');
-    zoomLabel.className = 'tm-zoom-label';
-    zoomLabel.htmlFor = 'tm-scale-browser-zoom';
-    zoomLabel.textContent = 'Масштаб браузера';
+    const zoomCheckbox = createCheckbox({
+        id: 'tm-scale-browser-zoom',
+        label: 'Масштаб браузера',
+        checked: loadIconScaleBrowserZoom(),
+        disabled: window.devicePixelRatio === 1,
+        onChange: saveIconScaleBrowserZoom,
+    });
     const zoomRow = document.createElement('div');
     zoomRow.className = 'tm-zoom-row';
-    zoomRow.appendChild(zoomCb);
-    zoomRow.appendChild(zoomLabel);
+    zoomRow.appendChild(zoomCheckbox.root);
     scaleSection.appendChild(zoomRow);
 
     leftCol.appendChild(scaleSection);
+
+    const tooltipThemeSection = document.createElement('div');
+    tooltipThemeSection.className = 'tm-settings-section';
+
+    const tooltipThemeTitle = document.createElement('div');
+    tooltipThemeTitle.className = 'tm-settings-section-title';
+    tooltipThemeTitle.textContent = 'Тема интерфейса скрипта';
+    tooltipThemeSection.appendChild(tooltipThemeTitle);
+
+    const tooltipThemeSelect = createSelect({
+        options: [
+            { value: 'new', label: 'Новая' },
+            { value: 'old', label: 'Старая' },
+            { value: 'white', label: 'Белая' },
+        ],
+        value: loadInterfaceTheme(),
+        onChange: value => {
+            saveInterfaceTheme(value === 'old' || value === 'white' ? value : 'new');
+            updateInterfaceTheme();
+        },
+    });
+    tooltipThemeSection.appendChild(tooltipThemeSelect);
+    leftCol.appendChild(tooltipThemeSection);
+
+    const tooltipAndClockThemeSection = document.createElement('div');
+    tooltipAndClockThemeSection.className = 'tm-settings-section';
+
+    const tooltipAndClockThemeTitle = document.createElement('div');
+    tooltipAndClockThemeTitle.className = 'tm-settings-section-title';
+    tooltipAndClockThemeTitle.textContent = 'Тема тултипов и часов';
+    tooltipAndClockThemeSection.appendChild(tooltipAndClockThemeTitle);
+
+    const tooltipAndClockThemeSelect = createSelect({
+        options: [{ value: 'new', label: 'Новая' }, { value: 'old', label: 'Старая' }],
+        value: loadTooltipTheme(),
+        onChange: value => {
+            saveTooltipTheme(value === 'old' ? 'old' : 'new');
+            updateTooltipTheme();
+        },
+    });
+    tooltipAndClockThemeSection.appendChild(tooltipAndClockThemeSelect);
+    leftCol.appendChild(tooltipAndClockThemeSection);
+
+    const siteThemeSection = document.createElement('div');
+    siteThemeSection.className = 'tm-settings-section';
+
+    const siteThemeTitle = document.createElement('div');
+    siteThemeTitle.className = 'tm-settings-section-title';
+    siteThemeTitle.textContent = 'Тема сайта';
+    siteThemeSection.appendChild(siteThemeTitle);
+
+    const siteThemeSelect = createSelect({
+        options: [
+            { value: 'auto', label: 'Автоматическая' },
+            { value: 'west', label: 'Западная' },
+            { value: 'east', label: 'Восточная' },
+        ],
+        value: loadSiteTheme(),
+        onChange: value => {
+            saveSiteTheme(value === 'west' || value === 'east' ? value : 'auto');
+            applySiteTheme();
+        },
+    });
+    siteThemeSection.appendChild(siteThemeSelect);
+    leftCol.appendChild(siteThemeSection);
 
     const eventsSection = document.createElement('div');
     eventsSection.className = 'tm-settings-section';
@@ -392,23 +444,19 @@ export const openSettingsPopup = (onChanged: () => void, {
 
     for (const ev of EVENTS) {
         const li = document.createElement('li');
-        const label = document.createElement('label');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = isEventVisible(ev, evVisOverrides);
-        cb.addEventListener('change', () => {
-            if (cb.checked === !!ev.defaultVisible) {
+        const checkbox = createCheckbox({
+            label: ev.title,
+            checked: isEventVisible(ev, evVisOverrides),
+            onChange: checked => {
+            if (checked === !!ev.defaultVisible) {
                 delete evVisOverrides[ev.code];
             } else {
-                evVisOverrides[ev.code] = cb.checked;
+                evVisOverrides[ev.code] = checked;
             }
             saveEventVisibility(evVisOverrides);
             onChanged();
+            },
         });
-        const span = document.createElement('span');
-        span.textContent = ev.title;
-        label.appendChild(cb);
-        label.appendChild(span);
 
         // Колокольчик уведомления
         const bell = document.createElement('button');
@@ -451,7 +499,7 @@ export const openSettingsPopup = (onChanged: () => void, {
         });
 
         li.appendChild(bell);
-        li.appendChild(label);
+        li.appendChild(checkbox.root);
 
         ul.appendChild(li);
     }

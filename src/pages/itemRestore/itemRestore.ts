@@ -6,7 +6,8 @@ import { ITEMS, GRADES } from '../../data/items.js';
 import type { ItemBase } from '../../data/items.js';
 import { inferGradeFromCartItemName } from '../cart/cart.js';
 import { SERVERS } from '../../data/servers.js';
-import { makeSelect, renderSelectedItems } from '../../components/select/select.js';
+import { makeSelect, renderSelectedItems, setSelectValue } from '../../components/select/select.js';
+import { createInput } from '../../components/input/input.js';
 import { appendReloadBtn } from '../../components/reloadBtn/reloadBtn.js';
 
 const LS_KEY_ITEM_RESTORE_ITEMS = 'tm_aa_itemrestore_items';
@@ -347,10 +348,8 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
     filterDiv.appendChild(nameTitle);
 
     const inputWrapper = document.createElement('div');
-    inputWrapper.className = 'itemrestore__input-wrapper';
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'itemrestore__filter-name';
+    inputWrapper.className = 'tm-input-wrapper';
+    const nameInput = createInput({ className: 'tm-itemrestore-filter-name', theme: 'white' });
     inputWrapper.appendChild(nameInput);
     filterDiv.appendChild(inputWrapper);
 
@@ -767,7 +766,7 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
     gradeReset.addEventListener('click', () => {
         if (filterGrade !== -1) activePage = 1;
         filterGrade = -1;
-        gradeSelectWrapper.querySelector('select').value = '-1';
+        setSelectValue(gradeSelectWrapper, -1);
         renderTable();
     });
 

@@ -338,10 +338,6 @@
   opacity: 1;
 }
 
-.tm-hide-done-checkbox {
-  cursor: pointer;
-}
-
 .tm-hide-done .tm-task-completed {
   display: none;
 }
@@ -402,12 +398,6 @@
   white-space: nowrap;
 }
 
-.tm-auto-claim-checkbox {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-}
-
 /* Автооткрытие сундуков */
 .lootbox__title {
   gap: 30px;
@@ -428,12 +418,6 @@
   user-select: none;
   white-space: nowrap;
   text-transform: none;
-}
-
-.tm-auto-open-checkbox {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
 }
 
 .pagination__item--ellipsis {

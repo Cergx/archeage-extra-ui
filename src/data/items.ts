@@ -7,7 +7,45 @@ export const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
 export const LS_KEY_ICON_SEX = 'tm_aa_icon_sex';
 export const LS_KEY_ICON_SCALE = 'tm_aa_icon_scale';
 export const LS_KEY_ICON_SCALE_BROWSER_ZOOM = 'tm_aa_icon_scale_browser_zoom';
+export const LS_KEY_TOOLTIP_THEME = 'tm_aa_tooltip_theme';
+export const LS_KEY_INTERFACE_THEME = 'tm_aa_interface_theme';
 export const LS_KEYS: Record<string, string> = { ICON_SEX: LS_KEY_ICON_SEX };
+
+export type TooltipTheme = 'new' | 'old';
+export type InterfaceTheme = TooltipTheme | 'white';
+
+export const loadTooltipTheme = (): TooltipTheme => {
+    try {
+        return localStorage.getItem(LS_KEY_TOOLTIP_THEME) === 'old' ? 'old' : 'new';
+    } catch {
+        return 'new';
+    }
+};
+
+export const saveTooltipTheme = (theme: TooltipTheme): void => {
+    try {
+        localStorage.setItem(LS_KEY_TOOLTIP_THEME, theme);
+    } catch { /* ignore */ }
+};
+
+export const loadInterfaceTheme = (): InterfaceTheme => {
+    try {
+        const theme = localStorage.getItem(LS_KEY_INTERFACE_THEME);
+        if (theme === 'old' || theme === 'new' || theme === 'white') return theme;
+        return 'white';
+    } catch {
+        return 'white';
+    }
+};
+
+export const saveInterfaceTheme = (theme: InterfaceTheme): void => {
+    try {
+        localStorage.setItem(LS_KEY_INTERFACE_THEME, theme);
+    } catch { /* ignore */ }
+};
+
+const CODEX_ITEM_ICONS = 'https://archeagecodex.com/items/';
+const ARCHERAGE_ITEM_ICONS = 'https://wiki.archerage.to/static/images/icons/';
 
 export interface Grade {
     overlay: string;
@@ -99,12 +137,14 @@ export interface ItemOverlay {
 
 export const ICON_OVERLAY: Record<string, ItemOverlay> = {
     'unconfirmed': { icon: 'https://archeagecodex.com/items/top_unconfirmed.png' },
-    'seal_02':        { icon: 'https://archeagecodex.com/items/top_seal_02.png' },
-    'seal_03':        { icon: 'https://archeagecodex.com/items/top_seal_03.png' },
-    'seal_04':        { icon: 'https://archeagecodex.com/items/top_seal_04.png' },
-    'seal_08':        { icon: 'https://archeagecodex.com/items/top_seal_08.png' },
+    'seal_01':     { icon: 'https://archeagecodex.com/items/top_seal_01.png' },
+    'seal_02':     { icon: 'https://archeagecodex.com/items/top_seal_02.png' },
+    'seal_03':     { icon: 'https://archeagecodex.com/items/top_seal_03.png' },
+    'seal_04':     { icon: 'https://archeagecodex.com/items/top_seal_04.png' },
+    'seal_08':     { icon: 'https://archeagecodex.com/items/top_seal_08.png' },
     'quest_y':     { icon: 'https://archeagecodex.com/items/top_quest_y.png' },
     'quest_cash':  { icon: 'https://archeagecodex.com/items/top_quest_cash.png' },
+    'packing':     { icon: 'https://archeagecodex.com/items/item_slot/packing.png' },
 };
 
 export const HERO_LEVEL_ICON = 'https://archeagecodex.com/images/icon_hlv.png';
@@ -228,19 +268,19 @@ export const resolveItemPlaceholders = (text: unknown, item?: ItemBase): string 
 export const parseGameMarkup = (text: string, { preserveNewlines = false }: { preserveNewlines?: boolean } = {}): string => {
     if (!text) return '';
     const html = text
-        .replace(/\|c([\da-fA-F]{2})([\da-fA-F]{6})(.*?)\|r/g,
+        .replace(/\|c([\da-fA-F]{2})([\da-fA-F]{6})([\s\S]*?)\|r/g,
             (_, alpha, color, inner) => `<span style="color:#${color}${alpha}">${inner}</span>`)
-        .replace(/\|nc;(.*?)\|r/g,
+        .replace(/\|nc;([\s\S]*?)\|r/g,
             (_, inner) => `<span class="inv-nc">${inner}</span>`)
-        .replace(/\|buffvar;(.*?)\|r/g,
+        .replace(/\|buffvar;([\s\S]*?)\|r/g,
             (_, inner) => `<span class="inv-buffvar">${inner}</span>`)
-        .replace(/\|nn;(.*?)\|r/g,
+        .replace(/\|nn;([\s\S]*?)\|r/g,
             (_, inner) => `<span class="inv-nn">${inner}</span>`)
-        .replace(/\|nd;(.*?)\|r/g,
+        .replace(/\|nd;([\s\S]*?)\|r/g,
             (_, inner) => `<span class="inv-nd">${inner}</span>`)
-        .replace(/\|ni;(.*?)\|r/g,
+        .replace(/\|ni;([\s\S]*?)\|r/g,
             (_, inner) => `<span class="inv-ni">${inner}</span>`)
-        .replace(/\|nr;(.*?)\|r/g,
+        .replace(/\|nr;([\s\S]*?)\|r/g,
             (_, inner) => `<span class="inv-nr">${inner}</span>`);
 
     return preserveNewlines ? html : html.replace(/\n/g, '<br/>');
@@ -332,9 +372,6 @@ export const stripHtmlForMatch = (value: unknown): string => (
         .trim()
 );
 
-
-export const CODEX_ITEM_URL = 'https://archeagecodex.com/ru/item/';
-export const CODEX_ITEM_ICONS = 'https://archeagecodex.com/items/';
 export const GMRU_CDN_ICONS = 'https://aa.cdn.gmru.net/ms/data/game-icons/';
 export const ICON_SEX_VALUES = {
     m: { title: 'Мужской', field: 'iconM' },
@@ -436,7 +473,8 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 48894, icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, name: 'Драгоценная эфенская сфера бронника' },
     { id: 54915, icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, name: 'Свиток чар ифнирского героя' },
     { id: 45508, icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, name: 'Сфера анимага' },
-    { id: 8001565, icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, name: 'Новенькая кирка' },
+    { id: 42308, icon: 'https://archeagecodex.com/items/icon_item_3627.png', grade: 1, name: 'Добротная кирка' },
+    { id: 8001565, icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, name: 'Новенькая кирка', price: null },
     { id: 8002452, overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_3349.png', grade: 1, name: 'Универсальный алхимический кристалл' },
     { id: 8002449, icon: 'https://archeagecodex.com/items/charge_wider.png', grade: 1, name: 'Дополнительная сумка' },
     { id: 47943, icon: 'https://archeagecodex.com/items/icon_item_4710.png', grade: 1, name: 'Настойка усердного ремесленника' },
@@ -450,14 +488,14 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 47082, icon: 'https://archeagecodex.com/items/icon_item_3369.png', grade: 1, name: 'Патент на транспортное средство' },
     { id: 31892, icon: 'https://archeagecodex.com/items/icon_item_1733.png', grade: 1, name: 'Земельный вексель' },
     { id: 55722, icon: 'https://archeagecodex.com/items/icon_item_5864.png', grade: 4, name: 'Искусная цитриновая гравировка' },
-    { id: 48885, icon: `${GMRU_CDN_ICONS}aa37ed77de192687a78947c34a0a29be.png`, grade: 8, name: 'Сверкающая эфенская сфера оружейника' },
+    { id: 48885, icon: `${GMRU_CDN_ICONS}aa37ed77de192687a78947c34a0a29be.png`, grade: 8, name: 'Сверкающая эфенская сфера оружейника', price: 45000 },
     { id: 48886, icon: 'https://archeagecodex.com/items/icon_item_4818.png', grade: 8, name: 'Сверкающая эфенская сфера бронника' },
     { id: 55723, icon: 'https://archeagecodex.com/items/icon_item_5865.png', grade: 4, name: 'Искусная аквамариновая гравировка' },
     { id: 45747, icon: 'https://archeagecodex.com/items/icon_item_4385.png', grade: 5, name: 'Драгоценный флакон с зельем охотника' },
     { id: 49270, icon: 'https://archeagecodex.com/items/icon_item_2273.png', grade: 5, name: 'Набор больших эфенских кубов' },
     { id: 45160, icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, name: 'Настойка спорыньи' },
     { id: 46623, icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, name: 'Настойка остролиста', buff: { duration: 1800 } },
-    { id: 8001268, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток дельфийской библиотеки', buff: { duration: 3600 } },
+    { id: 8001268, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток дельфийской библиотеки', buff: { duration: 3600 }, price: null },
     { id: 8001169, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток опыта V', buff: { duration: 3600 }, isPersonal: true },
     { id: 8001172, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток опыта VIII', buff: { duration: 3600 }, isPersonal: true },
     { id: 46181, icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, name: 'Лунный настой' },
@@ -510,9 +548,9 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 28814, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x180' },
     { id: 30605, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x280' },
     { id: 55450, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
-    { id: 8002410, subType: 'cloak', icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', isEquipDescriptionTemporary: true },
-    { id: 34684, subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_s_0051.png', name: 'Укрепленная аргенитовая лютня' },
-    { id: 34685, subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', name: 'Укрепленный аргенитовый кларнет' },
+    { id: 8002410, icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', isEquipDescriptionTemporary: true },
+    { id: 34684, icon: 'https://archeagecodex.com/items/icon_item_ins_s_0051.png', name: 'Укрепленная аргенитовая лютня' },
+    { id: 34685, icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', name: 'Укрепленный аргенитовый кларнет' },
     { id: 417, icon: 'https://archeagecodex.com/items/icon_item_0418.png', grade: 1, name: 'Редкий камень странствий', isPersonal: true, price: 0, reqLevel: 1 },
     { id: 52701, icon: 'https://archeagecodex.com/items/icon_item_5282.png', grade: 1, name: 'Кристалл изначального анадия', price: 0 },
     { id: 40491, icon: 'https://archeagecodex.com/items/icon_item_3090.png', grade: 2, name: 'Знак отваги' },
@@ -543,7 +581,7 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 49630, icon: 'https://archeagecodex.com/items/icon_item_4862.png', grade: 5, name: 'Статуэтка «Аранзеб»' },
     { id: 31787, icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth550.png', grade: 3, name: 'Ободок со снеговичками' },
     { id: 28242, icon: 'https://archeagecodex.com/items/icon_item_1243.png', grade: 1, name: 'Мыло' },
-    { id: 43298, icon: 'https://archeagecodex.com/items/icon_item_3952.png', grade: 1, name: 'Теневой делец' },
+    { id: 43298, overlay: 'packing', icon: 'https://archeagecodex.com/items/icon_item_3952.png', grade: 1, name: 'Теневой делец' },
     { id: 8002004, icon: 'https://archeagecodex.com/items/icon_item_2774.png', grade: 1, name: 'Призрачный конь (30 д.)' },
     { id: 8000315, icon: 'https://archeagecodex.com/items/costume_cp/nu_f_cp_leather002.png', grade: 1, name: 'Накидка из грифоньих перьев' },
     { id: 8000127, subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_party001.png', grade: 2, name: 'Бальный наряд Двух Корон' },
@@ -631,7 +669,6 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 52018, icon: 'https://archeagecodex.com/items/icon_item_1829.png', grade: 3, name: 'Рубиновый эликсир' },
     { id: 50914, icon: 'https://archeagecodex.com/items/icon_item_1829.png', grade: 8, name: 'Рубиновый эликсир' },
     { id: 8002774, icon: 'https://archeagecodex.com/items/icon_item_1829.png', grade: 11, name: 'Рубиновый эликсир' },
-    { id: 42308, icon: 'https://archeagecodex.com/items/icon_item_3627.png', grade: 1, name: 'Добротная кирка' },
     { id: 55760, icon: 'https://archeagecodex.com/items/icon_item_5888.png', grade: 5, name: 'Эссенция судьбы' },
 
     { id: 45603, overlay: 'seal_02', icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/1f2e5e445d5172f8eab7c09aa9a329d3.png', grade: 2, name: 'Обработанный лунный камень' },
@@ -640,9 +677,11 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 45606, overlay: 'seal_04', icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/3178140baf3cdb49fc1b07204f80b9db.png', grade: 4, name: 'Сияющая лунная звезда' },
     { id: 8002297, overlay: 'seal_08', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, name: 'Королевский лунный изумруд' },
 
+    { id: 23920, overlay: 'seal_08', icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/33aef583629a36356683c8114c5beb46.png', name: 'Иферийский кларнет' },
+
     { id: 1, type: '', icon: '', grade: 1, name: '' },
 ] as ItemBase[]).map(i => [i.id, i])) as Record<number, ItemBase>;
 
 export const getItemCodexUrl = (item: ItemBase): string => (
-    `${CODEX_ITEM_URL}${item.id}/${item.isGradeInferred ? `?grade=${item.grade}` : ''}`
+    `https://archeagecodex.com/ru/item/${item.id}/${item.isGradeInferred ? `?grade=${item.grade}` : ''}`
 );

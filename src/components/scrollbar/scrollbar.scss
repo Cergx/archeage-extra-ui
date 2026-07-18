@@ -1,0 +1,98 @@
+.tm-popup-body,
+.tm-settings-right,
+.tm-select-menu,
+.tm-scrollbar {
+  scrollbar-width: thin;
+}
+
+.tm-ui-theme-old .tm-popup-body,
+.tm-ui-theme-old .tm-settings-right,
+.tm-ui-theme-old .tm-select-menu,
+.tm-ui-theme-old .tm-scrollbar {
+  scrollbar-color: #a99d7d #e2dfcf;
+}
+
+.tm-ui-theme-new .tm-popup-body,
+.tm-ui-theme-new .tm-settings-right,
+.tm-ui-theme-new .tm-select-menu,
+.tm-ui-theme-new .tm-scrollbar {
+  scrollbar-color: #41506b #151e31;
+}
+
+.tm-ui-theme-white .tm-popup-body,
+.tm-ui-theme-white .tm-settings-right,
+.tm-ui-theme-white .tm-select-menu,
+.tm-ui-theme-white .tm-scrollbar {
+  scrollbar-color: #bbb #f5f5f5;
+}
+
+.tm-popup-body::-webkit-scrollbar,
+.tm-settings-right::-webkit-scrollbar,
+.tm-select-menu::-webkit-scrollbar,
+.tm-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tm-popup-body::-webkit-scrollbar-thumb,
+.tm-settings-right::-webkit-scrollbar-thumb,
+.tm-select-menu::-webkit-scrollbar-thumb,
+.tm-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+
+.tm-ui-theme-old .tm-popup-body::-webkit-scrollbar-track,
+.tm-ui-theme-old .tm-settings-right::-webkit-scrollbar-track,
+.tm-ui-theme-old .tm-select-menu::-webkit-scrollbar-track,
+.tm-ui-theme-old .tm-scrollbar::-webkit-scrollbar-track {
+  background: #e2dfcf;
+}
+
+.tm-ui-theme-old .tm-popup-body::-webkit-scrollbar-thumb,
+.tm-ui-theme-old .tm-settings-right::-webkit-scrollbar-thumb,
+.tm-ui-theme-old .tm-select-menu::-webkit-scrollbar-thumb,
+.tm-ui-theme-old .tm-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #a99d7d;
+}
+
+.tm-ui-theme-new .tm-popup-body::-webkit-scrollbar-track,
+.tm-ui-theme-new .tm-settings-right::-webkit-scrollbar-track,
+.tm-ui-theme-new .tm-select-menu::-webkit-scrollbar-track,
+.tm-ui-theme-new .tm-scrollbar::-webkit-scrollbar-track {
+  background: #151e31;
+}
+
+.tm-ui-theme-new .tm-popup-body::-webkit-scrollbar-thumb,
+.tm-ui-theme-new .tm-settings-right::-webkit-scrollbar-thumb,
+.tm-ui-theme-new .tm-select-menu::-webkit-scrollbar-thumb,
+.tm-ui-theme-new .tm-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #41506b;
+}
+
+.tm-ui-theme-white .tm-popup-body::-webkit-scrollbar-track,
+.tm-ui-theme-white .tm-settings-right::-webkit-scrollbar-track,
+.tm-ui-theme-white .tm-select-menu::-webkit-scrollbar-track,
+.tm-ui-theme-white .tm-scrollbar::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+.tm-ui-theme-white .tm-popup-body::-webkit-scrollbar-thumb,
+.tm-ui-theme-white .tm-settings-right::-webkit-scrollbar-thumb,
+.tm-ui-theme-white .tm-select-menu::-webkit-scrollbar-thumb,
+.tm-ui-theme-white .tm-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #bbb;
+}
+
+.tm-select--theme-white .tm-select-menu {
+  scrollbar-color: #bbb #f5f5f5;
+}
+
+.tm-select--theme-white .tm-select-menu::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+.tm-select--theme-white .tm-select-menu::-webkit-scrollbar-thumb {
+  background-color: #bbb;
+}

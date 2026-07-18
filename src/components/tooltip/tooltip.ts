@@ -21,6 +21,8 @@ import {
     resolveItemPlaceholders,
     loadIconScalePercent,
     loadIconScaleBrowserZoom,
+    loadTooltipTheme,
+    loadInterfaceTheme,
 } from '../../data/items.js';
 import type { DynamicTooltipData, DynamicTooltipFieldValue, ItemBase } from '../../data/items.js';
 
@@ -41,6 +43,7 @@ let tooltipDomInitialized: boolean = false;
 const TOOLTIP_VISIBLE_CLASS: string = 'tm-item-tooltip--visible';
 const TOOLTIP_RIGHT_CLASS: string = 'tm-item-tooltip--right';
 const TOOLTIP_BOTTOM_CLASS: string = 'tm-item-tooltip--bottom';
+const TOOLTIP_THEME_CLASS_PREFIX: string = 'tm-item-tooltip--theme-';
 const TOOLTIP_WIDTH: number = 248;
 
 const getSystemScale = (): number => {
@@ -52,9 +55,22 @@ const getTooltipContainer = (): HTMLElement => {
     if (globalTooltip) return globalTooltip;
 
     globalTooltip = pageDocument.createElement('div');
-    globalTooltip.className = 'tm-item-tooltip';
+    globalTooltip.className = `tm-item-tooltip ${TOOLTIP_THEME_CLASS_PREFIX}${loadTooltipTheme()}`;
     pageDocument.body.appendChild(globalTooltip);
     return globalTooltip;
+};
+
+export const updateTooltipTheme = (): void => {
+    pageDocument.documentElement.classList.remove('tm-tooltip-theme-new', 'tm-tooltip-theme-old');
+    pageDocument.documentElement.classList.add(`tm-tooltip-theme-${loadTooltipTheme()}`);
+    if (!globalTooltip) return;
+    globalTooltip.classList.remove(`${TOOLTIP_THEME_CLASS_PREFIX}new`, `${TOOLTIP_THEME_CLASS_PREFIX}old`);
+    globalTooltip.classList.add(`${TOOLTIP_THEME_CLASS_PREFIX}${loadTooltipTheme()}`);
+};
+
+export const updateInterfaceTheme = (): void => {
+    pageDocument.documentElement.classList.remove('tm-ui-theme-new', 'tm-ui-theme-old', 'tm-ui-theme-white');
+    pageDocument.documentElement.classList.add(`tm-ui-theme-${loadInterfaceTheme()}`);
 };
 
 const injectTooltipStyles = (): void => {
@@ -537,7 +553,7 @@ const populateTooltip = (item: ItemBase): void => {
         tipMeta.appendChild(typeLine);
     }
 
-    if (gradeInfo?.title && !(item.grade === 1 && item.type !== 'equipment')) {
+    if (gradeInfo?.title /* && !(item.grade === 1 && item.type !== 'equipment') */) {
         const gradeLine = pageDocument.createElement('div');
         gradeLine.className = 'tm-item-tooltip-grade';
         if (gradeInfo.color) gradeLine.style.color = gradeInfo.color;
@@ -610,7 +626,7 @@ const populateTooltip = (item: ItemBase): void => {
 
         const maxGrade = item.fixedGrade === -1 ? GRADES.length - 1 : item.fixedGrade;
         const rankLine = pageDocument.createElement('div');
-        rankLine.className = 'orange_text';
+        rankLine.className = 'inv-nc';
         rankLine.innerHTML = item.grade === maxGrade
             ? 'Максимальный ранг'
             : `Максимальный ранг:<br/>(${GRADES[maxGrade]?.title || maxGrade})`;

@@ -1,0 +1,81 @@
+.tm-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tm-checkbox-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tm-checkbox-control {
+  position: relative;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 1px solid;
+  border-radius: 3px;
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.tm-checkbox-input:checked + .tm-checkbox-control::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.tm-checkbox-input:focus-visible + .tm-checkbox-control {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.tm-checkbox:has(.tm-checkbox-input:disabled) {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.tm-ui-theme-old .tm-checkbox-control {
+  background: #e2dfcf;
+  border-color: #a99d7d;
+  color: #614311;
+}
+
+.tm-ui-theme-old .tm-checkbox-input:checked + .tm-checkbox-control {
+  background: #c9c1a7;
+  border-color: #806837;
+}
+
+.tm-ui-theme-new .tm-checkbox-control {
+  background: #151e31;
+  border-color: #41506b;
+  color: #bdd1ea;
+}
+
+.tm-ui-theme-new .tm-checkbox-input:checked + .tm-checkbox-control {
+  background: #263a5c;
+  border-color: #7796bd;
+}
+
+.tm-ui-theme-white .tm-checkbox-control {
+  background: #fff;
+  border-color: #bbb;
+  color: #2d364e;
+}
+
+.tm-ui-theme-white .tm-checkbox-input:checked + .tm-checkbox-control {
+  background: #e4e8ee;
+  border-color: #7c8798;
+}

@@ -317,17 +317,13 @@ export const initAutoOpenBoxesCheckbox = (): void => {
     // Проверяем, что галочка ещё не добавлена
     if (lootboxTitle.querySelector('.tm-auto-open-label')) return;
 
-    const label = document.createElement('label');
-    label.className = 'tm-auto-open-label';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'tm-auto-open-checkbox';
-    checkbox.checked = loadAutoOpenBoxesState();
-
-    const text = document.createTextNode('Открывать при получении');
-    label.appendChild(checkbox);
-    label.appendChild(text);
+    const autoOpen = createCheckbox({
+        className: 'tm-auto-open-label',
+        label: 'Открывать при получении',
+        checked: loadAutoOpenBoxesState(),
+    });
+    const label = autoOpen.root;
+    const checkbox = autoOpen.input;
 
     lootboxTitle.appendChild(label);
 
@@ -354,17 +350,13 @@ export const initAutoClaimCheckbox = (): void => {
     // Проверяем, что галочка ещё не добавлена
     if (prizesTitle.querySelector('.tm-auto-claim-label')) return;
 
-    const label = document.createElement('label');
-    label.className = 'tm-auto-claim-label';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'tm-auto-claim-checkbox';
-    checkbox.checked = loadAutoClaimState();
-
-    const text = document.createTextNode(' Забирать автоматически');
-    label.appendChild(checkbox);
-    label.appendChild(text);
+    const autoClaim = createCheckbox({
+        className: 'tm-auto-claim-label',
+        label: 'Забирать автоматически',
+        checked: loadAutoClaimState(),
+    });
+    const label = autoClaim.root;
+    const checkbox = autoClaim.input;
 
     prizesTitle.appendChild(label);
 
@@ -391,3 +383,4 @@ export const initPrizes = async (): Promise<void> => {
         await claimAllActivePrizes();
     }
 };
+import { createCheckbox } from '../../components/checkbox/checkbox.js';

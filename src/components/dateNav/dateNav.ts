@@ -6,6 +6,7 @@ import {
     getTodayUtcMsByTZ,
 } from '../../utils/time.js';
 import type { DayUtcMs, Segment, DOMCache, SlotPosition } from '../../pages/marathon/core.js';
+import { createCheckbox } from '../checkbox/checkbox.js';
 
 export interface DateNavDeps {
     DOM: DOMCache;
@@ -51,10 +52,18 @@ export const ensureDateNavInHeader = (): HTMLDivElement | null => {
     const right = document.createElement('button'); right.className = 'tm-date-btn tm-date-next'; right.type = 'button'; right.textContent = '→';
     const label = document.createElement('div'); label.className = 'tm-date-label'; label.textContent = '...';
     nav.appendChild(left); nav.appendChild(label); nav.appendChild(right);
-    const hideDoneLabel = document.createElement('label'); hideDoneLabel.className = 'tm-hide-done-label';
-    const hideDoneCheckbox = document.createElement('input'); hideDoneCheckbox.type = 'checkbox'; hideDoneCheckbox.className = 'tm-hide-done-checkbox';
-    const hideDoneText = document.createTextNode(' Скрыть выполненные');
-    hideDoneLabel.appendChild(hideDoneCheckbox); hideDoneLabel.appendChild(hideDoneText);
+    const hideDone = createCheckbox({
+        className: 'tm-hide-done-label',
+        label: 'Скрыть выполненные',
+        checked: loadHideDoneState(),
+        onChange: checked => {
+            const listEl = ensureTasksListEl();
+            if (listEl) listEl.classList.toggle('tm-hide-done', checked);
+            saveHideDoneState(checked);
+        },
+    });
+    const hideDoneLabel = hideDone.root;
+    const hideDoneCheckbox = hideDone.input;
     const refreshBtn = document.createElement('button');
     refreshBtn.type = 'button'; refreshBtn.className = 'tm-refresh-btn'; refreshBtn.title = 'Обновить данные'; refreshBtn.innerHTML = '&#x21bb;';
     DOM.refreshLoader = refreshBtn;
@@ -62,17 +71,12 @@ export const ensureDateNavInHeader = (): HTMLDivElement | null => {
     wrapper.appendChild(todayBtn); wrapper.appendChild(nav); wrapper.appendChild(hideDoneLabel); wrapper.appendChild(refreshBtn);
     DOM.tasksHeader.insertAdjacentElement('afterbegin', wrapper);
     DOM.nav = nav; DOM.label = label; DOM.prevBtn = left; DOM.nextBtn = right; DOM.todayBtn = todayBtn; DOM.hideDoneCheckbox = hideDoneCheckbox;
-    const savedState = loadHideDoneState();
+    const savedState = hideDoneCheckbox.checked;
     hideDoneCheckbox.checked = savedState;
     if (savedState) {
         const listEl = ensureTasksListEl();
         if (listEl) listEl.classList.add('tm-hide-done');
     }
-    hideDoneCheckbox.addEventListener('change', () => {
-        const listEl = ensureTasksListEl();
-        if (listEl) listEl.classList.toggle('tm-hide-done', hideDoneCheckbox.checked);
-        saveHideDoneState(hideDoneCheckbox.checked);
-    });
     left.addEventListener('click', async () => { const prev = getPrevSlot(getSelectedDay(), getSelectedSegment()); applySlot(prev.dayUtcMs, prev.segment); await onSelectedDateChanged(); });
     right.addEventListener('click', async () => { const next = getNextSlot(getSelectedDay(), getSelectedSegment()); applySlot(next.dayUtcMs, next.segment); await onSelectedDateChanged(); });
     todayBtn.addEventListener('click', async () => { applySlot(getTodayUtcMsByTZ(), 'auto'); await onSelectedDateChanged(); });

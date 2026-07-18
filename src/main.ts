@@ -35,8 +35,9 @@ import {
     injectMarathonStyles,
     injectCartStyles,
 } from './pages/marathon/styles.js';
-import { initTooltips, makeItemIconLink } from './components/tooltip/tooltip.js';
+import { initTooltips, makeItemIconLink, updateInterfaceTheme, updateTooltipTheme } from './components/tooltip/tooltip.js';
 import { makeIconLink, updateRenderedItemIcons } from './components/itemIcon/itemIcon.js';
+import { initSiteTheme } from './components/siteTheme/siteTheme.js';
 
 type TimerId = ReturnType<typeof setInterval>;
 
@@ -59,6 +60,10 @@ if (isGisaaSite) {
 if (!isArcheageSite) {
     // nothing more — exit
 } else {
+    updateTooltipTheme();
+    updateInterfaceTheme();
+    initSiteTheme();
+
     const injectStyles = (): void => {
         injectItemIconStyles();
         injectMarathonStyles();

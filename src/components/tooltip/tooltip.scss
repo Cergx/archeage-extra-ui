@@ -19,6 +19,13 @@
   transform-origin: top right;
 }
 
+.tm-item-tooltip--theme-old {
+  background: rgba(62, 61, 44, 0.89);
+  border-color: rgba(26, 23, 6, 0.38);
+  border-radius: 3px;
+  box-shadow: inset 0 0 5px #000, 0 0 1px #000;
+}
+
 .tm-item-tooltip--visible {
   display: block;
 }
@@ -134,7 +141,7 @@
 }
 
 .tm-item-tooltip-use-label {
-  color: #888;
+  color: #b5b5b5;
 }
 
 .tm-item-tooltip-use-text {
@@ -182,21 +189,48 @@
   right: 8px;
 }
 
-.orange_text,
-.inv-nc,
-.inv-nn,
-.inv-buffvar {
+/* Старые цвета */
+
+.tm-item-tooltip--theme-old .inv-nc,
+.tm-item-tooltip--theme-old .inv-nn,
+.tm-item-tooltip--theme-old .inv-buffvar {
   color: #ff9c27;
 }
 
-.inv-nd {
+.tm-item-tooltip--theme-old .inv-nd {
   color: #d02e2e;
 }
 
-.inv-ni {
+.tm-item-tooltip--theme-old .inv-ni {
   color: #4caf50;
 }
 
-.inv-nr {
+.tm-item-tooltip--theme-old .inv-nr {
   color: #b19cff;
+}
+
+/* Новые цвета (в соответствии с archerage.to) */
+
+.tm-item-tooltip--theme-new .inv-nc {
+  color: #d78b06;
+}
+
+.tm-item-tooltip--theme-new .inv-nn {
+  color: #e17853;
+}
+
+.tm-item-tooltip--theme-new .inv-buffvar {
+  color: #ff9c27; // неточный цвет
+}
+
+.tm-item-tooltip--theme-new .inv-nd {
+  color: #94cff1;
+}
+
+.tm-item-tooltip--theme-new .inv-ni {
+  color: #f5cb66;
+}
+
+.tm-item-tooltip--theme-new .inv-nr {
+  color: #97d5f9;
 }
