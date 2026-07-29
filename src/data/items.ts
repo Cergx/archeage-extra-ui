@@ -471,7 +471,7 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
 
     { id: 48893, icon: 'https://archeagecodex.com/items/icon_item_4819.png', grade: 10, name: 'Драгоценная эфенская сфера оружейника' },
     { id: 48894, icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, name: 'Драгоценная эфенская сфера бронника' },
-    { id: 54915, icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, name: 'Свиток чар ифнирского героя' },
+    { id: 54044, icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/1acb577dd3827de3f2aa76cd618c0e45.png', grade: 12, name: 'Удивительная эфенская сфера' },
     { id: 45508, icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, name: 'Сфера анимага' },
     { id: 42308, icon: 'https://archeagecodex.com/items/icon_item_3627.png', grade: 1, name: 'Добротная кирка' },
     { id: 8001565, icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, name: 'Новенькая кирка', price: null },
@@ -519,7 +519,6 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 54655, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с обновленными рамианскими доспехами эпохи мифов' },
     { id: 47941, icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 10, name: 'Сундук с оружием Библиотеки Эрнарда эпохи легенд' },
     { id: 51243, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с магистерским эрнардским оружием эпохи Двенадцати' },
-    { id: 55501, icon: 'https://archeagecodex.com/items/icon_item_5850.png', grade: 6, name: 'Сундучок с легендарным украшением ифнирского героя' },
     { id: 51940, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Сундучок с ценным украшением эпохи чудес' },
     { id: 51236, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундучок с драгоценным украшением эпохи мифов' },
     { id: 55783, icon: 'https://archeagecodex.com/items/icon_item_2992.png', grade: 5, name: 'Сундучок с зачарованной гравировкой для украшений' },
@@ -529,7 +528,6 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 51092, icon: 'https://archeagecodex.com/items/costume_set/nu_{sex}_sk_uniform004.png', grade: 2, name: 'Дизайн одеяния правителя северного Мейра' },
     { id: 129, icon: `${GMRU_CDN_ICONS}3afe6571286a8a3f3cfab503f4bb8b00.png`, grade: 1, name: 'Дельфийская руна', reqLevel: 50 },
     { id: 8003128, icon: `${GMRU_CDN_ICONS}3afe6571286a8a3f3cfab503f4bb8b00.png`, grade: 10, name: 'Дельфийская руна эпохи легенд', reqLevel: 91 },
-    { id: 55280, icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, name: 'Легендарная руна ифнирского героя' },
     { id: 55683, icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями для украшений' },
     { id: 50536, icon: 'https://archeagecodex.com/items/icon_item_4527.png', grade: 1, name: 'Мешочек с магистериями' },
     { id: 8001148, icon: 'https://archeagecodex.com/items/icon_item_3807.png', grade: 2, name: 'Статуя «Орхидна на троне»' },
@@ -540,14 +538,12 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 44359, icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, name: 'Походный фиал славы' },
     { id: 32490, icon: 'https://archeagecodex.com/items/icon_item_1333.png', grade: 9, name: 'Сверкающий фиал с эликсиром чести' },
     { id: 55800, icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, name: 'Сундучок с фрагментами судьбы' },
-    { id: 8002772, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем' },
     { id: 50635, icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, isPersonal: true, name: 'Заговоренная гадальная руна' },
     { id: 8002769, icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, isPersonal: true, name: 'Знак «Ключевая фигура»' },
     { id: 28813, icon: 'https://archeagecodex.com/items/icon_item_1319.png', grade: 5, name: 'Монеты дару x85' },
     { id: 30604, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x100' },
     { id: 28814, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x180' },
     { id: 30605, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x280' },
-    { id: 55450, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
     { id: 8002410, icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', isEquipDescriptionTemporary: true },
     { id: 34684, icon: 'https://archeagecodex.com/items/icon_item_ins_s_0051.png', name: 'Укрепленная аргенитовая лютня' },
     { id: 34685, icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', name: 'Укрепленный аргенитовый кларнет' },
@@ -565,18 +561,16 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 49252, icon: 'https://archeagecodex.com/items/icon_item_4878.png', grade: 2, name: 'Образцы флоры Сада', isPersonal: true, price: 0, description: 'Пакетик с образцами флоры Сада Матери.' },
     { id: 31151, icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 1, name: 'Перевязанный ленточкой подарок', isPersonal: true, price: 0 },
     { id: 28188, icon: `${GMRU_CDN_ICONS}d2f377e3c3118826089a2caf9e794a50.png`, grade: 3, name: 'Сплав стихий', isPersonal: true, price: 360 },
+    { id: 54915, icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, name: 'Свиток чар ифнирского героя' },
     { id: 55516, icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 5, name: 'Эпическая руна ифнирского героя', isPersonal: true },
-    { id: 55490, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Серьга ифнирского героя эпохи чудес', isPersonal: true },
+    { id: 55280, icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, name: 'Легендарная руна ифнирского героя' },
+    { id: 55501, icon: 'https://archeagecodex.com/items/icon_item_5850.png', grade: 6, name: 'Сундучок с легендарным украшением ифнирского героя' },
     { id: 55255, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийная серьга ифнирского героя', isPersonal: true },
+    { id: 55450, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
+    { id: 55490, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Серьга ифнирского героя эпохи чудес', isPersonal: true },
+    { id: 55495, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 9, name: 'Кольцо ифнирского героя эпохи сказаний' },
     { id: 52808, overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_teleport.png', grade: 1, name: 'Книга порталов (7 д.)', isPersonal: true },
     { id: 34702, subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0049.png', name: 'Зеркальный аргенитовый кларнет', buff: { avgRestoreMana: 16 } },
-    { id: 51723, icon: 'https://archeagecodex.com/items/icon_item_5149.png', grade: 4, name: 'Ящик с Мару, покорителем просторов', isPersonal: true },
-    { id: 8002771, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с глайдером', isPersonal: true },
-    { id: 39363, icon: 'https://archeagecodex.com/items/icon_item_2275.png', grade: 1, name: 'Осенний Лоскутик' },
-    { id: 34972, icon: 'https://archeagecodex.com/items/doll_pet_hm_001.png', grade: 1, name: 'Красные очки-сердечки' },
-    { id: 34975, icon: 'https://archeagecodex.com/items/doll_pet_bo_001.png', grade: 1, name: 'Кулинарные перчатки в красный горошек' },
-    { id: 36183, icon: 'https://archeagecodex.com/items/doll_pet_ar_007.png', grade: 1, name: 'Красный заводной ключик' },
-    { id: 34981, icon: 'https://archeagecodex.com/items/icon_item_2720.png', grade: 1, name: 'Детеныш Гартарейн' },
     { id: 37018, icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth560.png', grade: 3, name: 'Вязаная шапочка' },
     { id: 49630, icon: 'https://archeagecodex.com/items/icon_item_4862.png', grade: 5, name: 'Статуэтка «Аранзеб»' },
     { id: 31787, icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth550.png', grade: 3, name: 'Ободок со снеговичками' },
@@ -585,7 +579,6 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8002004, icon: 'https://archeagecodex.com/items/icon_item_2774.png', grade: 1, name: 'Призрачный конь (30 д.)' },
     { id: 8000315, icon: 'https://archeagecodex.com/items/costume_cp/nu_f_cp_leather002.png', grade: 1, name: 'Накидка из грифоньих перьев' },
     { id: 8000127, subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_party001.png', grade: 2, name: 'Бальный наряд Двух Корон' },
-    { id: 55495, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 9, name: 'Кольцо ифнирского героя эпохи сказаний' },
 
     { id: 33156, type: 'equipment', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth554.png', name: 'Вишневая шляпа-торт' },
 
@@ -660,10 +653,6 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 33382, icon: 'https://archeagecodex.com/items/icon_item_0843.png', grade: 1, name: 'Бутыль с имбирным напитком' },
     { id: 8003057, icon: 'https://archeagecodex.com/items/icon_item_6009.png', grade: 2, name: 'Мимолетное благословение предела' },
 
-    { id: 56010, icon: benedictIcon, grade: 4, name: 'Бенедикт' },
-
-    { icon: rudolfBoxIcon, grade: 1, name: 'Ящик с Рудольфом' },
-
     { id: 49188, icon: 'https://archeagecodex.com/items/icon_item_4833.png', grade: 2, name: 'Премиум-подписка на 7 дней' },
 
     { id: 52018, icon: 'https://archeagecodex.com/items/icon_item_1829.png', grade: 3, name: 'Рубиновый эликсир' },
@@ -679,7 +668,24 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
 
     { id: 23920, overlay: 'seal_08', icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/33aef583629a36356683c8114c5beb46.png', name: 'Иферийский кларнет' },
 
-    { id: 1, type: '', icon: '', grade: 1, name: '' },
+    { id: 8002771, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с глайдером', isPersonal: true },
+
+    { id: 39363, icon: 'https://archeagecodex.com/items/icon_item_2275.png', grade: 1, name: 'Осенний Лоскутик' },
+    { id: 34972, icon: 'https://archeagecodex.com/items/doll_pet_hm_001.png', grade: 1, name: 'Красные очки-сердечки' },
+    { id: 34975, icon: 'https://archeagecodex.com/items/doll_pet_bo_001.png', grade: 1, name: 'Кулинарные перчатки в красный горошек' },
+    { id: 36183, icon: 'https://archeagecodex.com/items/doll_pet_ar_007.png', grade: 1, name: 'Красный заводной ключик' },
+    { id: 34981, icon: 'https://archeagecodex.com/items/icon_item_2720.png', grade: 1, name: 'Детеныш Гартарейн' },
+    { id: 8002772, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем' },
+    { id: 56010, icon: benedictIcon, grade: 4, name: 'Бенедикт' },
+
+    { id: 38191, icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/653044b162070498765aa3f01c590bd4.png', grade: 5, name: 'Упакованный мекка-доспех' },
+    { id: 51492, icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/5b9adbe0f5476d7addc1f32cde5f3b71.png', grade: 1, name: 'Ящик с конем смерти' },
+    { id: 51723, icon: 'https://archeagecodex.com/items/icon_item_5149.png', grade: 4, name: 'Ящик с Мару, покорителем просторов', isPersonal: true },
+    { id: 55964, icon: 'https://archeagecodex.com/items/icon_item_6020.png', grade: 4, name: 'Ящик с Наг’Шетхой' },
+    { id: 55940, icon: 'https://archeagecodex.com/items/icon_item_6007.png', grade: 4, name: 'Ящик с Некросом' },
+    { id: 55976, overlay: 'packing', icon: rudolfBoxIcon, grade: 4, name: 'Ящик с Рудольфом' },
+
+    { id: 1, icon: '', grade: 1, name: '' },
 ] as ItemBase[]).map(i => [i.id, i])) as Record<number, ItemBase>;
 
 export const getItemCodexUrl = (item: ItemBase): string => (
