@@ -3,6 +3,20 @@
 import benedictIcon from '../icons/items/56010.png';
 import rudolfBoxIcon from '../icons/items/rudolfBox.png';
 
+import grade0Overlay from '../icons/grades/item_grade_0poor.png';
+import grade1Overlay from '../icons/grades/item_grade_1common.png';
+import grade2Overlay from '../icons/grades/item_grade_2uncommon.png';
+import grade3Overlay from '../icons/grades/item_grade_3rare.png';
+import grade4Overlay from '../icons/grades/item_grade_4ancient.png';
+import grade5Overlay from '../icons/grades/item_grade_5heroic.png';
+import grade6Overlay from '../icons/grades/item_grade_6unique.png';
+import grade7Overlay from '../icons/grades/item_grade_7artifact.png';
+import grade8Overlay from '../icons/grades/item_grade_8wonder.png';
+import grade9Overlay from '../icons/grades/item_grade_9epic.png';
+import grade10Overlay from '../icons/grades/item_grade_10legendary.png';
+import grade11Overlay from '../icons/grades/item_grade_11mythic.png';
+import grade12Overlay from '../icons/grades/item_grade_12arche.png';
+
 export const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
 export const LS_KEY_ICON_SEX = 'tm_aa_icon_sex';
 export const LS_KEY_ICON_SCALE = 'tm_aa_icon_scale';
@@ -55,19 +69,19 @@ export interface Grade {
 }
 
 export const GRADES: Grade[] = [
-    /* 0  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade0.png`, title: 'Бесполезный предмет', color: '#949293' },
-    /* 1  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade1.png`, title: 'Обычный предмет', color: '#ba976d', cartNamePatterns: [/^обычн(?:ый|ая|ое|ые)\s+/] },
-    /* 2  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade2.png`, title: 'Необычный предмет', color: '#77b064', cartNamePatterns: [/^необычн(?:ый|ая|ое|ые)\s+/] },
-    /* 3  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade3.png`, title: 'Редкий предмет', color: '#558fd7', cartNamePatterns: [/^редк(?:ий|ая|ое|ие)\s+/] },
-    /* 4  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade4.png`, title: 'Уникальный предмет', color: '#cb72d8', cartNamePatterns: [/^уникальн(?:ый|ая|ое|ые)\s+/] },
-    /* 5  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade5.png`, title: 'Эпический предмет', color: '#d78b06', cartNamePatterns: [/^эпическ(?:ий|ая|ое|ие)\s+/] },
-    /* 6  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade6.png`, title: 'Легендарный предмет', color: '#e17853', cartNamePatterns: [/^легендарн(?:ый|ая|ое|ые)\s+/] },
-    /* 7  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade7.png`, title: 'Реликвия', color: '#f95252', cartNamePatterns: [/^реликвийн(?:ый|ая|ое|ые)\s+/] },
-    /* 8  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade8.png`, title: 'Предмет эпохи чудес', color: '#cf7d5d', cartNamePatterns: [/\s+эпохи чудес$/] },
-    /* 9  */ { overlay: `${CODEX_IMAGES_BASE}icon_grade9.png`, title: 'Предмет эпохи сказаний', color: '#8fa5ca', cartNamePatterns: [/\s+эпохи сказаний$/] },
-    /* 10 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade10.png`, title: 'Предмет эпохи легенд', color: '#bf7900', cartNamePatterns: [/\s+эпохи легенд$/] },
-    /* 11 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade11.png`, title: 'Предмет эпохи мифов', color: '#c90b0b', cartNamePatterns: [/\s+эпохи мифов$/] },
-    /* 12 */ { overlay: `${CODEX_IMAGES_BASE}icon_grade12.png`, title: 'Предмет эпохи Двенадцати', color: '#ae98fe', cartNamePatterns: [/\s+эпохи двенадцати$/] },
+    /* 0  */ { overlay: grade0Overlay, title: 'Бесполезный предмет', color: '#949293' },
+    /* 1  */ { overlay: grade1Overlay, title: 'Обычный предмет', color: '#ba976d', cartNamePatterns: [/^обычн(?:ый|ая|ое|ые)\s+/] },
+    /* 2  */ { overlay: grade2Overlay, title: 'Необычный предмет', color: '#77b064', cartNamePatterns: [/^необычн(?:ый|ая|ое|ые)\s+/] },
+    /* 3  */ { overlay: grade3Overlay, title: 'Редкий предмет', color: '#558fd7', cartNamePatterns: [/^редк(?:ий|ая|ое|ие)\s+/] },
+    /* 4  */ { overlay: grade4Overlay, title: 'Уникальный предмет', color: '#cb72d8', cartNamePatterns: [/^уникальн(?:ый|ая|ое|ые)\s+/] },
+    /* 5  */ { overlay: grade5Overlay, title: 'Эпический предмет', color: '#d78b06', cartNamePatterns: [/^эпическ(?:ий|ая|ое|ие)\s+/] },
+    /* 6  */ { overlay: grade6Overlay, title: 'Легендарный предмет', color: '#e17853', cartNamePatterns: [/^легендарн(?:ый|ая|ое|ые)\s+/] },
+    /* 7  */ { overlay: grade7Overlay, title: 'Реликвия', color: '#f95252', cartNamePatterns: [/^реликвийн(?:ый|ая|ое|ые)\s+/] },
+    /* 8  */ { overlay: grade8Overlay, title: 'Предмет эпохи чудес', color: '#cf7d5d', cartNamePatterns: [/\s+эпохи чудес$/] },
+    /* 9  */ { overlay: grade9Overlay, title: 'Предмет эпохи сказаний', color: '#8fa5ca', cartNamePatterns: [/\s+эпохи сказаний$/] },
+    /* 10 */ { overlay: grade10Overlay, title: 'Предмет эпохи легенд', color: '#bf7900', cartNamePatterns: [/\s+эпохи легенд$/] },
+    /* 11 */ { overlay: grade11Overlay, title: 'Предмет эпохи мифов', color: '#c90b0b', cartNamePatterns: [/\s+эпохи мифов$/] },
+    /* 12 */ { overlay: grade12Overlay, title: 'Предмет эпохи Двенадцати', color: '#ae98fe', cartNamePatterns: [/\s+эпохи двенадцати$/] },
 ];
 
 export interface ItemType {
@@ -449,6 +463,7 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8337, icon: `${GMRU_CDN_ICONS}92b1e189f64bc8a6b7edf2eb51c73890.png`, grade: 1, name: "Упаковка строительной древесины", vekselName: "Строительная древесина" }, // icon_item_0041.png
     { id: 16327, icon: `${GMRU_CDN_ICONS}c4952a5513632f33311717370ca55ca9.png`, grade: 1, name: "Сыромятная кожа" }, // icon_item_0352.png
 
+    { id: 29206, overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}26afd0d7fe1a65285edbf5b844860242.png`, grade: 1, name: "Увесистый краденый кошелек" },
     { id: 29207, overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}3e86907901bff954369cc9ae307104f6.png`, grade: 1, name: "Туго набитый краденый кошелек" },
     { id: 32059, overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, name: "Мешочек с серебром" }, // icon_item_1839.png
     { id: 34915, overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}70a2b288662f4e1c5c1c812ad07f34f6.png`, grade: 1, name: "Тяжелый мешочек с серебром" },
@@ -459,7 +474,14 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 42077, overlay: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}1ddc9b8c6e0d41d83f2d3f9536eb29a4.png`, grade: 1, name: "Фермерский сундучок со всякой всячиной" }, // icon_item_3620.png
     { id: 43176, overlay: 'unconfirmed', vekselType: 'sack', icon: `${GMRU_CDN_ICONS}b41e79b64ae0b578499ac6301325f631.png`, grade: 1, name: "Котомка эфенского странника" }, // icon_item_3906.png
     { id: 43177, overlay: 'unconfirmed', vekselType: 'archive', icon: `${GMRU_CDN_ICONS}f2d17e3b4d030e91c38e68cd60c0ee69.png`, grade: 1, name: "Эфенский сундучок со всякой всячиной" }, // icon_item_3907.png
-    
+
+    { id: 45406, overlay: 'unconfirmed' },
+    { id: 45407, overlay: 'unconfirmed' },
+    { id: 45408, overlay: 'unconfirmed' },
+    { id: 45409, overlay: 'unconfirmed' },
+    { id: 45410, overlay: 'unconfirmed' },
+    { id: 45413, overlay: 'unconfirmed' },
+
     { id: 8000753, overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 2, name: "Лицензия на убийство: повелитель подземелья" }, // icon_item_2762.png
     { id: 8000749, overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 3, name: "Лицензия на убийство: Баррага Безумный" },
     { id: 8000750, overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}8139603ac380eaa7a6a9f7a0c331a607.png`, grade: 4, name: "Лицензия на убийство: Даута" },
@@ -468,10 +490,11 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 54615, overlay: 'quest_cash', icon: `${GMRU_CDN_ICONS}5c0da4536b0d2abe8a70a119562338f7.png`, grade: 3, name: "Разрешение на работу: билет в один конец" },
 
     { id: 44829, overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}e1cae56dca548c5324aa52004df78667.png`, grade: 4, name: "Шепчущий камень" },
+    { id: 46882, overlay: 'quest_y', icon: `${GMRU_CDN_ICONS}34e58e204e9c4df2539ec7dec0714116.png`, grade: 3, name: "Странная сфера" },
 
     { id: 48893, icon: 'https://archeagecodex.com/items/icon_item_4819.png', grade: 10, name: 'Драгоценная эфенская сфера оружейника' },
     { id: 48894, icon: 'https://archeagecodex.com/items/icon_item_4820.png', grade: 10, name: 'Драгоценная эфенская сфера бронника' },
-    { id: 54044, icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/1acb577dd3827de3f2aa76cd618c0e45.png', grade: 12, name: 'Удивительная эфенская сфера' },
+    { id: 54044, icon: `${GMRU_CDN_ICONS}1acb577dd3827de3f2aa76cd618c0e45.png`, grade: 12, name: 'Удивительная эфенская сфера' },
     { id: 45508, icon: 'https://archeagecodex.com/items/icon_item_4212.png', grade: 2, name: 'Сфера анимага' },
     { id: 42308, icon: 'https://archeagecodex.com/items/icon_item_3627.png', grade: 1, name: 'Добротная кирка' },
     { id: 8001565, icon: 'https://archeagecodex.com/items/icon_item_3628.png', grade: 1, name: 'Новенькая кирка', price: null },
@@ -660,13 +683,13 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8002774, icon: 'https://archeagecodex.com/items/icon_item_1829.png', grade: 11, name: 'Рубиновый эликсир' },
     { id: 55760, icon: 'https://archeagecodex.com/items/icon_item_5888.png', grade: 5, name: 'Эссенция судьбы' },
 
-    { id: 45603, overlay: 'seal_02', icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/1f2e5e445d5172f8eab7c09aa9a329d3.png', grade: 2, name: 'Обработанный лунный камень' },
+    { id: 45603, overlay: 'seal_02', icon: `${GMRU_CDN_ICONS}1f2e5e445d5172f8eab7c09aa9a329d3.png`, grade: 2, name: 'Обработанный лунный камень' },
     { id: 45604, overlay: 'seal_03', icon: 'https://archeagecodex.com/items/icon_item_0829.png', grade: 3, name: 'Ограненный лунный камень' },
-    { id: 45605, overlay: 'seal_03', icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/44a345e910536ca21b3fcb5151b4773a.png', grade: 3, name: 'Лунная звезда' },
-    { id: 45606, overlay: 'seal_04', icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/3178140baf3cdb49fc1b07204f80b9db.png', grade: 4, name: 'Сияющая лунная звезда' },
+    { id: 45605, overlay: 'seal_03', icon: `${GMRU_CDN_ICONS}44a345e910536ca21b3fcb5151b4773a.png`, grade: 3, name: 'Лунная звезда' },
+    { id: 45606, overlay: 'seal_04', icon: `${GMRU_CDN_ICONS}3178140baf3cdb49fc1b07204f80b9db.png`, grade: 4, name: 'Сияющая лунная звезда' },
     { id: 8002297, overlay: 'seal_08', icon: 'https://archeagecodex.com/items/icon_item_2267.png', grade: 3, name: 'Королевский лунный изумруд' },
 
-    { id: 23920, overlay: 'seal_08', icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/33aef583629a36356683c8114c5beb46.png', name: 'Иферийский кларнет' },
+    { id: 23920, overlay: 'seal_08', icon: `${GMRU_CDN_ICONS}33aef583629a36356683c8114c5beb46.png`, name: 'Иферийский кларнет' },
 
     { id: 8002771, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с глайдером', isPersonal: true },
 
@@ -678,8 +701,8 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8002772, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем' },
     { id: 56010, icon: benedictIcon, grade: 4, name: 'Бенедикт' },
 
-    { id: 38191, icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/653044b162070498765aa3f01c590bd4.png', grade: 5, name: 'Упакованный мекка-доспех' },
-    { id: 51492, icon: 'https://aa.cdn.gmru.net/ms/data/game-icons/5b9adbe0f5476d7addc1f32cde5f3b71.png', grade: 1, name: 'Ящик с конем смерти' },
+    { id: 38191, icon: `${GMRU_CDN_ICONS}653044b162070498765aa3f01c590bd4.png`, grade: 5, name: 'Упакованный мекка-доспех' },
+    { id: 51492, icon: `${GMRU_CDN_ICONS}5b9adbe0f5476d7addc1f32cde5f3b71.png`, grade: 1, name: 'Ящик с конем смерти' },
     { id: 51723, icon: 'https://archeagecodex.com/items/icon_item_5149.png', grade: 4, name: 'Ящик с Мару, покорителем просторов', isPersonal: true },
     { id: 55964, icon: 'https://archeagecodex.com/items/icon_item_6020.png', grade: 4, name: 'Ящик с Наг’Шетхой' },
     { id: 55940, icon: 'https://archeagecodex.com/items/icon_item_6007.png', grade: 4, name: 'Ящик с Некросом' },

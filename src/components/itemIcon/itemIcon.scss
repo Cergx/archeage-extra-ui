@@ -1,4 +1,6 @@
 .tm-item-icon {
+  box-sizing: border-box;
+  border: 1px solid #06070a;
   position: relative;
   display: inline-block;
   flex-shrink: 0;
