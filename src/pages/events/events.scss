@@ -18,30 +18,12 @@
   font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;
 }
 
-.tm-ui-theme-old .tm-popup-panel--events,
-.tm-ui-theme-old .tm-popup-panel--settings {
-  background: rgba(233, 231, 216, 0.98);
-  color: #614311;
-}
-
-.tm-ui-theme-new .tm-popup-panel--events,
-.tm-ui-theme-new .tm-popup-panel--settings {
-  background: #101727;
-  color: #bdd1ea;
-}
-
 .tm-ui-theme-white .tm-popup-panel--events,
 .tm-ui-theme-white .tm-popup-panel--settings {
   background: #fff;
   color: #2d364e;
 }
 
-.tm-ui-theme-old .tm-popup-panel--events .tm-popup-btn,
-.tm-ui-theme-old .tm-popup-panel--settings .tm-popup-btn,
-.tm-ui-theme-new .tm-popup-panel--events .tm-popup-btn,
-.tm-ui-theme-new .tm-popup-panel--settings .tm-popup-btn {
-  color: inherit;
-}
 .tm-ui-theme-white .tm-popup-panel--events .tm-popup-btn,
 .tm-ui-theme-white .tm-popup-panel--settings .tm-popup-btn {
   color: inherit;
@@ -132,14 +114,6 @@
   z-index: 1;
   border-bottom: none;
 }
-.tm-ui-theme-old .tm-events-table th {
-  background: #c9c1a7;
-  color: #614311;
-}
-.tm-ui-theme-new .tm-events-table th {
-  background: #263a5c;
-  color: #bdd1ea;
-}
 .tm-ui-theme-white .tm-events-table th {
   background: #e4e8ee;
   color: #2d364e;
@@ -151,12 +125,6 @@
 }
 .tm-events-table tr:nth-child(even) td {
   background: #f5f5f5;
-}
-.tm-ui-theme-old .tm-events-table tr:nth-child(even) td {
-  background: #e2dfcf;
-}
-.tm-ui-theme-new .tm-events-table tr:nth-child(even) td {
-  background: #151e31;
 }
 .tm-ui-theme-white .tm-events-table tr:nth-child(even) td {
   background: #f5f5f5;

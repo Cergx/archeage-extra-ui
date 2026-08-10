@@ -28,13 +28,7 @@ export const LS_KEYS: Record<string, string> = { ICON_SEX: LS_KEY_ICON_SEX };
 export type TooltipTheme = 'new' | 'old';
 export type InterfaceTheme = TooltipTheme | 'white';
 
-export const loadTooltipTheme = (): TooltipTheme => {
-    try {
-        return localStorage.getItem(LS_KEY_TOOLTIP_THEME) === 'old' ? 'old' : 'new';
-    } catch {
-        return 'new';
-    }
-};
+export const loadTooltipTheme = (): TooltipTheme => 'new';
 
 export const saveTooltipTheme = (theme: TooltipTheme): void => {
     try {
@@ -42,15 +36,7 @@ export const saveTooltipTheme = (theme: TooltipTheme): void => {
     } catch { /* ignore */ }
 };
 
-export const loadInterfaceTheme = (): InterfaceTheme => {
-    try {
-        const theme = localStorage.getItem(LS_KEY_INTERFACE_THEME);
-        if (theme === 'old' || theme === 'new' || theme === 'white') return theme;
-        return 'white';
-    } catch {
-        return 'white';
-    }
-};
+export const loadInterfaceTheme = (): InterfaceTheme => 'white';
 
 export const saveInterfaceTheme = (theme: InterfaceTheme): void => {
     try {

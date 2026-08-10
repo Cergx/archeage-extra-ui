@@ -31,36 +31,12 @@
   opacity: 0.45;
 }
 
-.tm-ui-theme-old .tm-input {
-  background: #e2dfcf;
-  border-color: #a99d7d;
-  color: #614311;
-  caret-color: #614311;
-  color-scheme: light;
-}
-
-.tm-ui-theme-new .tm-input {
-  background: #151e31;
-  border-color: #41506b;
-  color: #bdd1ea;
-  caret-color: #bdd1ea;
-  color-scheme: dark;
-}
-
 .tm-ui-theme-white .tm-input {
   background: #fff;
   border-color: #bbb;
   color: #2d364e;
   caret-color: #2d364e;
   color-scheme: light;
-}
-
-.tm-ui-theme-old .tm-input::placeholder {
-  color: rgba(97, 67, 17, 0.6);
-}
-
-.tm-ui-theme-new .tm-input::placeholder {
-  color: rgba(189, 209, 234, 0.6);
 }
 
 .tm-ui-theme-white .tm-input::placeholder {

@@ -10,9 +10,8 @@ import { appendStyleElement } from '../../utils/dom.js';
 import { formatCountdown } from '../../utils/events-time.js';
 import { EVENTS } from '../../data/events.js';
 import { SERVERS } from '../../data/servers.js';
-import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom, loadInterfaceTheme, saveInterfaceTheme, loadTooltipTheme, saveTooltipTheme } from '../../data/items.js';
+import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom } from '../../data/items.js';
 import { createPopup } from '../../components/popup/popup.js';
-import { updateInterfaceTheme, updateTooltipTheme } from '../../components/tooltip/tooltip.js';
 import { createCheckbox } from '../../components/checkbox/checkbox.js';
 import { createSelect } from '../../components/select/select.js';
 import { createInput } from '../../components/input/input.js';
@@ -363,48 +362,6 @@ export const openSettingsPopup = (onChanged: () => void, {
     scaleSection.appendChild(zoomRow);
 
     leftCol.appendChild(scaleSection);
-
-    const tooltipThemeSection = document.createElement('div');
-    tooltipThemeSection.className = 'tm-settings-section';
-
-    const tooltipThemeTitle = document.createElement('div');
-    tooltipThemeTitle.className = 'tm-settings-section-title';
-    tooltipThemeTitle.textContent = 'Тема интерфейса скрипта';
-    tooltipThemeSection.appendChild(tooltipThemeTitle);
-
-    const tooltipThemeSelect = createSelect({
-        options: [
-            { value: 'new', label: 'Новая' },
-            { value: 'old', label: 'Старая' },
-            { value: 'white', label: 'Белая' },
-        ],
-        value: loadInterfaceTheme(),
-        onChange: value => {
-            saveInterfaceTheme(value === 'old' || value === 'white' ? value : 'new');
-            updateInterfaceTheme();
-        },
-    });
-    tooltipThemeSection.appendChild(tooltipThemeSelect);
-    leftCol.appendChild(tooltipThemeSection);
-
-    const tooltipAndClockThemeSection = document.createElement('div');
-    tooltipAndClockThemeSection.className = 'tm-settings-section';
-
-    const tooltipAndClockThemeTitle = document.createElement('div');
-    tooltipAndClockThemeTitle.className = 'tm-settings-section-title';
-    tooltipAndClockThemeTitle.textContent = 'Тема тултипов и часов';
-    tooltipAndClockThemeSection.appendChild(tooltipAndClockThemeTitle);
-
-    const tooltipAndClockThemeSelect = createSelect({
-        options: [{ value: 'new', label: 'Новая' }, { value: 'old', label: 'Старая' }],
-        value: loadTooltipTheme(),
-        onChange: value => {
-            saveTooltipTheme(value === 'old' ? 'old' : 'new');
-            updateTooltipTheme();
-        },
-    });
-    tooltipAndClockThemeSection.appendChild(tooltipAndClockThemeSelect);
-    leftCol.appendChild(tooltipAndClockThemeSection);
 
     const siteThemeSection = document.createElement('div');
     siteThemeSection.className = 'tm-settings-section';
