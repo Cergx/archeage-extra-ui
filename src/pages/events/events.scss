@@ -188,12 +188,14 @@
   align-items: center;
   gap: 8px;
   flex: 1;
+  line-height: 1.17;
+  font-size: 13px;
 }
 .tm-popup-btn--bell { font-size: 16px; }
 .tm-popup-btn--bell-off { opacity: 0.4; }
 .tm-ev-bell {
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   padding: 0 4px;
   user-select: none;
   border: none;
