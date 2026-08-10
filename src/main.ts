@@ -30,13 +30,12 @@ import {
 } from './pages/marathon/core.js';
 import { initPrizes, initAutoOpenBoxesCheckbox } from './pages/marathon/prizes.js';
 import {
-    injectItemIconStyles,
     injectSelectedItemsStyles,
     injectMarathonStyles,
     injectCartStyles,
 } from './pages/marathon/styles.js';
 import { initTooltips, makeItemIconLink, updateInterfaceTheme, updateTooltipTheme } from './components/tooltip/tooltip.js';
-import { makeIconLink, updateRenderedItemIcons } from './components/itemIcon/itemIcon.js';
+import { injectItemIconStyles, makeIconLink, updateRenderedItemIcons } from './components/itemIcon/itemIcon.js';
 import { initSiteTheme } from './components/siteTheme/siteTheme.js';
 
 type TimerId = ReturnType<typeof setInterval>;
@@ -63,6 +62,13 @@ if (!isArcheageSite) {
     updateTooltipTheme();
     updateInterfaceTheme();
     initSiteTheme();
+
+    const startTooltips = (): void => initTooltips();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startTooltips);
+    } else {
+        startTooltips();
+    }
 
     const injectStyles = (): void => {
         injectItemIconStyles();
@@ -148,7 +154,6 @@ if (!isArcheageSite) {
                     makeItemIconLink,
                     makeIconLink,
                 });
-                initTooltips();
             }
         });
 

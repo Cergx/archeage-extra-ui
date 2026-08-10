@@ -209,9 +209,12 @@ export interface ItemBase {
     numSockets?: number;
     isGradable?: boolean;
     isGradeEnchantable?: boolean;
+    isDyeable?: boolean;
     buff?: Record<string, string | number | boolean | null>;
     buffDuration?: number | string;
     isGradeInferred?: boolean;
+    preferDynamicGrade?: boolean;
+    dynamicTooltipGrade?: number;
 }
 
 type ItemPlaceholderValue = string | number | boolean | null | Record<string, string | number | boolean | null>;
@@ -559,6 +562,7 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 48860, icon: 'https://archeagecodex.com/items/icon_item_4002.png', grade: 6, name: 'Большая эфенская сфера оружейника' },
     { id: 48861, icon: 'https://archeagecodex.com/items/icon_item_4816.png', grade: 6, name: 'Большая эфенская сфера бронника' },
     { id: 44359, icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, name: 'Походный фиал славы' },
+    { id: 55776, icon: 'https://archeagecodex.com/items/icon_item_5900.png', grade: 2, name: 'Драгоценный фиал с алхимическим эликсиром' },
     { id: 32490, icon: 'https://archeagecodex.com/items/icon_item_1333.png', grade: 9, name: 'Сверкающий фиал с эликсиром чести' },
     { id: 55800, icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, name: 'Сундучок с фрагментами судьбы' },
     { id: 50635, icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, isPersonal: true, name: 'Заговоренная гадальная руна' },

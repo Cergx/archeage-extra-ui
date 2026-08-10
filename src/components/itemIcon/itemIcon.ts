@@ -1,4 +1,19 @@
 import { getItemIconUrlFromParts } from '../../data/items.ts';
+import { appendStyleElement } from '../../utils/dom.js';
+import itemIconStyles from './itemIcon.scss';
+
+let itemIconStylesInjected: boolean = false;
+
+/** Подключает общие стили компонента иконки предмета один раз. */
+export const injectItemIconStyles = (): void => {
+    if (itemIconStylesInjected) return;
+    itemIconStylesInjected = true;
+
+    const style = document.createElement('style');
+    style.id = 'tm-item-icon-styles';
+    style.textContent = itemIconStyles;
+    appendStyleElement(style);
+};
 
 interface IconLinkParams {
     href: string;

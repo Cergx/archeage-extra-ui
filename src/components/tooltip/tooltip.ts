@@ -2,9 +2,11 @@ import { pageDocument, pageWindow, isArcheageSite } from '../../utils/env.js';
 import { appendStyleElement } from '../../utils/dom.js';
 import { makeEmptyCell } from '../emptyCell/emptyCell.js';
 import { makeLoader } from '../loader/loader.js';
+import { injectItemIconStyles } from '../itemIcon/itemIcon.js';
 import tooltipStyles from './tooltip.scss';
 import {
     GRADES,
+    ITEMS,
     ITEM_TYPES,
     ITEM_SUB_TYPES,
     EQUIPMENT_SUB_TYPES,
@@ -45,6 +47,18 @@ const TOOLTIP_RIGHT_CLASS: string = 'tm-item-tooltip--right';
 const TOOLTIP_BOTTOM_CLASS: string = 'tm-item-tooltip--bottom';
 const TOOLTIP_THEME_CLASS_PREFIX: string = 'tm-item-tooltip--theme-';
 const TOOLTIP_WIDTH: number = 248;
+
+// tooltip.js сайта меняет местами первые два грейда относительно нашего GRADES:
+// 0 = обычный, 1 = бесполезный. Начиная с 2 индексы совпадают.
+const convertSiteGrade = (grade: number): number => grade === 0 ? 1 : grade === 1 ? 0 : grade;
+
+const getSiteTooltipGrade = (item: ItemBase): number => {
+    const dynamicGrade = Number(item.dynamicTooltipGrade);
+    if (Number.isFinite(dynamicGrade)) return dynamicGrade;
+
+    const grade = Number(item.grade);
+    return Number.isFinite(grade) ? convertSiteGrade(grade) : 0;
+};
 
 const getSystemScale = (): number => {
     if (loadIconScaleBrowserZoom()) return 1;
@@ -237,7 +251,7 @@ const makeItemPriceValue = (price: number | string | null): HTMLSpanElement => {
 
 const getItemDynamicTooltipKey = (item: ItemBase): string | null => {
     if (item?.id == null || item.id === '') return null;
-    const grade = Number.isFinite(Number(item.grade)) ? Number(item.grade) : 0;
+    const grade = getSiteTooltipGrade(item);
     return `${item.id}|${grade}`;
 };
 
@@ -258,7 +272,7 @@ const loadDynamicTooltipSnapshot = (item: ItemBase): DynamicTooltipSnapshot | nu
 
         const all = JSON.parse(raw) as Record<string, DynamicTooltipSnapshot | undefined>;
         const snapshot = all[key] || all[String(item.id)];
-        const grade = Number.isFinite(Number(item.grade)) ? Number(item.grade) : 0;
+        const grade = getSiteTooltipGrade(item);
 
         return snapshot?.data && String(snapshot.id) === String(item.id) && String(snapshot.grade) === String(grade)
             ? snapshot
@@ -367,8 +381,10 @@ const mapDynamicEquipTooltip = (value: DynamicTooltipFieldValue | undefined): Pa
 const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemBase> => {
     if (!data || typeof data !== 'object') return {};
 
-    const fixedGrade = dynamicTooltipNumberValue(data.fixed_grade);
-    const apiGrade = dynamicTooltipNumberValue(data.grade);
+    const rawFixedGrade = dynamicTooltipNumberValue(data.fixed_grade);
+    const rawApiGrade = dynamicTooltipNumberValue(data.grade);
+    const fixedGrade = rawFixedGrade != null && rawFixedGrade >= 0 ? convertSiteGrade(rawFixedGrade) : rawFixedGrade;
+    const apiGrade = rawApiGrade != null && rawApiGrade >= 0 ? convertSiteGrade(rawApiGrade) : rawApiGrade;
     const grade = apiGrade ?? (fixedGrade != null && fixedGrade >= 0 ? fixedGrade : null);
     const reqLevel = dynamicTooltipNumberValue(data.level_requirement);
     const maxLevel = dynamicTooltipNumberValue(data.level_limit);
@@ -405,6 +421,7 @@ const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemB
         ...(dynamicTooltipNumberValue(data.num_sockets) != null ? { numSockets: dynamicTooltipNumberValue(data.num_sockets) } : {}),
         ...(dynamicTooltipFieldValue(data.gradable) ? { isGradable: dynamicTooltipFieldValue(data.gradable) === 't' } : {}),
         ...(dynamicTooltipFieldValue(data.grade_enchantable) ? { isGradeEnchantable: dynamicTooltipFieldValue(data.grade_enchantable) === 't' } : {}),
+        ...(dynamicTooltipNumberValue(data.dyeing) != null ? { isDyeable: dynamicTooltipNumberValue(data.dyeing) === 1 } : {}),
     };
 };
 
@@ -421,6 +438,10 @@ const mergeDynamicTooltipItem = (item: ItemBase, data: DynamicTooltipData | null
     for (const [field, value] of Object.entries(apiItem)) {
         if (field === 'buff') {
             merged.buff = { ...((value || {}) as Record<string, string | number | boolean | null>), ...(merged.buff || {}) };
+            continue;
+        }
+        if (field === 'grade' && merged.preferDynamicGrade) {
+            merged.grade = value as number;
             continue;
         }
         if (!itemHasTooltipField(merged, field)) (merged as Record<string, unknown>)[field] = value;
@@ -442,7 +463,7 @@ const fetchDynamicTooltipData = async (item: ItemBase): Promise<DynamicTooltipDa
         return snapshot.data;
     }
 
-    const grade = Number.isFinite(Number(item.grade)) ? Number(item.grade) : 0;
+    const grade = getSiteTooltipGrade(item);
     const promise: Promise<DynamicTooltipData | null> = fetch(`/dynamic/tooltip/?a=item&id=${encodeURIComponent(item.id)}&g=${encodeURIComponent(grade)}`, {
         credentials: 'include',
         cache: 'no-store',
@@ -474,6 +495,8 @@ interface MakeItemIconLinkParams {
 type ItemIconElement = HTMLAnchorElement | HTMLDivElement;
 
 export const makeItemIconLink = ({ item, linked = false, size = 'medium', count, noTooltip = false }: MakeItemIconLinkParams): ItemIconElement => {
+    injectItemIconStyles();
+
     const icon = pageDocument.createElement(linked ? 'a' : 'div');
     icon.className = `tm-item-icon tm-item-icon--${size}`;
 
@@ -569,6 +592,17 @@ const populateTooltip = (item: ItemBase): void => {
 
     headerSection.appendChild(tipMeta);
     tooltip.appendChild(headerSection);
+
+    if (item.isDyeable) {
+        const sep = pageDocument.createElement('div');
+        sep.className = 'tm-item-tooltip-sep';
+        tooltip.appendChild(sep);
+
+        const dyeingSection = pageDocument.createElement('div');
+        dyeingSection.className = 'tm-item-tooltip-dyeing';
+        dyeingSection.textContent = 'Можно перекрасить';
+        tooltip.appendChild(dyeingSection);
+    }
 
     if (item.isPersonal || item.reqLevel != null || item.maxLevel != null) {
         const sep = pageDocument.createElement('div');
@@ -795,12 +829,33 @@ interface DelegatedTooltipItem {
 
 const getDelegatedTooltipItem = (target: EventTarget | null): DelegatedTooltipItem | null => {
     const icon = target instanceof Element
-        ? target.closest<HTMLElement>('.tm-item-icon[data-item-id], [data-tm-tooltip-item-id], [data-item-id]')
+        ? target.closest<HTMLElement>('.tm-item-icon[data-item-id], [data-tm-tooltip-item-id], [data-item-id], .aa_item_tooltip[data-id]')
         : null;
-    const itemId = icon?.dataset?.tmTooltipItemId || icon?.dataset?.itemId;
+    const itemId = icon?.dataset?.tmTooltipItemId || icon?.dataset?.itemId || icon?.dataset?.id;
     if (!itemId) return null;
 
-    const item = ITEM_STORE.get(String(itemId)) || ITEM_STORE.get(Number(itemId));
+    const numericItemId = Number(itemId);
+    if (!Number.isFinite(numericItemId)) return null;
+
+    if (icon.classList.contains('aa_item_tooltip')) {
+        const grade = Number(icon.dataset.grade);
+        const knownItem = ITEMS[numericItemId];
+        const siteItem: ItemBase = {
+            ...(knownItem || {
+                id: numericItemId,
+                icon: icon.querySelector<HTMLImageElement>('img')?.src || '',
+                name: '',
+            }),
+            preferDynamicGrade: true,
+            ...(Number.isFinite(grade) ? {
+                dynamicTooltipGrade: grade,
+                ...(!knownItem ? { grade: convertSiteGrade(grade) } : {}),
+            } : {}),
+        };
+        return { icon, item: siteItem };
+    }
+
+    const item = ITEM_STORE.get(String(itemId)) || ITEM_STORE.get(numericItemId);
     return item ? { icon, item } : null;
 };
 
@@ -809,10 +864,28 @@ export const handleItemIconMouseEnter = (event: MouseEvent): void => {
     if (found) showTooltip(found.icon, found.item);
 };
 
+const prepareSiteTooltipWikiLink = (event: MouseEvent): void => {
+    const link = event.target instanceof Element
+        ? event.target.closest<HTMLAnchorElement>('a.aa_item_tooltip')
+        : null;
+    if (!link || link.getAttribute('href') !== '#') return;
+
+    const itemId = Number(link.dataset.id);
+    if (!Number.isFinite(itemId)) return;
+
+    const item = ITEMS[itemId] || { id: itemId } as ItemBase;
+    link.href = getItemCodexUrl(item);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+};
+
 export const initTooltips = (): void => {
     initTooltipDom();
     if (tooltipDomInitialized) return;
     tooltipDomInitialized = true;
+
+    // Capture позволяет заменить заглушку href до обработки клика самой страницей.
+    pageDocument.addEventListener('click', prepareSiteTooltipWikiLink, true);
 
     pageDocument.addEventListener('mouseover', (event) => {
         const found = getDelegatedTooltipItem(event.target);

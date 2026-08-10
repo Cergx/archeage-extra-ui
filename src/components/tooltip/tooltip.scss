@@ -19,6 +19,12 @@
   transform-origin: top right;
 }
 
+// The site attaches its own jQuery tooltip to .aa_item_tooltip elements.
+// Keep it suppressed while ArcheAgeExtraUI renders the replacement.
+#item_tooltip {
+  display: none !important;
+}
+
 .tm-item-tooltip--theme-old {
   background: rgba(62, 61, 44, 0.89);
   border-color: rgba(26, 23, 6, 0.38);
@@ -80,7 +86,8 @@
   padding: 0;
 }
 
-.tm-item-tooltip-req {
+.tm-item-tooltip-req,
+.tm-item-tooltip-dyeing {
   padding: 0 3px;
   letter-spacing: 0.03em;
 }
