@@ -36,7 +36,7 @@ export interface IRItem {
     gi_refund: string | null;
     gg_id: string;
     color: string;
-    bind: string;
+    bind: string | number;
     iconurl: string;
     shard_id: number;
     selected?: boolean;
@@ -261,6 +261,7 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
             ...(item.iconurl ? { icon: item.iconurl } : {}),
             ...(item.gi_name ? { name: item.gi_name } : {}),
             ...(item.gi_description ? { description: item.gi_description } : {}),
+            ...(item.bind !== '' && item.bind != null ? { bind: item.bind } : {}),
             grade,
             ...(isGradeInferred ? { isGradeInferred: true } : {}),
         };
@@ -349,7 +350,7 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
 
     const inputWrapper = document.createElement('div');
     inputWrapper.className = 'tm-input-wrapper';
-    const nameInput = createInput({ className: 'tm-itemrestore-filter-name', theme: 'white' });
+    const nameInput = createInput({ className: 'tm-itemrestore-filter-name' });
     inputWrapper.appendChild(nameInput);
     filterDiv.appendChild(inputWrapper);
 

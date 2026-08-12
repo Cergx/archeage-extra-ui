@@ -5,10 +5,10 @@
   scrollbar-width: thin;
 }
 
-.tm-ui-theme-white .tm-popup-body,
-.tm-ui-theme-white .tm-settings-right,
-.tm-ui-theme-white .tm-select-menu,
-.tm-ui-theme-white .tm-scrollbar {
+.tm-popup-body,
+.tm-settings-right,
+.tm-select-menu,
+.tm-scrollbar {
   scrollbar-color: #bbb #f5f5f5;
 }
 
@@ -29,28 +29,16 @@
   background-clip: padding-box;
 }
 
-.tm-ui-theme-white .tm-popup-body::-webkit-scrollbar-track,
-.tm-ui-theme-white .tm-settings-right::-webkit-scrollbar-track,
-.tm-ui-theme-white .tm-select-menu::-webkit-scrollbar-track,
-.tm-ui-theme-white .tm-scrollbar::-webkit-scrollbar-track {
+.tm-popup-body::-webkit-scrollbar-track,
+.tm-settings-right::-webkit-scrollbar-track,
+.tm-select-menu::-webkit-scrollbar-track,
+.tm-scrollbar::-webkit-scrollbar-track {
   background: #f5f5f5;
 }
 
-.tm-ui-theme-white .tm-popup-body::-webkit-scrollbar-thumb,
-.tm-ui-theme-white .tm-settings-right::-webkit-scrollbar-thumb,
-.tm-ui-theme-white .tm-select-menu::-webkit-scrollbar-thumb,
-.tm-ui-theme-white .tm-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #bbb;
-}
-
-.tm-select--theme-white .tm-select-menu {
-  scrollbar-color: #bbb #f5f5f5;
-}
-
-.tm-select--theme-white .tm-select-menu::-webkit-scrollbar-track {
-  background: #f5f5f5;
-}
-
-.tm-select--theme-white .tm-select-menu::-webkit-scrollbar-thumb {
+.tm-popup-body::-webkit-scrollbar-thumb,
+.tm-settings-right::-webkit-scrollbar-thumb,
+.tm-select-menu::-webkit-scrollbar-thumb,
+.tm-scrollbar::-webkit-scrollbar-thumb {
   background-color: #bbb;
 }

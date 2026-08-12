@@ -108,30 +108,16 @@
   font-weight: bold;
 }
 
-.tm-ui-theme-white .tm-select-button,
-.tm-ui-theme-white .tm-select-menu {
+.tm-select-button,
+.tm-select-menu {
   background: #fff;
   border-color: #bbb;
   color: #2d364e;
   color-scheme: light;
 }
 
-.tm-ui-theme-white .tm-select-option:hover,
-.tm-ui-theme-white .tm-select-option--active,
-.tm-ui-theme-white .tm-select-option--selected {
-  background: #f0f0f0;
-}
-
-.tm-select--theme-white .tm-select-button,
-.tm-select--theme-white .tm-select-menu {
-  background: #fff;
-  border-color: #bbb;
-  color: #2d364e;
-  color-scheme: light;
-}
-
-.tm-select--theme-white .tm-select-option:hover,
-.tm-select--theme-white .tm-select-option--active,
-.tm-select--theme-white .tm-select-option--selected {
+.tm-select-option:hover,
+.tm-select-option--active,
+.tm-select-option--selected {
   background: #f0f0f0;
 }

@@ -34,7 +34,7 @@ import {
     injectMarathonStyles,
     injectCartStyles,
 } from './pages/marathon/styles.js';
-import { initTooltips, makeItemIconLink, updateInterfaceTheme, updateTooltipTheme } from './components/tooltip/tooltip.js';
+import { initTooltips, makeItemIconLink } from './components/tooltip/tooltip.js';
 import { injectItemIconStyles, makeIconLink, updateRenderedItemIcons } from './components/itemIcon/itemIcon.js';
 import { initSiteTheme } from './components/siteTheme/siteTheme.js';
 
@@ -59,8 +59,6 @@ if (isGisaaSite) {
 if (!isArcheageSite) {
     // nothing more — exit
 } else {
-    updateTooltipTheme();
-    updateInterfaceTheme();
     initSiteTheme();
 
     const startTooltips = (): void => initTooltips();

@@ -10,7 +10,6 @@ export interface InputOptions {
     max?: string | number;
     step?: string | number;
     disabled?: boolean;
-    theme?: 'default' | 'white';
 }
 
 let inputStylesInjected = false;
@@ -32,7 +31,6 @@ export const createInput = ({
     max,
     step,
     disabled = false,
-    theme = 'default',
 }: InputOptions = {}): HTMLInputElement => {
     injectInputStyles();
 
@@ -40,7 +38,6 @@ export const createInput = ({
     input.type = type;
     input.className = 'tm-input';
     if (className) input.classList.add(className);
-    if (theme === 'white') input.classList.add('tm-input--theme-white');
     input.value = String(value);
     input.disabled = disabled;
     if (placeholder != null) input.placeholder = placeholder;

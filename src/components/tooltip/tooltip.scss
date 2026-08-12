@@ -145,7 +145,31 @@
 }
 
 .tm-item-tooltip-use-text {
-  color: #4caf50;
+  color: #58ca6b;
+}
+
+.tm-item-tooltip-set {
+  padding: 4px 3px 2px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tm-item-tooltip-set-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 22px);
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.tm-item-tooltip-set-grid .tm-item-icon,
+.tm-item-tooltip-set-grid .tm-empty-cell {
+  width: 22px;
+  height: 22px;
+}
+
+.tm-item-tooltip-set-effects {
+  color: #58ca6b;
+  padding-left: 9px;
 }
 
 .tm-item-tooltip-price {
@@ -191,26 +215,30 @@
 
 /* Новые цвета (в соответствии с archerage.to) */
 
-.tm-item-tooltip--theme-new .inv-nc {
+.tm-item-tooltip .inv-nc {
   color: #d78b06;
 }
 
-.tm-item-tooltip--theme-new .inv-nn {
+.tm-item-tooltip .inv-nn {
   color: #e17853;
 }
 
-.tm-item-tooltip--theme-new .inv-buffvar {
+.tm-item-tooltip .inv-buffvar {
   color: #ff9c27; // неточный цвет
 }
 
-.tm-item-tooltip--theme-new .inv-nd {
+.tm-item-tooltip .inv-nd {
   color: #94cff1;
 }
 
-.tm-item-tooltip--theme-new .inv-ni {
+.tm-item-tooltip .inv-ni {
   color: #f5cb66;
 }
 
-.tm-item-tooltip--theme-new .inv-nr {
+.tm-item-tooltip .inv-nr {
   color: #97d5f9;
+}
+
+.tm-item-tooltip .inv-ng {
+  color: #4caf50;
 }

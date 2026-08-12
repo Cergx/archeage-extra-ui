@@ -31,7 +31,7 @@
   opacity: 0.45;
 }
 
-.tm-ui-theme-white .tm-input {
+.tm-input {
   background: #fff;
   border-color: #bbb;
   color: #2d364e;
@@ -39,18 +39,6 @@
   color-scheme: light;
 }
 
-.tm-ui-theme-white .tm-input::placeholder {
-  color: rgba(45, 54, 78, 0.55);
-}
-
-.tm-input.tm-input--theme-white {
-  background: #fff;
-  border-color: #bbb;
-  color: #2d364e;
-  caret-color: #2d364e;
-  color-scheme: light;
-}
-
-.tm-input.tm-input--theme-white::placeholder {
+.tm-input::placeholder {
   color: rgba(45, 54, 78, 0.55);
 }

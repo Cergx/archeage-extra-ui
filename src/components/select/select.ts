@@ -11,7 +11,6 @@ export interface SelectOption {
 export interface SelectOptions {
     options: SelectOption[];
     value?: string | number;
-    theme?: 'default' | 'white';
     onChange?: (value: string) => void;
 }
 
@@ -30,13 +29,12 @@ const injectSelectStyles = (): void => {
     appendStyleElement(style);
 };
 
-export const createSelect = ({ options, value = '', theme = 'default', onChange }: SelectOptions): HTMLDivElement => {
+export const createSelect = ({ options, value = '', onChange }: SelectOptions): HTMLDivElement => {
     injectSelectStyles();
     injectScrollbarStyles();
 
     const select = document.createElement('div');
     select.className = 'tm-select';
-    if (theme === 'white') select.classList.add('tm-select--theme-white');
 
     const button = document.createElement('button');
     button.type = 'button';
@@ -161,7 +159,7 @@ interface LegacySelectOptions {
 }
 
 export const makeSelect = ({ options, selected, onChange }: LegacySelectOptions): HTMLDivElement => {
-    return createSelect({ options, value: selected, theme: 'white', onChange });
+    return createSelect({ options, value: selected, onChange });
 };
 
 interface MappedItem {

@@ -18,14 +18,14 @@
   font: 14px/1.5 Cambria, Georgia, "Times New Roman", Times, serif;
 }
 
-.tm-ui-theme-white .tm-popup-panel--events,
-.tm-ui-theme-white .tm-popup-panel--settings {
+.tm-popup-panel--events,
+.tm-popup-panel--settings {
   background: #fff;
   color: #2d364e;
 }
 
-.tm-ui-theme-white .tm-popup-panel--events .tm-popup-btn,
-.tm-ui-theme-white .tm-popup-panel--settings .tm-popup-btn {
+.tm-popup-panel--events .tm-popup-btn,
+.tm-popup-panel--settings .tm-popup-btn {
   color: inherit;
 }
 .tm-popup-panel--events {
@@ -114,7 +114,7 @@
   z-index: 1;
   border-bottom: none;
 }
-.tm-ui-theme-white .tm-events-table th {
+.tm-events-table th {
   background: #e4e8ee;
   color: #2d364e;
 }
@@ -126,7 +126,7 @@
 .tm-events-table tr:nth-child(even) td {
   background: #f5f5f5;
 }
-.tm-ui-theme-white .tm-events-table tr:nth-child(even) td {
+.tm-events-table tr:nth-child(even) td {
   background: #f5f5f5;
 }
 .tm-events-table tr.tm-event-active td {

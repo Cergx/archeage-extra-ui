@@ -3,6 +3,7 @@ import { appendStyleElement } from '../../utils/dom.js';
 import { makeEmptyCell } from '../emptyCell/emptyCell.js';
 import { makeLoader } from '../loader/loader.js';
 import { injectItemIconStyles } from '../itemIcon/itemIcon.js';
+import { findItemByName } from '../../pages/cart/cart.js';
 import tooltipStyles from './tooltip.scss';
 import {
     GRADES,
@@ -23,8 +24,6 @@ import {
     resolveItemPlaceholders,
     loadIconScalePercent,
     loadIconScaleBrowserZoom,
-    loadTooltipTheme,
-    loadInterfaceTheme,
 } from '../../data/items.js';
 import type { DynamicTooltipData, DynamicTooltipFieldValue, ItemBase } from '../../data/items.js';
 
@@ -45,7 +44,6 @@ let tooltipDomInitialized: boolean = false;
 const TOOLTIP_VISIBLE_CLASS: string = 'tm-item-tooltip--visible';
 const TOOLTIP_RIGHT_CLASS: string = 'tm-item-tooltip--right';
 const TOOLTIP_BOTTOM_CLASS: string = 'tm-item-tooltip--bottom';
-const TOOLTIP_THEME_CLASS_PREFIX: string = 'tm-item-tooltip--theme-';
 const TOOLTIP_WIDTH: number = 248;
 
 // tooltip.js сайта меняет местами первые два грейда относительно нашего GRADES:
@@ -69,22 +67,9 @@ const getTooltipContainer = (): HTMLElement => {
     if (globalTooltip) return globalTooltip;
 
     globalTooltip = pageDocument.createElement('div');
-    globalTooltip.className = `tm-item-tooltip ${TOOLTIP_THEME_CLASS_PREFIX}${loadTooltipTheme()}`;
+    globalTooltip.className = 'tm-item-tooltip';
     pageDocument.body.appendChild(globalTooltip);
     return globalTooltip;
-};
-
-export const updateTooltipTheme = (): void => {
-    pageDocument.documentElement.classList.remove('tm-tooltip-theme-new', 'tm-tooltip-theme-old');
-    pageDocument.documentElement.classList.add(`tm-tooltip-theme-${loadTooltipTheme()}`);
-    if (!globalTooltip) return;
-    globalTooltip.classList.remove(`${TOOLTIP_THEME_CLASS_PREFIX}new`, `${TOOLTIP_THEME_CLASS_PREFIX}old`);
-    globalTooltip.classList.add(`${TOOLTIP_THEME_CLASS_PREFIX}${loadTooltipTheme()}`);
-};
-
-export const updateInterfaceTheme = (): void => {
-    pageDocument.documentElement.classList.remove('tm-ui-theme-new', 'tm-ui-theme-old', 'tm-ui-theme-white');
-    pageDocument.documentElement.classList.add(`tm-ui-theme-${loadInterfaceTheme()}`);
 };
 
 const injectTooltipStyles = (): void => {
@@ -390,9 +375,12 @@ const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemB
     const maxLevel = dynamicTooltipNumberValue(data.level_limit);
     const hasRefund = Object.prototype.hasOwnProperty.call(data, 'refund');
     const price = data.refund === null ? null : dynamicTooltipNumberValue(data.refund);
-    const description = cleanDynamicTooltipMarkup(data.description);
     const equipTooltipFields = mapDynamicEquipTooltip(data.equip_tooltip);
     const setDescription = cleanDynamicTooltipMarkup(data.set_description);
+    const rawDescription = cleanDynamicTooltipMarkup(data.description);
+    const description = rawDescription && setDescription && rawDescription.includes(setDescription)
+        ? cleanDynamicTooltipMarkup(rawDescription.replace(setDescription, ''))
+        : rawDescription;
 
     return {
         ...(dynamicTooltipFieldValue(data.filename) ? { icon: dynamicTooltipFieldValue(data.filename) } : {}),
@@ -401,7 +389,7 @@ const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemB
         ...(fixedGrade != null ? { fixedGrade } : {}),
         ...(description ? { description } : {}),
         ...equipTooltipFields,
-        ...(setDescription ? { equipDescription: setDescription } : {}),
+        ...(setDescription ? { setDescription } : {}),
         ...(dynamicTooltipFieldValue(data.cat_name) ? { apiCategoryTitle: dynamicTooltipFieldValue(data.cat_name) } : {}),
         ...(reqLevel != null && reqLevel > 0 ? { reqLevel } : {}),
         ...(maxLevel != null && maxLevel >= 0 ? { maxLevel } : {}),
@@ -492,6 +480,35 @@ interface MakeItemIconLinkParams {
     noTooltip?: boolean;
 }
 
+interface SetDescriptionParts {
+    nameHtml: string;
+    itemNames: string[];
+    effects: string;
+}
+
+const parseSetDescription = (value: string): SetDescriptionParts | null => {
+    const lines = value
+        .split(/<br\s*\/?>/i)
+        .map(line => line.trim())
+        .filter(line => stripHtmlForMatch(line));
+    if (lines.length < 2) return null;
+
+    const firstLine = stripHtmlForMatch(lines[0]);
+    const firstLineMatch = firstLine.match(/^(.+?)\s*\(\s*\d+\s*\/\s*(\d+)\s*\)$/);
+    if (!firstLineMatch) return null;
+
+    const effectsIndex = lines.findIndex((line, index) => (
+        index > 0 && /эффекты\s+комплекта/i.test(stripHtmlForMatch(line))
+    ));
+    if (effectsIndex === -1) return null;
+
+    return {
+        nameHtml: lines[0].replace(/\(\s*\d+\s*\/\s*(\d+)\s*\)/, '(0/$1)'),
+        itemNames: lines.slice(1, effectsIndex).map(stripHtmlForMatch).filter(Boolean),
+        effects: lines.slice(effectsIndex + 1).join('<br/>'),
+    };
+};
+
 type ItemIconElement = HTMLAnchorElement | HTMLDivElement;
 
 export const makeItemIconLink = ({ item, linked = false, size = 'medium', count, noTooltip = false }: MakeItemIconLinkParams): ItemIconElement => {
@@ -556,6 +573,12 @@ const populateTooltip = (item: ItemBase): void => {
     tooltip.innerHTML = '';
 
     const gradeInfo = GRADES[item.grade];
+    const bind = item.bind != null && item.bind !== '' ? Number(item.bind) : null;
+    const bindText = bind === 2
+        ? 'Персональный предмет'
+        : bind === 3
+            ? 'Становится персональным при использовании.'
+            : null;
 
     const headerSection = pageDocument.createElement('div');
     headerSection.className = 'tm-item-tooltip-header';
@@ -604,7 +627,7 @@ const populateTooltip = (item: ItemBase): void => {
         tooltip.appendChild(dyeingSection);
     }
 
-    if (item.isPersonal || item.reqLevel != null || item.maxLevel != null) {
+    if (bindText || item.reqLevel != null || item.maxLevel != null) {
         const sep = pageDocument.createElement('div');
         sep.className = 'tm-item-tooltip-sep';
         tooltip.appendChild(sep);
@@ -614,9 +637,9 @@ const populateTooltip = (item: ItemBase): void => {
         if (item.reqLevel != null || item.maxLevel != null) {
             reqSection.appendChild(makeRequiredLevelLine(item.reqLevel, item.maxLevel));
         }
-        if (item.isPersonal) {
+        if (bindText) {
             const p = pageDocument.createElement('div');
-            p.textContent = 'Персональный предмет';
+            p.textContent = bindText;
             reqSection.appendChild(p);
         }
         tooltip.appendChild(reqSection);
@@ -681,6 +704,7 @@ const populateTooltip = (item: ItemBase): void => {
     }
 
     const hasUseDescription = item.useDescription && hasVisibleTooltipText(item.useDescription);
+    const hasSetDescription = item.setDescription && hasVisibleTooltipText(item.setDescription);
     if (item.description || hasUseDescription || item.equipDescription) {
         const sep = pageDocument.createElement('div');
         sep.className = 'tm-item-tooltip-sep';
@@ -720,6 +744,56 @@ const populateTooltip = (item: ItemBase): void => {
             descriptionSection.appendChild(equipBlock);
         }
         tooltip.appendChild(descriptionSection);
+    }
+
+    if (hasSetDescription) {
+        const sep = pageDocument.createElement('div');
+        sep.className = 'tm-item-tooltip-sep';
+        tooltip.appendChild(sep);
+
+        const setSection = pageDocument.createElement('div');
+        setSection.className = 'tm-item-tooltip-set';
+
+        const setParts = parseSetDescription(item.setDescription);
+        if (!setParts) {
+            const setText = pageDocument.createElement('div');
+            setText.className = 'tm-item-tooltip-use-text';
+            setText.innerHTML = parseGameMarkup(resolveItemPlaceholders(item.setDescription, item));
+            setSection.appendChild(setText);
+        } else {
+            const setName = pageDocument.createElement('div');
+            setName.innerHTML = parseGameMarkup(setParts.nameHtml);
+            setSection.appendChild(setName);
+
+            const itemGrid = pageDocument.createElement('div');
+            itemGrid.className = 'tm-item-tooltip-set-grid';
+            for (const itemName of setParts.itemNames) {
+                const setItem = findItemByName(itemName);
+                if (setItem) {
+                    itemGrid.appendChild(makeItemIconLink({ item: setItem, size: 'tiny', noTooltip: true }));
+                } else {
+                    const emptyCell = makeEmptyCell();
+                    emptyCell.classList.add('tm-item-tooltip-set-slot');
+                    emptyCell.title = itemName;
+                    itemGrid.appendChild(emptyCell);
+                }
+            }
+            setSection.appendChild(itemGrid);
+
+            if (setParts.effects) {
+                const effectsTitle = pageDocument.createElement('div');
+                effectsTitle.className = 'inv-ng';
+                effectsTitle.textContent = 'Эффекты комплекта';
+                setSection.appendChild(effectsTitle);
+
+                const effects = pageDocument.createElement('div');
+                effects.className = 'tm-item-tooltip-set-effects';
+                effects.innerHTML = parseGameMarkup(setParts.effects);
+                setSection.appendChild(effects);
+            }
+        }
+
+        tooltip.appendChild(setSection);
     }
 
     if (item.price !== undefined) {

@@ -21,28 +21,7 @@ export const CODEX_IMAGES_BASE = 'https://archeagecodex.com/images/';
 export const LS_KEY_ICON_SEX = 'tm_aa_icon_sex';
 export const LS_KEY_ICON_SCALE = 'tm_aa_icon_scale';
 export const LS_KEY_ICON_SCALE_BROWSER_ZOOM = 'tm_aa_icon_scale_browser_zoom';
-export const LS_KEY_TOOLTIP_THEME = 'tm_aa_tooltip_theme';
-export const LS_KEY_INTERFACE_THEME = 'tm_aa_interface_theme';
 export const LS_KEYS: Record<string, string> = { ICON_SEX: LS_KEY_ICON_SEX };
-
-export type TooltipTheme = 'new' | 'old';
-export type InterfaceTheme = TooltipTheme | 'white';
-
-export const loadTooltipTheme = (): TooltipTheme => 'new';
-
-export const saveTooltipTheme = (theme: TooltipTheme): void => {
-    try {
-        localStorage.setItem(LS_KEY_TOOLTIP_THEME, theme);
-    } catch { /* ignore */ }
-};
-
-export const loadInterfaceTheme = (): InterfaceTheme => 'white';
-
-export const saveInterfaceTheme = (theme: InterfaceTheme): void => {
-    try {
-        localStorage.setItem(LS_KEY_INTERFACE_THEME, theme);
-    } catch { /* ignore */ }
-};
 
 const CODEX_ITEM_ICONS = 'https://archeagecodex.com/items/';
 const ARCHERAGE_ITEM_ICONS = 'https://wiki.archerage.to/static/images/icons/';
@@ -136,15 +115,17 @@ export interface ItemOverlay {
 }
 
 export const ICON_OVERLAY: Record<string, ItemOverlay> = {
-    'unconfirmed': { icon: 'https://archeagecodex.com/items/top_unconfirmed.png' },
-    'seal_01':     { icon: 'https://archeagecodex.com/items/top_seal_01.png' },
-    'seal_02':     { icon: 'https://archeagecodex.com/items/top_seal_02.png' },
-    'seal_03':     { icon: 'https://archeagecodex.com/items/top_seal_03.png' },
-    'seal_04':     { icon: 'https://archeagecodex.com/items/top_seal_04.png' },
-    'seal_08':     { icon: 'https://archeagecodex.com/items/top_seal_08.png' },
-    'quest_y':     { icon: 'https://archeagecodex.com/items/top_quest_y.png' },
-    'quest_cash':  { icon: 'https://archeagecodex.com/items/top_quest_cash.png' },
-    'packing':     { icon: 'https://archeagecodex.com/items/item_slot/packing.png' },
+    'unconfirmed':      { icon: 'https://archeagecodex.com/items/top_unconfirmed.png' },
+    'seal_01':          { icon: 'https://archeagecodex.com/items/top_seal_01.png' },
+    'seal_02':          { icon: 'https://archeagecodex.com/items/top_seal_02.png' },
+    'seal_03':          { icon: 'https://archeagecodex.com/items/top_seal_03.png' },
+    'seal_04':          { icon: 'https://archeagecodex.com/items/top_seal_04.png' },
+    'seal_08':          { icon: 'https://archeagecodex.com/items/top_seal_08.png' },
+    'quest_y':          { icon: 'https://archeagecodex.com/items/top_quest_y.png' },
+    'quest_cash':       { icon: 'https://archeagecodex.com/items/top_quest_cash.png' },
+    'packing':          { icon: 'https://archeagecodex.com/items/item_slot/packing.png' },
+    'top_emotion_book': { icon: 'https://archeagecodex.com/items/top_emotion_book.png' },
+    'top_piece_light':  { icon: 'https://archeagecodex.com/items/top_piece_light.png' },
 };
 
 export const HERO_LEVEL_ICON = 'https://archeagecodex.com/images/icon_hlv.png';
@@ -171,10 +152,11 @@ export interface ItemBase {
     equipmentSubType?: string;
     vekselName?: string;
     vekselType?: string;
-    isPersonal?: boolean;
+    bind?: number | string;
     description?: string;
     useDescription?: string;
     equipDescription?: string;
+    setDescription?: string;
     isEquipDescriptionTemporary?: boolean;
     price?: number | null;
     reqLevel?: number;
@@ -508,8 +490,8 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 45160, icon: 'https://archeagecodex.com/items/icon_item_2376.png', grade: 4, name: 'Настойка спорыньи' },
     { id: 46623, icon: 'https://archeagecodex.com/items/icon_item_0986.png', grade: 4, name: 'Настойка остролиста', buff: { duration: 1800 } },
     { id: 8001268, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток дельфийской библиотеки', buff: { duration: 3600 }, price: null },
-    { id: 8001169, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток опыта V', buff: { duration: 3600 }, isPersonal: true },
-    { id: 8001172, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток опыта VIII', buff: { duration: 3600 }, isPersonal: true },
+    { id: 8001169, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток опыта V', buff: { duration: 3600 }, bind: 2 },
+    { id: 8001172, icon: 'https://archeagecodex.com/items/icon_item_1986.png', grade: 1, name: 'Свиток опыта VIII', buff: { duration: 3600 }, bind: 2 },
     { id: 46181, icon: 'https://archeagecodex.com/items/icon_item_1396.png', grade: 3, name: 'Лунный настой' },
     { id: 48546, icon: 'https://archeagecodex.com/items/icon_item_3595.png', grade: 1, name: 'Письмена войны' },
     { id: 47655, icon: 'https://archeagecodex.com/items/icon_item_4709.png', grade: 4, name: 'Фиона Розовый Лепесток' },
@@ -523,7 +505,7 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8000540, icon: 'https://archeagecodex.com/items/icon_item_3207.png', grade: 1, name: 'Пушистая неверинская елочка' },
     { id: 49769, icon: 'https://archeagecodex.com/items/icon_item_4950.png', grade: 6, name: 'Зачарованный свиток пробуждения хранителя знаний' },
     { id: 54653, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 12, name: 'Сундук с обновленным рамианским снаряжением' },
-    { id: 53515, icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, isPersonal: true, price: 0, reqLevel: 1, name: 'Заговоренная рамианская руна' },
+    { id: 53515, icon: 'https://archeagecodex.com/items/icon_item_5266.png', grade: 2, bind: 2, price: 0, reqLevel: 1, name: 'Заговоренная рамианская руна' },
     { id: 52207, icon: 'https://archeagecodex.com/items/icon_item_3022.png', grade: 1, name: 'Мешочек с микстурами' },
     { id: 51239, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 11, name: 'Сундук с изначальным рамианским оружием эпохи мифов' },
     { id: 51240, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 12, name: 'Сундук с изначальным рамианским оружием эпохи Двенадцати' },
@@ -550,9 +532,8 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 44359, icon: 'https://archeagecodex.com/items/icon_item_3559.png', grade: 1, name: 'Походный фиал славы' },
     { id: 55776, icon: 'https://archeagecodex.com/items/icon_item_5900.png', grade: 2, name: 'Драгоценный фиал с алхимическим эликсиром' },
     { id: 32490, icon: 'https://archeagecodex.com/items/icon_item_1333.png', grade: 9, name: 'Сверкающий фиал с эликсиром чести' },
-    { id: 55800, icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, name: 'Сундучок с фрагментами судьбы' },
-    { id: 50635, icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, isPersonal: true, name: 'Заговоренная гадальная руна' },
-    { id: 8002769, icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, isPersonal: true, name: 'Знак «Ключевая фигура»' },
+    { id: 50635, icon: 'https://archeagecodex.com/items/icon_item_5058.png', grade: 2, bind: 2, name: 'Заговоренная гадальная руна' },
+    { id: 8002769, icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, bind: 2, name: 'Знак «Ключевая фигура»' },
     { id: 28813, icon: 'https://archeagecodex.com/items/icon_item_1319.png', grade: 5, name: 'Монеты дару x85' },
     { id: 30604, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x100' },
     { id: 28814, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x180' },
@@ -560,7 +541,7 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8002410, icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', isEquipDescriptionTemporary: true },
     { id: 34684, icon: 'https://archeagecodex.com/items/icon_item_ins_s_0051.png', name: 'Укрепленная аргенитовая лютня' },
     { id: 34685, icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', name: 'Укрепленный аргенитовый кларнет' },
-    { id: 417, icon: 'https://archeagecodex.com/items/icon_item_0418.png', grade: 1, name: 'Редкий камень странствий', isPersonal: true, price: 0, reqLevel: 1 },
+    { id: 417, icon: 'https://archeagecodex.com/items/icon_item_0418.png', grade: 1, name: 'Редкий камень странствий', bind: 2, price: 0, reqLevel: 1 },
     { id: 52701, icon: 'https://archeagecodex.com/items/icon_item_5282.png', grade: 1, name: 'Кристалл изначального анадия', price: 0 },
     { id: 40491, icon: 'https://archeagecodex.com/items/icon_item_3090.png', grade: 2, name: 'Знак отваги' },
     { id: 46695, icon: 'https://archeagecodex.com/items/icon_item_4557.png', grade: 3, name: 'Белоснежный олененок' },
@@ -570,19 +551,22 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8002483, icon: 'https://archeagecodex.com/items/icon_item_3261.png', grade: 1, name: 'Коробка с бельем «Ночи Аль-Харбы»' },
     { id: 45409, overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth292.png', grade: 2, name: 'Рамианское матерчатое снаряжение' },
     { id: 53586, icon: 'https://archeagecodex.com/items/icon_item_5144.png', grade: 4, name: 'Золотой сундучок со знаками культистов' },
-    { id: 46151, icon: 'https://archeagecodex.com/items/icon_item_4467.png', grade: 3, name: 'Заготовка огранщика', isPersonal: true },
-    { id: 49252, icon: 'https://archeagecodex.com/items/icon_item_4878.png', grade: 2, name: 'Образцы флоры Сада', isPersonal: true, price: 0, description: 'Пакетик с образцами флоры Сада Матери.' },
-    { id: 31151, icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 1, name: 'Перевязанный ленточкой подарок', isPersonal: true, price: 0 },
-    { id: 28188, icon: `${GMRU_CDN_ICONS}d2f377e3c3118826089a2caf9e794a50.png`, grade: 3, name: 'Сплав стихий', isPersonal: true, price: 360 },
+    { id: 46151, icon: 'https://archeagecodex.com/items/icon_item_4467.png', grade: 3, name: 'Заготовка огранщика', bind: 2 },
+    { id: 49252, icon: 'https://archeagecodex.com/items/icon_item_4878.png', grade: 2, name: 'Образцы флоры Сада', bind: 2, price: 0, description: 'Пакетик с образцами флоры Сада Матери.' },
+    { id: 31151, icon: 'https://archeagecodex.com/items/x_mas_gift.png', grade: 1, name: 'Перевязанный ленточкой подарок', bind: 2, price: 0 },
+    { id: 28188, icon: `${GMRU_CDN_ICONS}d2f377e3c3118826089a2caf9e794a50.png`, grade: 3, name: 'Сплав стихий', bind: 2, price: 360 },
+    { id: 55282, overlay: 'top_piece_light', icon: 'https://archeagecodex.com/items/icon_item_5834.png', name: 'Эпический осколок руны ифнирского героя' },
+    { id: 55813, overlay: 'top_piece_light', icon: 'https://archeagecodex.com/items/icon_item_5850.png', name: 'Фрагмент украшения ифнирского героя' },
     { id: 54915, icon: 'https://archeagecodex.com/items/icon_item_1695.png', grade: 1, name: 'Свиток чар ифнирского героя' },
-    { id: 55516, icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 5, name: 'Эпическая руна ифнирского героя', isPersonal: true },
+    { id: 55516, icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 5, name: 'Эпическая руна ифнирского героя', bind: 2 },
+    { id: 55515, icon: 'https://archeagecodex.com/items/icon_item_5850.png', grade: 5, name: 'Сундучок с эпическим украшением ифнирского героя' },
     { id: 55280, icon: 'https://archeagecodex.com/items/icon_item_2812.png', grade: 6, name: 'Легендарная руна ифнирского героя' },
     { id: 55501, icon: 'https://archeagecodex.com/items/icon_item_5850.png', grade: 6, name: 'Сундучок с легендарным украшением ифнирского героя' },
-    { id: 55255, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийная серьга ифнирского героя', isPersonal: true },
+    { id: 55255, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийная серьга ифнирского героя', bind: 2 },
     { id: 55450, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 7, name: 'Реликвийное кольцо ифнирского героя' },
-    { id: 55490, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Серьга ифнирского героя эпохи чудес', isPersonal: true },
+    { id: 55490, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Серьга ифнирского героя эпохи чудес', bind: 2 },
     { id: 55495, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 9, name: 'Кольцо ифнирского героя эпохи сказаний' },
-    { id: 52808, overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_teleport.png', grade: 1, name: 'Книга порталов (7 д.)', isPersonal: true },
+    { id: 52808, overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_teleport.png', grade: 1, name: 'Книга порталов (7 д.)', bind: 2 },
     { id: 34702, subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0049.png', name: 'Зеркальный аргенитовый кларнет', buff: { avgRestoreMana: 16 } },
     { id: 37018, icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth560.png', grade: 3, name: 'Вязаная шапочка' },
     { id: 49630, icon: 'https://archeagecodex.com/items/icon_item_4862.png', grade: 5, name: 'Статуэтка «Аранзеб»' },
@@ -591,7 +575,7 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 43298, overlay: 'packing', icon: 'https://archeagecodex.com/items/icon_item_3952.png', grade: 1, name: 'Теневой делец' },
     { id: 8002004, icon: 'https://archeagecodex.com/items/icon_item_2774.png', grade: 1, name: 'Призрачный конь (30 д.)' },
     { id: 8000315, icon: 'https://archeagecodex.com/items/costume_cp/nu_f_cp_leather002.png', grade: 1, name: 'Накидка из грифоньих перьев' },
-    { id: 8000127, subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/nu_f_sk_party001.png', grade: 2, name: 'Бальный наряд Двух Корон' },
+    { id: 8000127, subType: 'costume', icon: 'https://archeagecodex.com/items/costume_set/{sex}.png', iconM: 'nu_m_sk_party001_v0100', iconF: 'nu_f_sk_party001', grade: 2, name: 'Бальный наряд Двух Корон' },
 
     { id: 33156, type: 'equipment', icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth554.png', name: 'Вишневая шляпа-торт' },
 
@@ -618,60 +602,66 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 27747, icon: 'https://archeagecodex.com/items/icon_item_0966.png', grade: 1, name: 'Мятный леденец', searchName: 'Пробуждающая конфета' },
     { id: 46701, icon: 'https://archeagecodex.com/items/icon_item_4563.png', grade: 3, name: 'Снежный кабаненок' },
 
-    { id: 45880, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png', name: 'Диадема эрнардского мнемоника', isPersonal: true },
-    { id: 45881, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png', name: 'Матерчатый камзол эрнардского мнемоника', isPersonal: true },
-    { id: 45882, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png', name: 'Матерчатые поножи эрнардского мнемоника', isPersonal: true },
-    { id: 45883, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png', name: 'Матерчатые перчатки эрнардского мнемоника', isPersonal: true },
-    { id: 45884, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png', name: 'Матерчатые сапоги эрнардского мнемоника', isPersonal: true },
-    { id: 45885, icon: 'https://archeagecodex.com/items/icon_item_arm_cloth_0020.png', name: 'Матерчатые наручи эрнардского мнемоника', isPersonal: true },
-    { id: 45886, icon: 'https://archeagecodex.com/items/icon_item_belt_cloth_0021.png', name: 'Матерчатый пояс эрнардского мнемоника', isPersonal: true },
+    { id: 45880, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png', name: 'Диадема эрнардского мнемоника', bind: 2 },
+    { id: 45881, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png', name: 'Матерчатый камзол эрнардского мнемоника', bind: 2 },
+    { id: 45882, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png', name: 'Матерчатые поножи эрнардского мнемоника', bind: 2 },
+    { id: 45883, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png', name: 'Матерчатые перчатки эрнардского мнемоника', bind: 2 },
+    { id: 45884, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png', name: 'Матерчатые сапоги эрнардского мнемоника', bind: 2 },
+    { id: 45885, icon: 'https://archeagecodex.com/items/icon_item_arm_cloth_0020.png', name: 'Матерчатые наручи эрнардского мнемоника', bind: 2 },
+    { id: 45886, icon: 'https://archeagecodex.com/items/icon_item_belt_cloth_0021.png', name: 'Матерчатый пояс эрнардского мнемоника', bind: 2 },
 
-    { id: 45991, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png', name: 'Диадема смотрителя тайных архивов', isPersonal: true },
-    { id: 45990, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png', name: 'Матерчатый камзол смотрителя тайных архивов', isPersonal: true },
-    { id: 45989, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png', name: 'Матерчатые поножи смотрителя тайных архивов', isPersonal: true },
-    { id: 45988, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png', name: 'Матерчатые перчатки смотрителя тайных архивов', isPersonal: true },
-    { id: 45987, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png', name: 'Матерчатые сапоги смотрителя тайных архивов', isPersonal: true },
-    { id: 45986, icon: 'https://archeagecodex.com/items/icon_item_arm_cloth_0020.png', name: 'Матерчатые наручи смотрителя тайных архивов', isPersonal: true },
-    { id: 45985, icon: 'https://archeagecodex.com/items/icon_item_belt_cloth_0021.png', name: 'Матерчатый пояс смотрителя тайных архивов', isPersonal: true },
+    { id: 45991, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth295.png', name: 'Диадема смотрителя тайных архивов', bind: 2 },
+    { id: 45990, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth295.png', name: 'Матерчатый камзол смотрителя тайных архивов', bind: 2 },
+    { id: 45989, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_cloth295.png', name: 'Матерчатые поножи смотрителя тайных архивов', bind: 2 },
+    { id: 45988, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_cloth295.png', name: 'Матерчатые перчатки смотрителя тайных архивов', bind: 2 },
+    { id: 45987, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_cloth295.png', name: 'Матерчатые сапоги смотрителя тайных архивов', bind: 2 },
+    { id: 45986, icon: 'https://archeagecodex.com/items/icon_item_arm_cloth_0020.png', name: 'Матерчатые наручи смотрителя тайных архивов', bind: 2 },
+    { id: 45985, icon: 'https://archeagecodex.com/items/icon_item_belt_cloth_0021.png', name: 'Матерчатый пояс смотрителя тайных архивов', bind: 2 },
 
-    { id: 45887, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png', name: 'Фибула заклинателя гримуаров', isPersonal: true },
-    { id: 45888, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png', name: 'Кожаная куртка заклинателя гримуаров', isPersonal: true },
-    { id: 45889, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png', name: 'Кожаные поножи заклинателя гримуаров', isPersonal: true },
-    { id: 45890, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png', name: 'Кожаные перчатки заклинателя гримуаров', isPersonal: true },
-    { id: 47047, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png', name: 'Кожаные сапоги заклинателя гримуаров', isPersonal: true },
-    { id: 47048, icon: 'https://archeagecodex.com/items/icon_item_arm_leather_0020.png', name: 'Кожаные наручи заклинателя гримуаров', isPersonal: true },
-    { id: 47049, icon: 'https://archeagecodex.com/items/icon_item_belt_leather_0021.png', name: 'Кожаный пояс заклинателя гримуаров', isPersonal: true },
+    { id: 45887, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png', name: 'Фибула заклинателя гримуаров', bind: 2 },
+    { id: 45888, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png', name: 'Кожаная куртка заклинателя гримуаров', bind: 2 },
+    { id: 45889, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png', name: 'Кожаные поножи заклинателя гримуаров', bind: 2 },
+    { id: 45890, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png', name: 'Кожаные перчатки заклинателя гримуаров', bind: 2 },
+    { id: 47047, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png', name: 'Кожаные сапоги заклинателя гримуаров', bind: 2 },
+    { id: 47048, icon: 'https://archeagecodex.com/items/icon_item_arm_leather_0020.png', name: 'Кожаные наручи заклинателя гримуаров', bind: 2 },
+    { id: 47049, icon: 'https://archeagecodex.com/items/icon_item_belt_leather_0021.png', name: 'Кожаный пояс заклинателя гримуаров', bind: 2 },
 
-    { id: 47043, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png', name: 'Фибула укротителя гримуаров', isPersonal: true },
-    { id: 47044, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png', name: 'Кожаная куртка укротителя гримуаров', isPersonal: true },
-    { id: 47045, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png', name: 'Кожаные поножи укротителя гримуаров', isPersonal: true },
-    { id: 47046, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png', name: 'Кожаные перчатки укротителя гримуаров', isPersonal: true },
-    { id: 45891, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png', name: 'Кожаные сапоги укротителя гримуаров', isPersonal: true },
-    { id: 45892, icon: 'https://archeagecodex.com/items/icon_item_arm_leather_0020.png', name: 'Кожаные наручи укротителя гримуаров', isPersonal: true },
-    { id: 45893, icon: 'https://archeagecodex.com/items/icon_item_belt_leather_0021.png', name: 'Кожаный пояс укротителя гримуаров', isPersonal: true },
+    { id: 47043, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_leather295.png', name: 'Фибула укротителя гримуаров', bind: 2 },
+    { id: 47044, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_leather295.png', name: 'Кожаная куртка укротителя гримуаров', bind: 2 },
+    { id: 47045, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_leather295.png', name: 'Кожаные поножи укротителя гримуаров', bind: 2 },
+    { id: 47046, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_leather295.png', name: 'Кожаные перчатки укротителя гримуаров', bind: 2 },
+    { id: 45891, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather295.png', name: 'Кожаные сапоги укротителя гримуаров', bind: 2 },
+    { id: 45892, icon: 'https://archeagecodex.com/items/icon_item_arm_leather_0020.png', name: 'Кожаные наручи укротителя гримуаров', bind: 2 },
+    { id: 45893, icon: 'https://archeagecodex.com/items/icon_item_belt_leather_0021.png', name: 'Кожаный пояс укротителя гримуаров', bind: 2 },
 
-    { id: 45894, icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_metal295.png', name: 'Латный шлем эрнардского архивариуса', isPersonal: true },
-    { id: 45895, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_metal295.png', name: 'Латный нагрудник эрнардского архивариуса', isPersonal: true },
-    { id: 45896, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_metal295.png', name: 'Латные поножи эрнардского архивариуса', isPersonal: true },
-    { id: 45897, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_metal295.png', name: 'Латные перчатки эрнардского архивариуса', isPersonal: true },
-    { id: 45898, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_metal295.png', name: 'Латные сапоги эрнардского архивариуса', isPersonal: true },
-    { id: 45899, icon: 'https://archeagecodex.com/items/icon_item_arm_metal_0020.png', name: 'Латные наручи эрнардского архивариуса', isPersonal: true },
-    { id: 45900, icon: 'https://archeagecodex.com/items/icon_item_belt_metal_0021.png', name: 'Латный пояс эрнардского архивариуса', isPersonal: true },
+    { id: 45894, icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_metal295.png', name: 'Латный шлем эрнардского архивариуса', bind: 2 },
+    { id: 45895, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_metal295.png', name: 'Латный нагрудник эрнардского архивариуса', bind: 2 },
+    { id: 45896, icon: 'https://archeagecodex.com/items/costume_pt/nu_{sex}_pt_metal295.png', name: 'Латные поножи эрнардского архивариуса', bind: 2 },
+    { id: 45897, icon: 'https://archeagecodex.com/items/costume_gv/nu_m_gv_metal295.png', name: 'Латные перчатки эрнардского архивариуса', bind: 2 },
+    { id: 45898, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_metal295.png', name: 'Латные сапоги эрнардского архивариуса', bind: 2 },
+    { id: 45899, icon: 'https://archeagecodex.com/items/icon_item_arm_metal_0020.png', name: 'Латные наручи эрнардского архивариуса', bind: 2 },
+    { id: 45900, icon: 'https://archeagecodex.com/items/icon_item_belt_metal_0021.png', name: 'Латный пояс эрнардского архивариуса', bind: 2 },
 
-    { id: 53522, icon: 'https://archeagecodex.com/items/quest/icon_item_quest169.png', grade: 2, name: 'Большой сундук Кириоса', isPersonal: true },
+    { id: 53522, icon: 'https://archeagecodex.com/items/quest/icon_item_quest169.png', grade: 2, name: 'Большой сундук Кириоса', bind: 2 },
     { id: 55367, icon: 'https://archeagecodex.com/items/icon_item_1482.png', grade: 9, name: 'Ларец со свитками пробуждения 3 ранга' },
     { id: 8000926, icon: 'https://archeagecodex.com/items/icon_item_3368.png', grade: 1, name: '[1 день] Покровительство Сиоль' },
     { id: 8000927, icon: 'https://archeagecodex.com/items/icon_item_3368.png', grade: 1, name: '[7 дней] Покровительство Сиоль' },
     { id: 51922, icon: 'https://archeagecodex.com/items/icon_item_4413.png', grade: 2, name: 'Корзинка с жетоном' },
     { id: 33382, icon: 'https://archeagecodex.com/items/icon_item_0843.png', grade: 1, name: 'Бутыль с имбирным напитком' },
     { id: 8003057, icon: 'https://archeagecodex.com/items/icon_item_6009.png', grade: 2, name: 'Мимолетное благословение предела' },
+    { id: 55883, icon: 'https://archeagecodex.com/items/icon_item_6009.png', name: 'Благословение предела' },
 
     { id: 49188, icon: 'https://archeagecodex.com/items/icon_item_4833.png', grade: 2, name: 'Премиум-подписка на 7 дней' },
 
     { id: 52018, icon: 'https://archeagecodex.com/items/icon_item_1829.png', grade: 3, name: 'Рубиновый эликсир' },
     { id: 50914, icon: 'https://archeagecodex.com/items/icon_item_1829.png', grade: 8, name: 'Рубиновый эликсир' },
     { id: 8002774, icon: 'https://archeagecodex.com/items/icon_item_1829.png', grade: 11, name: 'Рубиновый эликсир' },
+
+    { id: 55757, icon: 'https://archeagecodex.com/items/icon_item_5885.png', grade: 2, name: 'Пыль судьбы' },
+    { id: 55758, icon: 'https://archeagecodex.com/items/icon_item_5886.png', grade: 3, name: 'Слиток судьбы' },
+    { id: 55759, icon: 'https://archeagecodex.com/items/icon_item_5887.png', grade: 4, name: 'Призма судьбы' },
     { id: 55760, icon: 'https://archeagecodex.com/items/icon_item_5888.png', grade: 5, name: 'Эссенция судьбы' },
+    { id: 55800, icon: 'https://archeagecodex.com/items/icon_item_5486.png', grade: 4, name: 'Сундучок с фрагментами судьбы' },
 
     { id: 45603, overlay: 'seal_02', icon: `${GMRU_CDN_ICONS}1f2e5e445d5172f8eab7c09aa9a329d3.png`, grade: 2, name: 'Обработанный лунный камень' },
     { id: 45604, overlay: 'seal_03', icon: 'https://archeagecodex.com/items/icon_item_0829.png', grade: 3, name: 'Ограненный лунный камень' },
@@ -681,7 +671,8 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
 
     { id: 23920, overlay: 'seal_08', icon: `${GMRU_CDN_ICONS}33aef583629a36356683c8114c5beb46.png`, name: 'Иферийский кларнет' },
 
-    { id: 8002771, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с глайдером', isPersonal: true },
+    { id: 8002771, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с глайдером', bind: 2 },
+    { id: 54847, icon: 'https://archeagecodex.com/items/icon_item_5808.png', grade: 1, name: 'Глайдер «Метеоритное ядро»' },
 
     { id: 39363, icon: 'https://archeagecodex.com/items/icon_item_2275.png', grade: 1, name: 'Осенний Лоскутик' },
     { id: 34972, icon: 'https://archeagecodex.com/items/doll_pet_hm_001.png', grade: 1, name: 'Красные очки-сердечки' },
@@ -693,10 +684,56 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
 
     { id: 38191, icon: `${GMRU_CDN_ICONS}653044b162070498765aa3f01c590bd4.png`, grade: 5, name: 'Упакованный мекка-доспех' },
     { id: 51492, icon: `${GMRU_CDN_ICONS}5b9adbe0f5476d7addc1f32cde5f3b71.png`, grade: 1, name: 'Ящик с конем смерти' },
-    { id: 51723, icon: 'https://archeagecodex.com/items/icon_item_5149.png', grade: 4, name: 'Ящик с Мару, покорителем просторов', isPersonal: true },
+    { id: 51723, icon: 'https://archeagecodex.com/items/icon_item_5149.png', grade: 4, name: 'Ящик с Мару, покорителем просторов', bind: 2 },
     { id: 55964, icon: 'https://archeagecodex.com/items/icon_item_6020.png', grade: 4, name: 'Ящик с Наг’Шетхой' },
     { id: 55940, icon: 'https://archeagecodex.com/items/icon_item_6007.png', grade: 4, name: 'Ящик с Некросом' },
+    { id: 55956, icon: 'https://archeagecodex.com/items/icon_item_6017.png', grade: 4, name: 'Ящик с Людвигом' },
     { id: 55976, overlay: 'packing', icon: rudolfBoxIcon, grade: 4, name: 'Ящик с Рудольфом' },
+    { id: 55966, icon: 'https://archeagecodex.com/items/icon_item_6019.png', grade: 4, name: 'Стеллар, Мяугистр звездной магии' },
+    { id: 8003061, icon: 'https://archeagecodex.com/items/icon_item_5966.png', name: 'Ящик с черной ламой' },
+    { id: 55916, icon: 'https://archeagecodex.com/items/icon_item_5969.png', name: 'Ящик с сизым голубем' },
+
+    { id: 52840, icon: 'https://archeagecodex.com/items/icon_item_5301.png', grade: 3, name: 'Сундук с оружием «Орден алой розы»' },
+
+    { id: 8000924, icon: 'https://archeagecodex.com/items/costume_set/nu_{sex}_sk_hippie001.png', grade: 1, name: 'Костюм гитанского торговца' },
+
+    { id: 53378, icon: 'https://archeagecodex.com/items/icon_item_5321.png', grade: 2, name: 'Клетка с совой' },
+
+    { id: 43273, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_085.png' },
+    { id: 43405, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_087.png' },
+    { id: 43708, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_089.png' },
+    { id: 44582, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_091.png' },
+    { id: 44583, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_092.png' },
+    { id: 45503, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_094.png' },
+    { id: 48401, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_099.png' },
+    { id: 49619, overlay: 'top_emotion_book' },
+    { id: 50017, overlay: 'top_emotion_book' },
+    { id: 51678, overlay: 'top_emotion_book' },
+    { id: 51679, overlay: 'top_emotion_book' },
+    { id: 55305, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_114.png' },
+    { id: 55306, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_115.png' },
+    { id: 55307, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_116.png' },
+    { id: 55308, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_117.png' },
+    { id: 55309, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_118.png' },
+    { id: 55310, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_119.png' },
+    { id: 55311, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_120.png' },
+    { id: 55312, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_121.png' },
+    { id: 55313, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_122.png' },
+    { id: 55314, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_123.png' },
+    { id: 55315, overlay: 'top_emotion_book', icon: 'https://archeagecodex.com/items/emotion/icon_emotion_124.png' },
+
+    { id: 53840, icon: 'https://archeagecodex.com/items/icon_item_5591.png' },
+    { id: 53841, icon: 'https://archeagecodex.com/items/icon_item_5592.png' },
+    { id: 53842, icon: 'https://archeagecodex.com/items/icon_item_5593.png' },
+    { id: 53843, icon: 'https://archeagecodex.com/items/icon_item_5594.png' },
+    { id: 53844, icon: 'https://archeagecodex.com/items/icon_item_5595.png' },
+    { id: 53845, icon: 'https://archeagecodex.com/items/icon_item_5596.png' },
+    { id: 53846, icon: 'https://archeagecodex.com/items/icon_item_5597.png' },
+    { id: 53847, icon: 'https://archeagecodex.com/items/icon_item_5598.png' },
+    { id: 53848, icon: 'https://archeagecodex.com/items/icon_item_5599.png' },
+    { id: 53849, icon: 'https://archeagecodex.com/items/icon_item_5600.png' },
+
+    { id: 49750, icon: 'https://archeagecodex.com/items/icon_item_4944.png', grade: 4, name: 'Снежный шар «Золотая осень»' },
 
     { id: 1, icon: '', grade: 1, name: '' },
 ] as ItemBase[]).map(i => [i.id, i])) as Record<number, ItemBase>;
