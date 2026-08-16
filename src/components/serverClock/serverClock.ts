@@ -4,8 +4,8 @@ import {
     syncServerTime,
 } from '../../utils/time.ts';
 import { appendStyleElement } from '../../utils/dom.js';
-import { getGameTime } from '../../utils/game-time.ts';
-import { formatCountdown, getSecondsUntilNextEvent } from '../../utils/events-time.ts';
+import { getGameTime } from '../../utils/gameTime.ts';
+import { formatCountdown, getSecondsUntilNextEvent } from '../../utils/eventsTime.ts';
 import { EVENTS } from '../../data/events.ts';
 import serverClockStyles from './serverClock.scss';
 

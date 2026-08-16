@@ -8,7 +8,7 @@ import {
     isCartPage,
     isItemRestorePage,
 } from './utils/env.js';
-import { updateCountdownEl, getSecondsUntilNextEvent } from './utils/events-time.js';
+import { updateCountdownEl, getSecondsUntilNextEvent } from './utils/eventsTime.js';
 
 import { initGisaa } from './pages/gisaa/gisaa.js';
 

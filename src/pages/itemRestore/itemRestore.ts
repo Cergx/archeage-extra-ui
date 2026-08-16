@@ -5,6 +5,7 @@ import itemRestoreStyles from './itemRestore.scss';
 import { ITEMS, GRADES } from '../../data/items.js';
 import type { ItemBase } from '../../data/items.js';
 import { inferGradeFromCartItemName } from '../cart/cart.js';
+import type { ItemTooltipSlot, MakeItemIconLinkParams } from '../../components/tooltip/tooltip.js';
 import { SERVERS } from '../../data/servers.js';
 import { makeSelect, renderSelectedItems, setSelectValue } from '../../components/select/select.js';
 import { createInput } from '../../components/input/input.js';
@@ -42,18 +43,48 @@ export interface IRItem {
     selected?: boolean;
 }
 
-type ItemRestoreCatalogData = Pick<IRItem,
-    'type' | 'grade' | 'gi_name' | 'gi_description' | 'gi_filename' | 'gi_refund' | 'gg_id' | 'color' | 'bind' | 'iconurl'
->;
+interface IRGrade {
+    id: number | string;
+    name: string;
+}
 
 interface ItemRestoreCatalogSnapshot {
     id: string;
     grade: string;
     updatedAt: number;
-    data: Partial<ItemRestoreCatalogData>;
+    data: Partial<ItemBase>;
 }
 
-export const saveItemRestoreCatalog = (items: IRItem[]): void => {
+const mapItemRestoreGrade = (apiGrade: string, grades: IRGrade[]): number => {
+    const gradeInfo = grades.find(grade => String(grade.id) === String(apiGrade));
+    if (gradeInfo) {
+        const index = GRADES.findIndex(grade => grade.title === gradeInfo.name);
+        if (index !== -1) return index;
+    }
+    return parseInt(apiGrade, 10) || 0;
+};
+
+const mapItemRestoreSlot = (item: IRItem, grades: IRGrade[]): ItemTooltipSlot => {
+    const numericId = Number(item.type);
+    const rawGrade = Number(item.grade);
+    const mappedGrade = item.grade != null ? mapItemRestoreGrade(item.grade, grades) : null;
+    const inferredGrade = inferGradeFromCartItemName(item.gi_name || '');
+    const tooltipItem: Partial<ItemBase> = {
+        ...(Number.isFinite(numericId) ? { id: numericId } : {}),
+        ...(item.iconurl ? { icon: item.iconurl } : item.gi_filename ? { icon: item.gi_filename } : {}),
+        ...(item.gi_name ? { name: item.gi_name } : {}),
+        ...(item.gi_description ? { description: item.gi_description } : {}),
+        ...(item.bind !== '' && item.bind != null ? { bind: item.bind } : {}),
+        ...(item.gi_refund !== '' && item.gi_refund !== undefined ? {
+            price: item.gi_refund === null ? null : Number(item.gi_refund),
+        } : {}),
+        ...(mappedGrade != null ? { grade: mappedGrade } : inferredGrade != null ? { grade: inferredGrade, isGradeInferred: true } : {}),
+        ...(Number.isFinite(rawGrade) ? { siteTooltipGrade: rawGrade } : {}),
+    };
+    return { item: tooltipItem, count: parseInt(item.stack, 10) || 1 };
+};
+
+export const saveItemRestoreCatalog = (items: IRItem[], grades: IRGrade[]): void => {
     if (items.length === 0) return;
 
     try {
@@ -68,19 +99,11 @@ export const saveItemRestoreCatalog = (items: IRItem[]): void => {
 
             const id = String(item.type);
             const grade = String(item.grade ?? 0);
-            const previousData = catalog[`${id}|${grade}`]?.data || {};
-            const currentData: Partial<ItemRestoreCatalogData> = {
-                type: item.type,
-                grade: item.grade,
-                gi_name: item.gi_name,
-                gi_description: item.gi_description,
-                gi_filename: item.gi_filename,
-                gi_refund: item.gi_refund,
-                gg_id: item.gg_id,
-                color: item.color,
-                bind: item.bind,
-                iconurl: item.iconurl,
-            };
+            const previousRaw = (catalog[`${id}|${grade}`]?.data || {}) as Record<string, unknown>;
+            const previousData = ('gi_name' in previousRaw || 'iconurl' in previousRaw || 'type' in previousRaw)
+                ? mapItemRestoreSlot(previousRaw as unknown as IRItem, grades).item || {}
+                : previousRaw as Partial<ItemBase>;
+            const currentData = mapItemRestoreSlot(item, grades).item || {};
             const data = { ...previousData };
             for (const [field, value] of Object.entries(currentData)) {
                 if (value !== '' && value !== undefined) (data as Record<string, unknown>)[field] = value;
@@ -100,11 +123,6 @@ export const saveItemRestoreCatalog = (items: IRItem[]): void => {
     }
 };
 
-interface IRGrade {
-    id: number | string;
-    name: string;
-}
-
 interface IRInfo {
     lastRestored_at?: number;
     restoreIsAvailable?: number;
@@ -123,7 +141,7 @@ interface PopupParams {
     buttons: PopupButton[];
 }
 
-type MakeItemIconLinkFn = (params: { item: ItemBase; linked?: boolean; size?: string; count?: number }) => HTMLElement;
+type MakeItemIconLinkFn = (params: MakeItemIconLinkParams) => HTMLElement;
 
 interface ItemRestoreUIDeps {
     makeItemIconLink: MakeItemIconLinkFn;
@@ -209,7 +227,7 @@ export const showItemRestorePopup = ({ title, body, buttons }: PopupParams): voi
  */
 export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], info: IRInfo, items: IRItem[], deps: ItemRestoreUIDeps): void => {
     const { makeItemIconLink } = deps;
-    saveItemRestoreCatalog(items);
+    saveItemRestoreCatalog(items, grades);
 
     // --- State ---
     const allItems: IRItem[] = items.map(item => ({ ...item, selected: false }));
@@ -232,41 +250,6 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
      * @param {string} apiGrade
      * @returns {number}
      */
-    const mapGrade = (apiGrade: string): number => {
-        const gradeName = getGradeName(apiGrade);
-        if (gradeName !== '-') {
-            const idx = GRADES.findIndex(g => g.title === gradeName);
-            if (idx !== -1) return idx;
-        }
-        return parseInt(apiGrade) || 0;
-    };
-
-    /**
-     * Создаёт объект ItemBase для makeItemIconLink из IRItem.
-     * @param {IRItem} item
-     * @returns {ItemBase}
-     */
-    const toItemBase = (item: IRItem): ItemBase => {
-        const known = ITEMS[item.type];
-        const apiGrade = item.grade != null ? mapGrade(item.grade) : null;
-        const inferredGrade = inferGradeFromCartItemName(item.gi_name || known?.name || '');
-        const grade = known?.grade ?? apiGrade ?? inferredGrade ?? 1;
-        const isGradeInferred = known?.grade == null && apiGrade == null && inferredGrade != null;
-        return {
-            id: String(item.type || ''),
-            icon: item.iconurl || '',
-            name: item.gi_name || '',
-            description: item.gi_description || '',
-            ...known,
-            ...(item.iconurl ? { icon: item.iconurl } : {}),
-            ...(item.gi_name ? { name: item.gi_name } : {}),
-            ...(item.gi_description ? { description: item.gi_description } : {}),
-            ...(item.bind !== '' && item.bind != null ? { bind: item.bind } : {}),
-            grade,
-            ...(isGradeInferred ? { isGradeInferred: true } : {}),
-        };
-    };
-
     const addZero = (n: number): string => n < 10 ? '0' + n : '' + n;
 
     const formatDate = (ts: number): string => {
@@ -512,19 +495,22 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
             tdName.className = 'n1';
             const nameWrap = document.createElement('div');
             nameWrap.className = 'tm-cart-item-name';
-            const itemBase = toItemBase(item);
+            const itemId = Number(item.type);
+            const tooltipSlot = mapItemRestoreSlot(item, grades);
             nameWrap.appendChild(makeItemIconLink({
-                item: itemBase,
+                itemId,
+                slot: { item: tooltipSlot.item },
                 linked: true,
                 size: 'small',
             }));
             const nameText = document.createElement('span');
-            nameText.textContent = item.gi_name || itemBase.name || '';
+            nameText.textContent = item.gi_name || ITEMS[itemId]?.name || '';
             if (item.color) {
                 nameText.style.color = `#${item.color}`;
             }
-            else if (itemBase.grade) {
-                nameText.style.color = GRADES[itemBase.grade].color;
+            else {
+                const grade = ITEMS[itemId]?.grade ?? tooltipSlot.item?.grade;
+                if (grade != null && GRADES[grade]) nameText.style.color = GRADES[grade].color;
             }
             nameWrap.appendChild(nameText);
             tdName.appendChild(nameWrap);
@@ -649,10 +635,10 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
             emptyText: 'Выберите предметы для восстановления из списка слева',
             onRemove: (item) => deselectItem(item),
             mapItem: (item) => ({
+                itemId: Number(item.type),
+                slot: mapItemRestoreSlot(item, grades),
                 iconUrl: item.iconurl || '',
                 name: item.gi_name || '',
-                itemBase: toItemBase(item),
-                count: parseInt(item.stack, 10) || 1,
             }),
         }, makeItemIconLink);
         restoreBtn.classList.toggle('active', selectedItems.length > 0);

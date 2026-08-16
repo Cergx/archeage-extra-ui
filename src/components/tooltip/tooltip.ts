@@ -18,27 +18,26 @@ import {
     getItemCodexUrl,
     getItemIconUrl,
     stripHtmlForMatch,
-    cleanDynamicTooltipMarkup,
+    cleanApiTooltipMarkup,
     hasVisibleTooltipText,
     parseGameMarkup,
     resolveItemPlaceholders,
     loadIconScalePercent,
     loadIconScaleBrowserZoom,
 } from '../../data/items.js';
-import type { DynamicTooltipData, DynamicTooltipFieldValue, ItemBase } from '../../data/items.js';
+import type { ApiTooltipData, ApiTooltipFieldValue, ItemBase } from '../../data/items.js';
 
-const LS_KEY_DYNAMIC_TOOLTIPS: string = 'tm_aa_dynamic_tooltips';
-const DYNAMIC_TOOLTIP_TTL_MS: number = 7 * 24 * 60 * 60 * 1000;
+const LS_KEY_API_TOOLTIPS: string = 'tm_aa_dynamic_tooltips';
+const LS_KEY_ITEM_RESTORE_ITEMS: string = 'tm_aa_itemrestore_items';
+const API_TOOLTIP_TTL_MS: number = 7 * 24 * 60 * 60 * 1000;
 const DEBUG_PREFIX: string = '[ArcheAgeExtraUI]';
 const debugWarn = (...args: unknown[]): void => console.warn(DEBUG_PREFIX, ...args);
 
-export const ITEM_STORE: Map<string | number, ItemBase> = new Map();
-export const POPULATING_PROMISES: Map<string | number, Promise<ItemBase | null>> = new Map();
-
 let globalTooltip: HTMLElement | null = null;
 
-const dynamicTooltipCache: Map<string, DynamicTooltipData | null | Promise<DynamicTooltipData | null>> = new Map();
-let activeTooltipKey: string | null = null;
+const apiTooltipCache: Map<string, ApiTooltipData> = new Map();
+const apiTooltipPromises: Map<string, Promise<ApiTooltipData | null>> = new Map();
+let activeTooltipToken: symbol | null = null;
 let tooltipDomInitialized: boolean = false;
 
 const TOOLTIP_VISIBLE_CLASS: string = 'tm-item-tooltip--visible';
@@ -50,12 +49,19 @@ const TOOLTIP_WIDTH: number = 248;
 // 0 = обычный, 1 = бесполезный. Начиная с 2 индексы совпадают.
 const convertSiteGrade = (grade: number): number => grade === 0 ? 1 : grade === 1 ? 0 : grade;
 
-const getSiteTooltipGrade = (item: ItemBase): number => {
-    const dynamicGrade = Number(item.dynamicTooltipGrade);
-    if (Number.isFinite(dynamicGrade)) return dynamicGrade;
+const getSiteTooltipGrade = (item: Partial<ItemBase>): number => {
+    const siteGrade = Number(item.siteTooltipGrade);
+    if (Number.isFinite(siteGrade)) return siteGrade;
 
     const grade = Number(item.grade);
     return Number.isFinite(grade) ? convertSiteGrade(grade) : 0;
+};
+
+const getPreferredSiteTooltipGrade = (item: Partial<ItemBase>): number | undefined => {
+    const siteGrade = Number(item.siteTooltipGrade);
+    if (Number.isFinite(siteGrade)) return siteGrade;
+    const grade = Number(item.grade);
+    return Number.isFinite(grade) ? convertSiteGrade(grade) : undefined;
 };
 
 const getSystemScale = (): number => {
@@ -234,51 +240,43 @@ const makeItemPriceValue = (price: number | string | null): HTMLSpanElement => {
     return value;
 };
 
-const getItemDynamicTooltipKey = (item: ItemBase): string | null => {
-    if (item?.id == null || item.id === '') return null;
-    const grade = getSiteTooltipGrade(item);
-    return `${item.id}|${grade}`;
-};
+const getApiTooltipKey = (itemId: number | string, grade: number | string): string => `${itemId}|${grade}`;
 
-interface DynamicTooltipSnapshot {
+interface ApiTooltipSnapshot {
     id: string;
     grade: string;
     updatedAt: number;
-    data: DynamicTooltipData;
+    data: ApiTooltipData;
 }
 
-const loadDynamicTooltipSnapshot = (item: ItemBase): DynamicTooltipSnapshot | null => {
-    const key = getItemDynamicTooltipKey(item);
-    if (!key) return null;
-
+const loadApiTooltipSnapshot = (itemId: number | string, grade: number): ApiTooltipSnapshot | null => {
     try {
-        const raw = localStorage.getItem(LS_KEY_DYNAMIC_TOOLTIPS);
+        const raw = localStorage.getItem(LS_KEY_API_TOOLTIPS);
         if (!raw) return null;
 
-        const all = JSON.parse(raw) as Record<string, DynamicTooltipSnapshot | undefined>;
-        const snapshot = all[key] || all[String(item.id)];
-        const grade = getSiteTooltipGrade(item);
+        const all = JSON.parse(raw) as Record<string, ApiTooltipSnapshot | undefined>;
+        const snapshot = all[getApiTooltipKey(itemId, grade)] || all[String(itemId)];
 
-        return snapshot?.data && String(snapshot.id) === String(item.id) && String(snapshot.grade) === String(grade)
+        return snapshot?.data && String(snapshot.id) === String(itemId) && String(snapshot.grade) === String(grade)
             ? snapshot
             : null;
     } catch (e) {
-        debugWarn('Failed to load dynamic tooltip snapshot:', e);
+        debugWarn('Failed to load API tooltip snapshot:', e);
         return null;
     }
 };
 
-const isDynamicTooltipSnapshotFresh = (snapshot: DynamicTooltipSnapshot | null): boolean => (
+const isApiTooltipSnapshotFresh = (snapshot: ApiTooltipSnapshot | null): boolean => (
     snapshot !== null
     && Number.isFinite(snapshot.updatedAt)
-    && Date.now() - snapshot.updatedAt < DYNAMIC_TOOLTIP_TTL_MS
+    && Date.now() - snapshot.updatedAt < API_TOOLTIP_TTL_MS
 );
 
-const saveDynamicTooltipSnapshot = (itemId: number | string, grade: number | string, data: DynamicTooltipData): void => {
+const saveApiTooltipSnapshot = (itemId: number | string, grade: number | string, data: ApiTooltipData): void => {
     if (itemId == null || !data) return;
 
     try {
-        const raw = localStorage.getItem(LS_KEY_DYNAMIC_TOOLTIPS);
+        const raw = localStorage.getItem(LS_KEY_API_TOOLTIPS);
         const all = raw ? JSON.parse(raw) : {};
         all[`${itemId}|${grade ?? 0}`] = {
             id: String(itemId),
@@ -286,25 +284,25 @@ const saveDynamicTooltipSnapshot = (itemId: number | string, grade: number | str
             updatedAt: Date.now(),
             data,
         };
-        localStorage.setItem(LS_KEY_DYNAMIC_TOOLTIPS, JSON.stringify(all));
+        localStorage.setItem(LS_KEY_API_TOOLTIPS, JSON.stringify(all));
     } catch (e) {
-        debugWarn('Failed to save dynamic tooltip snapshot:', e);
+        debugWarn('Failed to save API tooltip snapshot:', e);
     }
 };
 
-const dynamicTooltipFieldValue = (value: DynamicTooltipFieldValue | undefined): string | null => {
+const apiTooltipFieldValue = (value: ApiTooltipFieldValue | undefined): string | null => {
     if (value == null) return null;
     const str = String(value).trim();
     return str ? str : null;
 };
 
-const dynamicTooltipNumberValue = (value: DynamicTooltipFieldValue | undefined): number | null => {
+const apiTooltipNumberValue = (value: ApiTooltipFieldValue | undefined): number | null => {
     if (value == null || value === '') return null;
     const num = Number(value);
     return Number.isFinite(num) ? num : null;
 };
 
-const dynamicTooltipStatValue = (value: DynamicTooltipFieldValue | undefined): number | string | null => {
+const apiTooltipStatValue = (value: ApiTooltipFieldValue | undefined): number | string | null => {
     if (value == null || value === '') return null;
     const str = String(value).trim();
     if (!str) return null;
@@ -313,7 +311,7 @@ const dynamicTooltipStatValue = (value: DynamicTooltipFieldValue | undefined): n
     return Number.isFinite(num) ? num : str;
 };
 
-const DYNAMIC_EQUIP_TOOLTIP_PATTERNS: RegExp[] = [
+const API_EQUIP_TOOLTIP_PATTERNS: RegExp[] = [
     /Здоровье/,
     /Защита/,
     /Сопротивление/,
@@ -322,29 +320,29 @@ const DYNAMIC_EQUIP_TOOLTIP_PATTERNS: RegExp[] = [
     /Время\s+применения\s+умений/,
 ];
 
-const isDynamicEquipTooltipPart = (value: unknown): boolean => {
+const isApiEquipTooltipPart = (value: unknown): boolean => {
     const text = stripHtmlForMatch(value);
-    return DYNAMIC_EQUIP_TOOLTIP_PATTERNS.some(pattern => pattern.test(text));
+    return API_EQUIP_TOOLTIP_PATTERNS.some(pattern => pattern.test(text));
 };
 
-const mapDynamicEquipTooltip = (value: DynamicTooltipFieldValue | undefined): Partial<ItemBase> => {
-    const raw = dynamicTooltipFieldValue(value);
+const mapApiEquipTooltip = (value: ApiTooltipFieldValue | undefined): Partial<ItemBase> => {
+    const raw = apiTooltipFieldValue(value);
     if (!raw) return {};
 
     const parts = raw
         .split(/<br\s*\/?>/i)
-        .map(part => cleanDynamicTooltipMarkup(part))
+        .map(part => cleanApiTooltipMarkup(part))
         .filter(Boolean);
 
-    const equipIndex = parts.findIndex(isDynamicEquipTooltipPart);
+    const equipIndex = parts.findIndex(isApiEquipTooltipPart);
     if (equipIndex === -1) {
-        const useDescription = cleanDynamicTooltipMarkup(raw);
+        const useDescription = cleanApiTooltipMarkup(raw);
         return useDescription ? { useDescription } : {};
     }
 
     const equipParts: string[] = [];
     let nextIndex: number = equipIndex;
-    while (nextIndex < parts.length && isDynamicEquipTooltipPart(parts[nextIndex])) {
+    while (nextIndex < parts.length && isApiEquipTooltipPart(parts[nextIndex])) {
         equipParts.push(parts[nextIndex]);
         nextIndex++;
     }
@@ -357,126 +355,221 @@ const mapDynamicEquipTooltip = (value: DynamicTooltipFieldValue | undefined): Pa
         result.isEquipDescriptionTemporary = true;
     }
 
-    const useDescription = cleanDynamicTooltipMarkup(parts.slice(nextIndex).join('<br/>'));
+    const useDescription = cleanApiTooltipMarkup(parts.slice(nextIndex).join('<br/>'));
     if (useDescription) result.useDescription = useDescription;
 
     return result;
 };
 
-const mapDynamicTooltipToItem = (data: DynamicTooltipData | null): Partial<ItemBase> => {
+const mapApiTooltipToItem = (data: ApiTooltipData | null): Partial<ItemBase> => {
     if (!data || typeof data !== 'object') return {};
 
-    const rawFixedGrade = dynamicTooltipNumberValue(data.fixed_grade);
-    const rawApiGrade = dynamicTooltipNumberValue(data.grade);
+    const rawFixedGrade = apiTooltipNumberValue(data.fixed_grade);
+    const rawApiGrade = apiTooltipNumberValue(data.grade);
     const fixedGrade = rawFixedGrade != null && rawFixedGrade >= 0 ? convertSiteGrade(rawFixedGrade) : rawFixedGrade;
     const apiGrade = rawApiGrade != null && rawApiGrade >= 0 ? convertSiteGrade(rawApiGrade) : rawApiGrade;
     const grade = apiGrade ?? (fixedGrade != null && fixedGrade >= 0 ? fixedGrade : null);
-    const reqLevel = dynamicTooltipNumberValue(data.level_requirement);
-    const maxLevel = dynamicTooltipNumberValue(data.level_limit);
+    const reqLevel = apiTooltipNumberValue(data.level_requirement);
+    const maxLevel = apiTooltipNumberValue(data.level_limit);
     const hasRefund = Object.prototype.hasOwnProperty.call(data, 'refund');
-    const price = data.refund === null ? null : dynamicTooltipNumberValue(data.refund);
-    const equipTooltipFields = mapDynamicEquipTooltip(data.equip_tooltip);
-    const setDescription = cleanDynamicTooltipMarkup(data.set_description);
-    const rawDescription = cleanDynamicTooltipMarkup(data.description);
+    const price = data.refund === null ? null : apiTooltipNumberValue(data.refund);
+    const equipTooltipFields = mapApiEquipTooltip(data.equip_tooltip);
+    const setDescription = cleanApiTooltipMarkup(data.set_description);
+    const rawDescription = cleanApiTooltipMarkup(data.description);
     const description = rawDescription && setDescription && rawDescription.includes(setDescription)
-        ? cleanDynamicTooltipMarkup(rawDescription.replace(setDescription, ''))
+        ? cleanApiTooltipMarkup(rawDescription.replace(setDescription, ''))
         : rawDescription;
 
     return {
-        ...(dynamicTooltipFieldValue(data.filename) ? { icon: dynamicTooltipFieldValue(data.filename) } : {}),
-        ...(dynamicTooltipFieldValue(data.name) ? { name: dynamicTooltipFieldValue(data.name) } : {}),
+        ...(apiTooltipFieldValue(data.filename) ? { icon: apiTooltipFieldValue(data.filename) } : {}),
+        ...(apiTooltipFieldValue(data.name) ? { name: apiTooltipFieldValue(data.name) } : {}),
         ...(grade != null && grade >= 0 ? { grade } : {}),
         ...(fixedGrade != null ? { fixedGrade } : {}),
         ...(description ? { description } : {}),
         ...equipTooltipFields,
         ...(setDescription ? { setDescription } : {}),
-        ...(dynamicTooltipFieldValue(data.cat_name) ? { apiCategoryTitle: dynamicTooltipFieldValue(data.cat_name) } : {}),
+        ...(apiTooltipFieldValue(data.cat_name) ? { apiCategoryTitle: apiTooltipFieldValue(data.cat_name) } : {}),
         ...(reqLevel != null && reqLevel > 0 ? { reqLevel } : {}),
         ...(maxLevel != null && maxLevel >= 0 ? { maxLevel } : {}),
         ...(hasRefund && (price !== null || data.refund === null) ? { price } : {}),
-        ...(dynamicTooltipStatValue(data.c_speed) != null ? { speed: dynamicTooltipStatValue(data.c_speed) } : {}),
-        ...(dynamicTooltipStatValue(data.c_durability) != null ? { durability: dynamicTooltipStatValue(data.c_durability) } : {}),
-        ...(dynamicTooltipStatValue(data.c_dps) != null ? { dps: dynamicTooltipStatValue(data.c_dps) } : {}),
-        ...(dynamicTooltipStatValue(data.c_armor) != null ? { armor: dynamicTooltipStatValue(data.c_armor) } : {}),
-        ...(dynamicTooltipStatValue(data.c_magic_resistance) != null ? { magicResistance: dynamicTooltipStatValue(data.c_magic_resistance) } : {}),
-        ...(dynamicTooltipStatValue(data.c_mdps) != null ? { mdps: dynamicTooltipStatValue(data.c_mdps) } : {}),
-        ...(dynamicTooltipStatValue(data.c_hdps) != null ? { hdps: dynamicTooltipStatValue(data.c_hdps) } : {}),
-        ...(dynamicTooltipStatValue(data.c_str) != null ? { str: dynamicTooltipStatValue(data.c_str) } : {}),
-        ...(dynamicTooltipStatValue(data.c_dex) != null ? { dex: dynamicTooltipStatValue(data.c_dex) } : {}),
-        ...(dynamicTooltipStatValue(data.c_sta) != null ? { sta: dynamicTooltipStatValue(data.c_sta) } : {}),
-        ...(dynamicTooltipStatValue(data.c_int) != null ? { int: dynamicTooltipStatValue(data.c_int) } : {}),
-        ...(dynamicTooltipStatValue(data.c_spi) != null ? { spi: dynamicTooltipStatValue(data.c_spi) } : {}),
-        ...(dynamicTooltipNumberValue(data.num_sockets) != null ? { numSockets: dynamicTooltipNumberValue(data.num_sockets) } : {}),
-        ...(dynamicTooltipFieldValue(data.gradable) ? { isGradable: dynamicTooltipFieldValue(data.gradable) === 't' } : {}),
-        ...(dynamicTooltipFieldValue(data.grade_enchantable) ? { isGradeEnchantable: dynamicTooltipFieldValue(data.grade_enchantable) === 't' } : {}),
-        ...(dynamicTooltipNumberValue(data.dyeing) != null ? { isDyeable: dynamicTooltipNumberValue(data.dyeing) === 1 } : {}),
+        ...(apiTooltipStatValue(data.c_speed) != null ? { speed: apiTooltipStatValue(data.c_speed) } : {}),
+        ...(apiTooltipStatValue(data.c_durability) != null ? { durability: apiTooltipStatValue(data.c_durability) } : {}),
+        ...(apiTooltipStatValue(data.c_dps) != null ? { dps: apiTooltipStatValue(data.c_dps) } : {}),
+        ...(apiTooltipStatValue(data.c_armor) != null ? { armor: apiTooltipStatValue(data.c_armor) } : {}),
+        ...(apiTooltipStatValue(data.c_magic_resistance) != null ? { magicResistance: apiTooltipStatValue(data.c_magic_resistance) } : {}),
+        ...(apiTooltipStatValue(data.c_mdps) != null ? { mdps: apiTooltipStatValue(data.c_mdps) } : {}),
+        ...(apiTooltipStatValue(data.c_hdps) != null ? { hdps: apiTooltipStatValue(data.c_hdps) } : {}),
+        ...(apiTooltipStatValue(data.c_str) != null ? { str: apiTooltipStatValue(data.c_str) } : {}),
+        ...(apiTooltipStatValue(data.c_dex) != null ? { dex: apiTooltipStatValue(data.c_dex) } : {}),
+        ...(apiTooltipStatValue(data.c_sta) != null ? { sta: apiTooltipStatValue(data.c_sta) } : {}),
+        ...(apiTooltipStatValue(data.c_int) != null ? { int: apiTooltipStatValue(data.c_int) } : {}),
+        ...(apiTooltipStatValue(data.c_spi) != null ? { spi: apiTooltipStatValue(data.c_spi) } : {}),
+        ...(apiTooltipNumberValue(data.num_sockets) != null ? { numSockets: apiTooltipNumberValue(data.num_sockets) } : {}),
+        ...(apiTooltipFieldValue(data.gradable) ? { isGradable: apiTooltipFieldValue(data.gradable) === 't' } : {}),
+        ...(apiTooltipFieldValue(data.grade_enchantable) ? { isGradeEnchantable: apiTooltipFieldValue(data.grade_enchantable) === 't' } : {}),
+        ...(apiTooltipNumberValue(data.dyeing) != null ? { isDyeable: apiTooltipNumberValue(data.dyeing) === 1 } : {}),
+        ...(data.buff && typeof data.buff === 'object' ? { buff: data.buff } : {}),
     };
 };
 
-const itemHasTooltipField = (item: ItemBase, field: string): boolean => (
-    field === 'price'
-        ? Object.prototype.hasOwnProperty.call(item, field)
-        : (item as Record<string, unknown>)[field] != null && (item as Record<string, unknown>)[field] !== ''
-);
-
-const mergeDynamicTooltipItem = (item: ItemBase, data: DynamicTooltipData | null): ItemBase => {
-    const apiItem = mapDynamicTooltipToItem(data);
-    const merged = { ...item };
-
-    for (const [field, value] of Object.entries(apiItem)) {
-        if (field === 'buff') {
-            merged.buff = { ...((value || {}) as Record<string, string | number | boolean | null>), ...(merged.buff || {}) };
-            continue;
+const mergeItemSources = (...sources: Array<Partial<ItemBase> | null | undefined>): Partial<ItemBase> => {
+    const merged: Partial<ItemBase> = {};
+    for (const source of sources) {
+        if (!source) continue;
+        for (const [field, value] of Object.entries(source)) {
+            if (value === undefined || value === '') continue;
+            if (field === 'buff') {
+                merged.buff = { ...(merged.buff || {}), ...((value || {}) as Record<string, string | number | boolean | null>) };
+                continue;
+            }
+            (merged as Record<string, unknown>)[field] = value;
         }
-        if (field === 'grade' && merged.preferDynamicGrade) {
-            merged.grade = value as number;
-            continue;
-        }
-        if (!itemHasTooltipField(merged, field)) (merged as Record<string, unknown>)[field] = value;
     }
-
     return merged;
 };
 
-const fetchDynamicTooltipData = async (item: ItemBase): Promise<DynamicTooltipData | null> => {
+interface ItemRestoreCatalogSnapshot {
+    id: string;
+    grade: string;
+    updatedAt: number;
+    data: Record<string, unknown>;
+}
+
+const mapItemRestoreCacheToItem = (data: Record<string, unknown> | null | undefined): Partial<ItemBase> => {
+    if (!data) return {};
+    // Новый формат уже хранит нормализованный Partial<ItemBase>.
+    if (!('gi_name' in data) && !('iconurl' in data) && !('type' in data)) {
+        const item = { ...data } as Partial<ItemBase> & { dynamicTooltipGrade?: number };
+        if (item.siteTooltipGrade == null && item.dynamicTooltipGrade != null) {
+            item.siteTooltipGrade = item.dynamicTooltipGrade;
+        }
+        delete item.dynamicTooltipGrade;
+        return item;
+    }
+
+    const rawGrade = Number(data.grade);
+    const refund = data.gi_refund;
+    return {
+        ...(data.type != null && Number.isFinite(Number(data.type)) ? { id: Number(data.type) } : {}),
+        ...(data.iconurl ? { icon: String(data.iconurl) } : data.gi_filename ? { icon: String(data.gi_filename) } : {}),
+        ...(data.gi_name ? { name: String(data.gi_name) } : {}),
+        ...(data.gi_description ? { description: String(data.gi_description) } : {}),
+        ...(data.bind !== '' && data.bind != null ? { bind: data.bind as number | string } : {}),
+        ...(refund !== '' && refund !== undefined ? { price: refund === null ? null : Number(refund) } : {}),
+        ...(Number.isFinite(rawGrade) ? { grade: convertSiteGrade(rawGrade), siteTooltipGrade: rawGrade } : {}),
+    };
+};
+
+const loadItemRestoreSnapshot = (itemId: number | string, preferredGrade?: number): Partial<ItemBase> | null => {
+    try {
+        const raw = localStorage.getItem(LS_KEY_ITEM_RESTORE_ITEMS);
+        if (!raw) return null;
+        const catalog = JSON.parse(raw) as Record<string, ItemRestoreCatalogSnapshot | undefined>;
+        const snapshots = Object.values(catalog)
+            .filter((snapshot): snapshot is ItemRestoreCatalogSnapshot => Boolean(snapshot?.data) && String(snapshot?.id) === String(itemId))
+            .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+        if (!snapshots.length) return null;
+
+        const snapshot = preferredGrade == null
+            ? snapshots[0]
+            : snapshots.find(entry => String(entry.grade) === String(preferredGrade));
+        if (!snapshot) return null;
+        return mapItemRestoreCacheToItem(snapshot.data);
+    } catch (e) {
+        debugWarn('Failed to load item restore snapshot:', e);
+        return null;
+    }
+};
+
+export interface ItemTooltipSlot {
+    item?: Partial<ItemBase>;
+    count?: number | string;
+}
+
+interface ResolvedTooltipItem {
+    item: ItemBase;
+    grade: number;
+    apiTooltipSnapshot: ApiTooltipSnapshot | null;
+}
+
+export const resolveTooltipItem = (itemId: number, slot?: ItemTooltipSlot): ResolvedTooltipItem => {
+    const knownItem = ITEMS[itemId];
+    const knownGrade = getPreferredSiteTooltipGrade(knownItem || {});
+    const restoreItem = loadItemRestoreSnapshot(itemId, knownGrade);
+    const restoreGrade = getPreferredSiteTooltipGrade(restoreItem || {});
+    const slotGrade = getPreferredSiteTooltipGrade(slot?.item || {});
+    const grade = knownGrade ?? restoreGrade ?? slotGrade ?? 0;
+    const apiTooltipSnapshot = loadApiTooltipSnapshot(itemId, grade);
+    const apiTooltipData = apiTooltipCache.get(getApiTooltipKey(itemId, grade)) || apiTooltipSnapshot?.data || null;
+    const apiTooltipItem = mapApiTooltipToItem(apiTooltipData);
+    const slotItem = { ...(slot?.item || {}) };
+    delete slotItem.grade;
+    delete slotItem.siteTooltipGrade;
+    delete slotItem.isGradeInferred;
+
+    const item = mergeItemSources(
+        { id: itemId, icon: '', name: '' },
+        apiTooltipItem,
+        restoreItem,
+        knownItem,
+        slotItem,
+    ) as ItemBase;
+
+    const gradeSources = [slot?.item, apiTooltipItem, restoreItem, knownItem];
+    const winningGradeSource = gradeSources.reduce<Partial<ItemBase> | null>((winner, source) => (
+        source?.grade != null && Number.isFinite(Number(source.grade)) ? source : winner
+    ), null);
+    if (winningGradeSource?.grade != null) {
+        item.grade = Number(winningGradeSource.grade);
+        delete item.isGradeInferred;
+        if (winningGradeSource.isGradeInferred) item.isGradeInferred = true;
+    }
+    item.siteTooltipGrade = grade;
+
+    return { item, grade, apiTooltipSnapshot };
+};
+
+const fetchApiTooltipData = async (itemId: number | string, grade: number): Promise<ApiTooltipData | null> => {
     if (!isArcheageSite) return null;
 
-    const key = getItemDynamicTooltipKey(item);
-    if (!key) return null;
-    if (dynamicTooltipCache.has(key)) return dynamicTooltipCache.get(key);
+    const key = getApiTooltipKey(itemId, grade);
+    const cached = apiTooltipCache.get(key);
+    if (cached) return cached;
+    const pending = apiTooltipPromises.get(key);
+    if (pending) return pending;
 
-    const snapshot = loadDynamicTooltipSnapshot(item);
-    if (isDynamicTooltipSnapshotFresh(snapshot)) {
-        dynamicTooltipCache.set(key, snapshot.data);
+    const snapshot = loadApiTooltipSnapshot(itemId, grade);
+    if (isApiTooltipSnapshotFresh(snapshot)) {
+        apiTooltipCache.set(key, snapshot.data);
         return snapshot.data;
     }
 
-    const grade = getSiteTooltipGrade(item);
-    const promise: Promise<DynamicTooltipData | null> = fetch(`/dynamic/tooltip/?a=item&id=${encodeURIComponent(item.id)}&g=${encodeURIComponent(grade)}`, {
+    const promise: Promise<ApiTooltipData | null> = fetch(`/dynamic/tooltip/?a=item&id=${encodeURIComponent(itemId)}&g=${encodeURIComponent(grade)}`, {
         credentials: 'include',
         cache: 'no-store',
     })
         .then(res => res.ok ? res.json() : null)
         .then((data: unknown) => {
-            if (data && typeof data === 'object') saveDynamicTooltipSnapshot(item.id, grade, data as DynamicTooltipData);
-            return data && typeof data === 'object' ? data as DynamicTooltipData : null;
+            if (data && typeof data === 'object') saveApiTooltipSnapshot(itemId, grade, data as ApiTooltipData);
+            return data && typeof data === 'object' ? data as ApiTooltipData : null;
         })
         .catch(e => {
-            debugWarn(`Failed to fetch dynamic tooltip for item ${item.id}:`, e);
+            debugWarn(`Failed to fetch API tooltip for item ${itemId}:`, e);
             return null;
         });
 
-    dynamicTooltipCache.set(key, promise);
+    apiTooltipPromises.set(key, promise);
     const data = await promise;
-    dynamicTooltipCache.set(key, data);
+    apiTooltipPromises.delete(key);
+    if (data) apiTooltipCache.set(key, data);
     return data;
 };
 
-interface MakeItemIconLinkParams {
-    item: ItemBase;
+export interface MakeItemIconLinkParams {
+    itemId: number;
+    slot?: ItemTooltipSlot;
     linked?: boolean;
     size?: string;
-    count?: number | string;
     noTooltip?: boolean;
 }
 
@@ -511,8 +604,9 @@ const parseSetDescription = (value: string): SetDescriptionParts | null => {
 
 type ItemIconElement = HTMLAnchorElement | HTMLDivElement;
 
-export const makeItemIconLink = ({ item, linked = false, size = 'medium', count, noTooltip = false }: MakeItemIconLinkParams): ItemIconElement => {
+export const makeItemIconLink = ({ itemId, slot, linked = false, size = 'medium', noTooltip = false }: MakeItemIconLinkParams): ItemIconElement => {
     injectItemIconStyles();
+    const item = resolveTooltipItem(itemId, slot).item;
 
     const icon = pageDocument.createElement(linked ? 'a' : 'div');
     icon.className = `tm-item-icon tm-item-icon--${size}`;
@@ -550,15 +644,15 @@ export const makeItemIconLink = ({ item, linked = false, size = 'medium', count,
         icon.appendChild(gradeImg);
     }
 
-    if (count && count > 1) {
+    if (slot?.count && Number(slot.count) > 1) {
         const countEl = pageDocument.createElement('div');
         countEl.className = 'tm-item-icon-count';
-        countEl.textContent = String(count);
+        countEl.textContent = Number(slot.count).toLocaleString('en-US');
         icon.appendChild(countEl);
     }
 
     if (!noTooltip) {
-        icon.addEventListener('mouseenter', () => showTooltip(icon, item));
+        icon.addEventListener('mouseenter', () => showTooltip(itemId, icon, slot));
         icon.addEventListener('mouseleave', hideTooltip);
     }
 
@@ -583,7 +677,7 @@ const populateTooltip = (item: ItemBase): void => {
     const headerSection = pageDocument.createElement('div');
     headerSection.className = 'tm-item-tooltip-header';
 
-    const iconEl = makeItemIconLink({ item, noTooltip: true });
+    const iconEl = makeItemIconLink({ itemId: item.id, slot: { item }, noTooltip: true });
     headerSection.appendChild(iconEl);
 
     const tipMeta = pageDocument.createElement('div');
@@ -770,7 +864,7 @@ const populateTooltip = (item: ItemBase): void => {
             for (const itemName of setParts.itemNames) {
                 const setItem = findItemByName(itemName);
                 if (setItem) {
-                    itemGrid.appendChild(makeItemIconLink({ item: setItem, size: 'tiny', noTooltip: true }));
+                    itemGrid.appendChild(makeItemIconLink({ itemId: setItem.id, size: 'tiny', noTooltip: true }));
                 } else {
                     const emptyCell = makeEmptyCell();
                     emptyCell.classList.add('tm-item-tooltip-set-slot');
@@ -856,22 +950,17 @@ const positionTooltip = (anchorEl: HTMLElement): void => {
 /**
  * Показывает тултип рядом с элементом.
  */
-export const showTooltip = (anchorEl: HTMLElement, item: ItemBase): void => {
+export const showTooltip = (itemId: number, anchorEl: HTMLElement, slot?: ItemTooltipSlot): void => {
     initTooltipDom();
-    const dynamicTooltipKey = getItemDynamicTooltipKey(item);
-    const tooltipKey = dynamicTooltipKey || `${Date.now()}:${Math.random()}`;
-    const snapshot = loadDynamicTooltipSnapshot(item);
-    if (dynamicTooltipKey && isDynamicTooltipSnapshotFresh(snapshot) && !dynamicTooltipCache.has(tooltipKey)) {
-        dynamicTooltipCache.set(tooltipKey, snapshot.data);
-    }
-    const cachedData = dynamicTooltipCache.get(tooltipKey);
-    const sessionData = cachedData && !(cachedData instanceof Promise) ? cachedData : null;
-    const displayedData = sessionData || snapshot?.data;
-    const isDynamicDataLoading = isArcheageSite && dynamicTooltipKey !== null
-        && (!dynamicTooltipCache.has(tooltipKey) || cachedData instanceof Promise);
-    activeTooltipKey = tooltipKey;
-    populateTooltip(displayedData ? mergeDynamicTooltipItem(item, displayedData) : item);
-    if (isDynamicDataLoading) {
+    const resolved = resolveTooltipItem(itemId, slot);
+    const key = getApiTooltipKey(itemId, resolved.grade);
+    const isApiDataLoading = isArcheageSite
+        && !apiTooltipCache.has(key)
+        && !isApiTooltipSnapshotFresh(resolved.apiTooltipSnapshot);
+    const tooltipToken = Symbol(key);
+    activeTooltipToken = tooltipToken;
+    populateTooltip(resolved.item);
+    if (isApiDataLoading) {
         getTooltipContainer().appendChild(makeLoader({
             label: 'Загрузка дополнительной информации',
             className: 'tm-item-tooltip-loader',
@@ -879,10 +968,10 @@ export const showTooltip = (anchorEl: HTMLElement, item: ItemBase): void => {
     }
     positionTooltip(anchorEl);
 
-    fetchDynamicTooltipData(item).then(data => {
-        if (activeTooltipKey !== tooltipKey) return;
+    fetchApiTooltipData(itemId, resolved.grade).then(data => {
+        if (activeTooltipToken !== tooltipToken) return;
 
-        if (data) populateTooltip(mergeDynamicTooltipItem(item, data));
+        if (data) populateTooltip(resolveTooltipItem(itemId, slot).item);
         else getTooltipContainer().querySelector('.tm-item-tooltip-loader')?.remove();
         positionTooltip(anchorEl);
     });
@@ -890,52 +979,39 @@ export const showTooltip = (anchorEl: HTMLElement, item: ItemBase): void => {
 
 /** Скрывает тултип. */
 export const hideTooltip = (): void => {
-    activeTooltipKey = null;
+    activeTooltipToken = null;
     if (globalTooltip) {
         globalTooltip.classList.remove(TOOLTIP_VISIBLE_CLASS, TOOLTIP_RIGHT_CLASS, TOOLTIP_BOTTOM_CLASS);
     }
 };
 
-interface DelegatedTooltipItem {
+interface SiteTooltipItem {
     icon: HTMLElement;
-    item: ItemBase;
+    itemId: number;
+    slot?: ItemTooltipSlot;
 }
 
-const getDelegatedTooltipItem = (target: EventTarget | null): DelegatedTooltipItem | null => {
+const getSiteTooltipItem = (target: EventTarget | null): SiteTooltipItem | null => {
     const icon = target instanceof Element
-        ? target.closest<HTMLElement>('.tm-item-icon[data-item-id], [data-tm-tooltip-item-id], [data-item-id], .aa_item_tooltip[data-id]')
+        ? target.closest<HTMLElement>('.aa_item_tooltip[data-id]')
         : null;
-    const itemId = icon?.dataset?.tmTooltipItemId || icon?.dataset?.itemId || icon?.dataset?.id;
+    const itemId = icon?.dataset?.id;
     if (!itemId) return null;
 
     const numericItemId = Number(itemId);
     if (!Number.isFinite(numericItemId)) return null;
 
-    if (icon.classList.contains('aa_item_tooltip')) {
-        const grade = Number(icon.dataset.grade);
-        const knownItem = ITEMS[numericItemId];
-        const siteItem: ItemBase = {
-            ...(knownItem || {
-                id: numericItemId,
-                icon: icon.querySelector<HTMLImageElement>('img')?.src || '',
-                name: '',
-            }),
-            preferDynamicGrade: true,
-            ...(Number.isFinite(grade) ? {
-                dynamicTooltipGrade: grade,
-                ...(!knownItem ? { grade: convertSiteGrade(grade) } : {}),
+    const grade = Number(icon.dataset.grade);
+    const slot: ItemTooltipSlot = {
+        item: {
+            icon: icon.querySelector<HTMLImageElement>('img')?.src || '',
+            ...(Number.isFinite(grade) && grade !== 0 ? {
+                siteTooltipGrade: grade,
+                grade: convertSiteGrade(grade),
             } : {}),
-        };
-        return { icon, item: siteItem };
-    }
-
-    const item = ITEM_STORE.get(String(itemId)) || ITEM_STORE.get(numericItemId);
-    return item ? { icon, item } : null;
-};
-
-export const handleItemIconMouseEnter = (event: MouseEvent): void => {
-    const found = getDelegatedTooltipItem(event.target);
-    if (found) showTooltip(found.icon, found.item);
+        },
+    };
+    return { icon, itemId: numericItemId, slot };
 };
 
 const prepareSiteTooltipWikiLink = (event: MouseEvent): void => {
@@ -947,7 +1023,7 @@ const prepareSiteTooltipWikiLink = (event: MouseEvent): void => {
     const itemId = Number(link.dataset.id);
     if (!Number.isFinite(itemId)) return;
 
-    const item = ITEMS[itemId] || { id: itemId } as ItemBase;
+    const item = resolveTooltipItem(itemId).item;
     link.href = getItemCodexUrl(item);
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
@@ -962,12 +1038,12 @@ export const initTooltips = (): void => {
     pageDocument.addEventListener('click', prepareSiteTooltipWikiLink, true);
 
     pageDocument.addEventListener('mouseover', (event) => {
-        const found = getDelegatedTooltipItem(event.target);
+        const found = getSiteTooltipItem(event.target);
         if (!found || found.icon.contains(event.relatedTarget as Node | null)) return;
-        showTooltip(found.icon, found.item);
+        showTooltip(found.itemId, found.icon, found.slot);
     });
     pageDocument.addEventListener('mouseout', (event) => {
-        const found = getDelegatedTooltipItem(event.target);
+        const found = getSiteTooltipItem(event.target);
         if (!found || found.icon.contains(event.relatedTarget as Node | null)) return;
         hideTooltip();
     });

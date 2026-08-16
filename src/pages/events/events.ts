@@ -7,7 +7,7 @@ import {
     parseTime,
 } from '../../utils/time.js';
 import { appendStyleElement } from '../../utils/dom.js';
-import { formatCountdown } from '../../utils/events-time.js';
+import { formatCountdown } from '../../utils/eventsTime.js';
 import { EVENTS } from '../../data/events.js';
 import { SERVERS } from '../../data/servers.js';
 import { ICON_SEX_VALUES, loadIconSex, saveIconSex, loadIconScalePercent, saveIconScalePercent, loadIconScaleBrowserZoom, saveIconScaleBrowserZoom } from '../../data/items.js';

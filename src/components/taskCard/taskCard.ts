@@ -6,7 +6,7 @@ import {
     formatTimeMSK,
 } from '../../pages/marathon/core.js';
 import { formatAvailableWeekdaysStatus } from '../../utils/time.js';
-import { formatEventsToString, getSecondsUntilNextEvent, updateCountdownEl } from '../../utils/events-time.js';
+import { formatEventsToString, getSecondsUntilNextEvent, updateCountdownEl } from '../../utils/eventsTime.js';
 import {
     CODEX_BASE,
     ICON_QUEST,
@@ -77,7 +77,7 @@ export const makeLinksRow = (
     const item = slot?.item;
     if (item?.id) {
         const hasIcon = item.icon && item.grade;
-        if (hasIcon) leftPart.appendChild(makeItemIconLink({ item, linked: true, size: 'small', count: slot!.count }));
+        if (hasIcon) leftPart.appendChild(makeItemIconLink({ itemId: item.id, slot: { count: slot!.count }, linked: true, size: 'small' }));
         else if (item.name) {
             const nameLink = document.createElement('a');
             nameLink.className = 'tm-item-name-link';

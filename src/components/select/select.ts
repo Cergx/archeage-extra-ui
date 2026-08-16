@@ -1,6 +1,7 @@
 import { appendStyleElement } from '../../utils/dom.js';
 import selectStyles from './select.scss';
 import { injectScrollbarStyles } from '../scrollbar/scrollbar.js';
+import type { ItemTooltipSlot, MakeItemIconLinkParams } from '../tooltip/tooltip.js';
 
 export interface SelectOption {
     value: string | number;
@@ -165,8 +166,8 @@ export const makeSelect = ({ options, selected, onChange }: LegacySelectOptions)
 interface MappedItem {
     iconUrl?: string;
     name?: string;
-    itemBase?: { id?: number; name?: string };
-    count?: number;
+    itemId?: number;
+    slot?: ItemTooltipSlot;
 }
 
 interface SelectedItemsOptions {
@@ -175,12 +176,7 @@ interface SelectedItemsOptions {
     mapItem: (item: unknown) => MappedItem;
 }
 
-type MakeItemIconLink = (params: {
-    item: MappedItem['itemBase'];
-    linked?: boolean;
-    size?: 'small' | 'medium';
-    count?: number;
-}) => HTMLElement;
+type MakeItemIconLink = (params: MakeItemIconLinkParams) => HTMLElement;
 
 export const renderSelectedItems = (
     container: HTMLElement,
@@ -206,12 +202,12 @@ export const renderSelectedItems = (
         const nameWrap = document.createElement('div');
         nameWrap.className = 'tm-cart-item-name';
 
-        if (mapped.itemBase) {
+        if (mapped.itemId != null) {
             nameWrap.appendChild(makeItemIconLink({
-                item: mapped.itemBase,
+                itemId: mapped.itemId,
+                slot: mapped.slot,
                 linked: true,
                 size: 'small',
-                count: mapped.count,
             }));
         } else if (mapped.iconUrl) {
             const image = document.createElement('img');
@@ -223,7 +219,7 @@ export const renderSelectedItems = (
 
         const title = document.createElement('div');
         title.className = 'title';
-        title.textContent = mapped.name || mapped.itemBase?.name || '';
+        title.textContent = mapped.name || mapped.slot?.item?.name || '';
         nameWrap.appendChild(title);
         entry.appendChild(nameWrap);
 

@@ -21,6 +21,7 @@ import {
 } from '../../data/quests.js';
 import { SERVERS } from '../../data/servers.js';
 import type { ItemBase } from '../../data/items.js';
+import type { MakeItemIconLinkParams } from '../../components/tooltip/tooltip.js';
 import { makeTaskCard } from '../../components/taskCard/taskCard.js';
 import { updateLevelBlock } from '../../components/levelBlock/levelBlock.js';
 import { initDateNavDeps, ensureDateNavInHeader, updateDateNavLabel, updateDateNavButtons } from '../../components/dateNav/dateNav.js';
@@ -81,7 +82,7 @@ export const LS_KEYS: Record<string, string> = {
     VEKSEL_SERVER_ID: 'tm_aa_veksel_server_id',
     ICON_SEX: 'tm_aa_icon_sex',
     NOTIFICATIONS: 'tm_aa_notifications',
-    DYNAMIC_TOOLTIPS: 'tm_aa_dynamic_tooltips',
+    API_TOOLTIPS: 'tm_aa_dynamic_tooltips',
     ITEM_RESTORE_ITEMS: 'tm_aa_itemrestore_items',
 };
 export const HISTORY_MAX_ENTRIES: number = 500;
@@ -256,7 +257,7 @@ export interface CartCharacter {
 
 export type VekselType = 'blue_salt' | 'north';
 export type VekselTypeMaybe = VekselType | undefined;
-export type MakeItemIconLink = (params: { item: ItemBase; linked?: boolean; size?: string; count?: number | string; noTooltip?: boolean }) => HTMLElement;
+export type MakeItemIconLink = (params: MakeItemIconLinkParams) => HTMLElement;
 export type MakeIconLink = (params: { href: string; iconSrc: string; title?: string; className?: string }) => HTMLElement;
 
 export interface DOMCache {

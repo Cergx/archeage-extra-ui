@@ -9,19 +9,19 @@
 .tm-item-icon--small {
   width: 30px;
   height: 30px;
-  font-size: 11.5px;
+  font-size: 10px !important;
 }
 
 .tm-item-icon--tiny {
   width: 22px;
   height: 22px;
-  font-size: 9px;
+  font-size: 9px !important;
 }
 
 .tm-item-icon--medium {
   width: 42px;
   height: 42px;
-  font-size: 11.5px;
+  font-size: 11.5px !important;
 }
 
 .tm-item-icon::after {
@@ -68,8 +68,8 @@
 
 .tm-item-icon-count {
   position: absolute;
-  right: 9%;
-  bottom: 12.5%;
+  right: 3%;
+  bottom: 8%;
   line-height: 0.5;
   letter-spacing: 0.02em;
   color: #fff;

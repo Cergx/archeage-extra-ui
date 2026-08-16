@@ -2,22 +2,19 @@ import { ITEMS, GRADES, getItemIconUrl } from '../../data/items.js';
 import { renderSelectedItems } from '../../components/select/select.js';
 import { appendReloadBtn, injectReloadBtnStyles } from '../../components/reloadBtn/reloadBtn.js';
 import { pageDocument, pageWindow } from '../../utils/env.js';
+import type { ItemBase } from '../../data/items.js';
+import type { ItemTooltipSlot, MakeItemIconLinkParams } from '../../components/tooltip/tooltip.js';
 
 export { getItemIconUrl };
 
-type ItemBase = (typeof ITEMS)[keyof typeof ITEMS];
-type ItemIconLinkFn = (params: { item: ItemBase; linked?: boolean; size?: string }) => HTMLElement;
+type ItemIconLinkFn = (params: MakeItemIconLinkParams) => HTMLElement;
 type RenderSelectedItemsFn = typeof renderSelectedItems;
 type AppendReloadBtnFn = typeof appendReloadBtn;
 
 type CartGradeCampaignRule = {
-    itemId: number;
+    itemId: number | number[];
     campaign: string;
-    grade?: never;
-} | {
-    itemId: number[];
-    campaign: string;
-    grade: number;
+    item?: Partial<ItemBase>;
 };
 
 export interface CartItem {
@@ -115,12 +112,12 @@ export const CART_GRADE_BY_CAMPAIGN: CartGradeCampaignRule[] = [
             45894, 45895, 45896, 45897, 45898, 45899, 45900, // эрнардский архивариус
         ],
         campaign: 'Марафон героев, руру',
-        grade: 12,
+        item: { grade: 12 },
     },
     {
         itemId: [34684, 34685], // укрепленный аргенитовый кларнет/лютня
         campaign: 'Неверинский марафон героев',
-        grade: 8,
+        item: { grade: 8 },
     },
 ];
 
@@ -142,7 +139,7 @@ export const inferGradeFromCartCampaign = (item: ItemBase, campaign: string): nu
         return normalizedRuleCampaign && normalizedCampaign.includes(normalizedRuleCampaign);
     });
 
-    return rule?.grade ?? null;
+    return rule?.item?.grade ?? null;
 };
 
 const getCartItemSearchName = (item: ItemBase): string => item.searchName?.trim() || item.name || '';
@@ -215,7 +212,7 @@ export const withInferredCartGrade = (item: ItemBase, itemName: string, campaign
     const inferredGrade = inferGradeFromCartItemName(itemName) ?? inferGradeFromCartCampaign(item, campaign);
     return {
         ...item,
-        grade: inferredGrade ?? 1,
+        ...(inferredGrade == null ? {} : { grade: inferredGrade }),
         ...(inferredGrade == null ? {} : { isGradeInferred: true }),
     };
 };
@@ -252,6 +249,34 @@ export const findItemByName = (itemName: string, campaign = ''): ItemBase | null
     }
 
     return null;
+};
+
+export interface CartTooltipItemContext {
+    itemId: number;
+    slot?: ItemTooltipSlot;
+}
+
+export const getCartTooltipItemContext = (itemName: string, campaign = '', count?: number): CartTooltipItemContext | null => {
+    const item = findItemByName(itemName, campaign);
+    if (!item) return null;
+
+    const campaignRule = CART_GRADE_BY_CAMPAIGN.find(rule => {
+        const itemIds = Array.isArray(rule.itemId) ? rule.itemId : [rule.itemId];
+        return itemIds.includes(item.id)
+            && normalizeCartItemName(campaign).includes(normalizeCartItemName(rule.campaign));
+    });
+    const inferredGrade = ITEMS[item.id]?.grade == null
+        ? inferGradeFromCartItemName(itemName) ?? campaignRule?.item?.grade
+        : null;
+    const contextualItem = {
+        ...(campaignRule?.item || {}),
+        ...(inferredGrade == null ? {} : { grade: inferredGrade, isGradeInferred: true }),
+    };
+    const slot: ItemTooltipSlot = {
+        ...(Object.keys(contextualItem).length ? { item: contextualItem } : {}),
+        ...(count != null ? { count } : {}),
+    };
+    return { itemId: item.id, ...(Object.keys(slot).length ? { slot } : {}) };
 };
 
 /**
@@ -361,10 +386,11 @@ export const makeCartRow = (cartItem: CartItem, makeItemIconLink: ItemIconLinkFn
     const nameContainer = pageDocument.createElement('div');
     nameContainer.className = 'tm-cart-item-name';
 
-    const itemData = findItemByName(cartItem.title, cartItem.campaign);
-    if (itemData) {
+    const tooltipItem = getCartTooltipItemContext(cartItem.title, cartItem.campaign);
+    if (tooltipItem) {
         const iconEl = makeItemIconLink({
-            item: itemData,
+            itemId: tooltipItem.itemId,
+            slot: tooltipItem.slot,
             linked: true,
             size: 'small',
         });
@@ -622,12 +648,12 @@ export const buildCartUI = (cartItems: CartItem[], characters: CartCharacter[], 
             emptyText: 'Выберите предметы для передачи из списка слева',
             onRemove: (cartItem) => deselectItem(cartItem.itemId),
             mapItem: (cartItem) => {
-                const itemData = findItemByName(cartItem.title, cartItem.campaign);
+                const tooltipItem = getCartTooltipItemContext(cartItem.title, cartItem.campaign, cartItem.count);
                 return {
                     iconUrl: '',
-                    name: !itemData && cartItem.count > 1 ? `${cartItem.title} ${cartItem.count}×` : cartItem.title,
-                    itemBase: itemData || undefined,
-                    count: cartItem.count,
+                    name: !tooltipItem && cartItem.count > 1 ? `${cartItem.title} ${cartItem.count}×` : cartItem.title,
+                    itemId: tooltipItem?.itemId,
+                    slot: tooltipItem?.slot,
                 };
             },
         }, makeItemIconLink);

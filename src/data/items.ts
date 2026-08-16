@@ -181,8 +181,7 @@ export interface ItemBase {
     buff?: Record<string, string | number | boolean | null>;
     buffDuration?: number | string;
     isGradeInferred?: boolean;
-    preferDynamicGrade?: boolean;
-    dynamicTooltipGrade?: number;
+    siteTooltipGrade?: number;
 }
 
 type ItemPlaceholderValue = string | number | boolean | null | Record<string, string | number | boolean | null>;
@@ -275,9 +274,9 @@ export const hasVisibleTooltipText = (value: unknown): boolean => (
     String(value || '').replace(/\n|<br\s*\/?>/gi, '').trim().length > 0
 );
 
-export type DynamicTooltipFieldValue = string | number | boolean | null | Record<string, string | null | number | boolean>;
+export type ApiTooltipFieldValue = string | number | boolean | null | Record<string, string | null | number | boolean>;
 
-export interface DynamicTooltipKnownFields {
+export interface ApiTooltipKnownFields {
     grade?: string;
     name?: string;
     name_metaphone?: string;
@@ -313,9 +312,9 @@ export interface DynamicTooltipKnownFields {
     grade_color?: string;
 }
 
-export type DynamicTooltipData = DynamicTooltipKnownFields & Record<string, DynamicTooltipFieldValue | undefined>;
+export type ApiTooltipData = ApiTooltipKnownFields & Record<string, ApiTooltipFieldValue | undefined>;
 
-export const cleanDynamicTooltipMarkup = (value: DynamicTooltipFieldValue | undefined): string | null => {
+export const cleanApiTooltipMarkup = (value: ApiTooltipFieldValue | undefined): string | null => {
     if (value == null) return null;
     let result = String(value)
         .replace(/\\+"/g, '"')
