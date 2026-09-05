@@ -313,11 +313,16 @@ const apiTooltipStatValue = (value: ApiTooltipFieldValue | undefined): number | 
 
 const API_EQUIP_TOOLTIP_PATTERNS: RegExp[] = [
     /Здоровье/,
+    /Мана/,
     /Защита/,
     /Сопротивление/,
+    /Шанс критического удара/,
     /Скорость\s+(?:передвижения|плавания|занятия|сбора)/,
     /Опыт\s+при\s+занятии/,
     /Время\s+применения\s+умений/,
+    // API may return equipment characteristics not covered by the known names
+    // above. Their stable form is "characteristic: numeric value".
+    /^[^:]+:\s*[+\-−]?\d[\d\s]*(?:[.,]\d+)?\s*%?$/,
 ];
 
 const isApiEquipTooltipPart = (value: unknown): boolean => {
@@ -334,28 +339,30 @@ const mapApiEquipTooltip = (value: ApiTooltipFieldValue | undefined): Partial<It
         .map(part => cleanApiTooltipMarkup(part))
         .filter(Boolean);
 
-    const equipIndex = parts.findIndex(isApiEquipTooltipPart);
-    if (equipIndex === -1) {
+    const equipStartIndex = parts.findIndex(isApiEquipTooltipPart);
+    if (equipStartIndex === -1) {
         const useDescription = cleanApiTooltipMarkup(raw);
         return useDescription ? { useDescription } : {};
     }
 
-    const equipParts: string[] = [];
-    let nextIndex: number = equipIndex;
-    while (nextIndex < parts.length && isApiEquipTooltipPart(parts[nextIndex])) {
-        equipParts.push(parts[nextIndex]);
-        nextIndex++;
+    // equip_tooltip is a concatenation of whole source fields, so their lines
+    // cannot alternate. Keep the entire range between the first and the last
+    // equipment marker: an unknown line inside that range still belongs to the
+    // equipment field.
+    let equipEndIndex = equipStartIndex;
+    for (let index = equipStartIndex + 1; index < parts.length; index++) {
+        if (isApiEquipTooltipPart(parts[index])) equipEndIndex = index;
     }
 
     const result: Partial<ItemBase> = {
-        equipDescription: equipParts.join('<br/>'),
+        equipDescription: parts.slice(equipStartIndex, equipEndIndex + 1).join('<br/>'),
     };
 
-    if (equipIndex > 0 && /^Действует\b/i.test(stripHtmlForMatch(parts[equipIndex - 1]))) {
+    if (equipStartIndex > 0 && /^Действует\b/i.test(stripHtmlForMatch(parts[equipStartIndex - 1]))) {
         result.isEquipDescriptionTemporary = true;
     }
 
-    const useDescription = cleanApiTooltipMarkup(parts.slice(nextIndex).join('<br/>'));
+    const useDescription = cleanApiTooltipMarkup(parts.slice(equipEndIndex + 1).join('<br/>'));
     if (useDescription) result.useDescription = useDescription;
 
     return result;
@@ -1014,6 +1021,22 @@ const getSiteTooltipItem = (target: EventTarget | null): SiteTooltipItem | null 
     return { icon, itemId: numericItemId, slot };
 };
 
+const getTooltipListNameItem = (target: EventTarget | null): SiteTooltipItem | null => {
+    const nameEl = target instanceof Element
+        ? target.closest<HTMLElement>('.tooltip__list-name')
+        : null;
+    if (!nameEl) return null;
+
+    const item = findItemByName(nameEl.textContent?.trim() || '');
+    if (!item) return null;
+
+    return {
+        icon: nameEl,
+        itemId: item.id,
+        slot: { item },
+    };
+};
+
 const prepareSiteTooltipWikiLink = (event: MouseEvent): void => {
     const link = event.target instanceof Element
         ? event.target.closest<HTMLAnchorElement>('a.aa_item_tooltip')
@@ -1038,12 +1061,12 @@ export const initTooltips = (): void => {
     pageDocument.addEventListener('click', prepareSiteTooltipWikiLink, true);
 
     pageDocument.addEventListener('mouseover', (event) => {
-        const found = getSiteTooltipItem(event.target);
+        const found = getSiteTooltipItem(event.target) || getTooltipListNameItem(event.target);
         if (!found || found.icon.contains(event.relatedTarget as Node | null)) return;
         showTooltip(found.itemId, found.icon, found.slot);
     });
     pageDocument.addEventListener('mouseout', (event) => {
-        const found = getSiteTooltipItem(event.target);
+        const found = getSiteTooltipItem(event.target) || getTooltipListNameItem(event.target);
         if (!found || found.icon.contains(event.relatedTarget as Node | null)) return;
         hideTooltip();
     });

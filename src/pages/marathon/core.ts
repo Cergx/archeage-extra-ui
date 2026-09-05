@@ -155,7 +155,7 @@ export interface ApiQuest {
 
 export interface ApiUserInfo {
     level: number;
-    status: 'trial' | 'premium';
+    status: 'guest' | 'trial' | 'premium';
     count_boxes_for_open: number;
     week_exp: number;
     exp_total: number;

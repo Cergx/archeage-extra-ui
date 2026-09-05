@@ -17,6 +17,76 @@ interface EventInfo {
 export let serverClockEl: HTMLElement | null = null;
 export let serverClockStylesInjected: boolean = false;
 
+type MarathonStatus = 'guest' | 'trial' | 'premium';
+
+interface MarathonInfoResponse {
+    state?: 'Success' | 'Fail';
+    data?: {
+        user_info?: {
+            status?: MarathonStatus;
+        };
+        quests?: Record<string, {
+            end_time?: number;
+        }>;
+    };
+}
+
+const MARATHON_INFO_PATH = '/minigames/marathon_of_heroes/api/info';
+const MARATHON_REGISTER_PATH = '/minigames/marathon_of_heroes/api/register';
+const MARATHON_PAGE_PATH = '/promo/marathon/';
+const MARATHON_STATUS_CACHE_KEY = 'tm_aa_marathon_status';
+const MARATHON_STATUS_RECHECK_MS = 12 * 60 * 60 * 1000;
+const MAX_TIMEOUT_MS = 2_147_000_000;
+
+interface MarathonStatusCache {
+    available: boolean;
+    status?: MarathonStatus;
+    nextCheckAt: number;
+}
+
+let marathonButtonEl: HTMLButtonElement | null = null;
+let marathonStatusTimer: ReturnType<typeof setTimeout> | null = null;
+
+const isMarathonPage = (): boolean => location.pathname.startsWith('/promo/marathon');
+
+const fetchMarathonResponse = async (path: string): Promise<MarathonInfoResponse> => {
+    const response = await fetch(path, { credentials: 'include', cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status} for ${path}`);
+    return response.json() as Promise<MarathonInfoResponse>;
+};
+
+const loadMarathonStatusCache = (): MarathonStatusCache | null => {
+    try {
+        const cache = JSON.parse(localStorage.getItem(MARATHON_STATUS_CACHE_KEY) || 'null') as MarathonStatusCache | null;
+        return cache && typeof cache.available === 'boolean' && Number.isFinite(cache.nextCheckAt) ? cache : null;
+    } catch {
+        return null;
+    }
+};
+
+const saveMarathonStatusCache = (cache: MarathonStatusCache): void => {
+    try {
+        localStorage.setItem(MARATHON_STATUS_CACHE_KEY, JSON.stringify(cache));
+    } catch {
+        // ignore
+    }
+};
+
+const getMarathonEndMs = (info: MarathonInfoResponse): number | null => {
+    const endTimes = Object.values(info.data?.quests || {})
+        .map(quest => Number(quest.end_time || 0))
+        .filter(Number.isFinite)
+        .filter(endTime => endTime > 0);
+    return endTimes.length ? Math.max(...endTimes) * 1000 : null;
+};
+
+const getNextMarathonStatusCheckAt = (info: MarathonInfoResponse): number => {
+    const marathonEndMs = getMarathonEndMs(info);
+    return marathonEndMs && marathonEndMs > Date.now()
+        ? marathonEndMs
+        : Date.now() + MARATHON_STATUS_RECHECK_MS;
+};
+
 const loadEventVisibility: () => Record<string, boolean> = () =>
     JSON.parse(localStorage.getItem('tm_aa_ev_vis') || '{}');
 
@@ -82,17 +152,113 @@ export const updateServerClockContent: () => void = () => {
     serverClockEl.innerHTML = `мск: ${mskTime}<br>игровое: ${gameTime}${eventLine}`;
 };
 
+const scheduleMarathonStatusCheck = (container: HTMLElement, nextCheckAt: number): void => {
+    if (marathonStatusTimer != null) clearTimeout(marathonStatusTimer);
+    const delay = Math.max(0, nextCheckAt - Date.now());
+    marathonStatusTimer = setTimeout(
+        () => {
+            if (Date.now() < nextCheckAt) {
+                scheduleMarathonStatusCheck(container, nextCheckAt);
+                return;
+            }
+            void initMarathonButton(container, true);
+        },
+        Math.min(delay, MAX_TIMEOUT_MS),
+    );
+};
+
+const hideMarathonButton = (): void => {
+    marathonButtonEl?.remove();
+    marathonButtonEl = null;
+};
+
+const initMarathonButton = async (container: HTMLElement, forceCheck = false): Promise<void> => {
+    if (isMarathonPage()) return;
+
+    let cache = loadMarathonStatusCache();
+    if (!forceCheck && cache && cache.nextCheckAt > Date.now()) {
+        if (!cache.available) {
+            hideMarathonButton();
+            scheduleMarathonStatusCheck(container, cache.nextCheckAt);
+            return;
+        }
+    } else {
+        let info: MarathonInfoResponse;
+        try {
+            info = await fetchMarathonResponse(MARATHON_INFO_PATH);
+        } catch {
+            cache = { available: false, nextCheckAt: Date.now() + MARATHON_STATUS_RECHECK_MS };
+            saveMarathonStatusCache(cache);
+            hideMarathonButton();
+            scheduleMarathonStatusCheck(container, cache.nextCheckAt);
+            return;
+        }
+
+        if (info.state !== 'Success' || !info.data?.user_info) {
+            cache = { available: false, nextCheckAt: Date.now() + MARATHON_STATUS_RECHECK_MS };
+            saveMarathonStatusCache(cache);
+            hideMarathonButton();
+            scheduleMarathonStatusCheck(container, cache.nextCheckAt);
+            return;
+        }
+
+        cache = {
+            available: true,
+            status: info.data.user_info.status,
+            nextCheckAt: getNextMarathonStatusCheckAt(info),
+        };
+        saveMarathonStatusCache(cache);
+    }
+
+    if (!cache?.available) return;
+
+    if (!marathonButtonEl) {
+        marathonButtonEl = document.createElement('button');
+        marathonButtonEl.type = 'button';
+        marathonButtonEl.className = 'tm-marathon-button';
+        container.appendChild(marathonButtonEl);
+    }
+
+    const button = marathonButtonEl;
+    const render = (status: MarathonStatus | undefined): void => {
+        const isGuest = status === 'guest';
+        button.disabled = false;
+        button.textContent = isGuest ? 'Начать марафон' : 'Марафон';
+        button.onclick = isGuest
+            ? async () => {
+                button.disabled = true;
+                button.textContent = 'Регистрация…';
+                try {
+                    const registration = await fetchMarathonResponse(MARATHON_REGISTER_PATH);
+                    if (registration.state !== 'Success') throw new Error('Marathon registration failed');
+                    await initMarathonButton(container, true);
+                } catch {
+                    button.textContent = 'Начать марафон';
+                    button.disabled = false;
+                }
+            }
+            : () => { location.assign(MARATHON_PAGE_PATH); };
+    };
+
+    render(cache.status);
+    scheduleMarathonStatusCheck(container, cache.nextCheckAt);
+};
+
 export const initServerClock: (
     openEventsPopup: () => void,
     checkEventNotifications?: () => void,
 ) => Promise<void> = async (openEventsPopup, checkEventNotifications) => {
     await syncServerTime();
     injectServerClockStyles();
+    const container = document.createElement('div');
+    container.className = 'tm-server-clock-container';
     serverClockEl = document.createElement('div');
     serverClockEl.className = 'tm-server-clock';
     serverClockEl.addEventListener('click', openEventsPopup);
-    document.body.appendChild(serverClockEl);
+    container.appendChild(serverClockEl);
+    document.body.appendChild(container);
     updateServerClockContent();
+    void initMarathonButton(container);
     setInterval(updateServerClockContent, 1000);
     if (checkEventNotifications) setInterval(checkEventNotifications, 30000);
     if (checkEventNotifications) checkEventNotifications();

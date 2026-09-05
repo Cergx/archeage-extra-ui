@@ -273,6 +273,17 @@ export const hasPremiumMarathonAccess = (): boolean => {
 };
 
 let autoOpenBoxesIntervalId: TimerId | null = null;
+let autoOpenBoxesCheckbox: HTMLInputElement | null = null;
+
+const disableAutoOpenBoxes = (): void => {
+    saveAutoOpenBoxesState(false);
+    stopAutoOpenBoxesInterval();
+
+    if (autoOpenBoxesCheckbox) {
+        autoOpenBoxesCheckbox.checked = false;
+        autoOpenBoxesCheckbox.disabled = true;
+    }
+};
 
 /**
  * Проверяет условия и открывает один сундук, если возможно.
@@ -280,6 +291,11 @@ let autoOpenBoxesIntervalId: TimerId | null = null;
  */
 export const tryOpenNextBox = (): void => {
     if (!loadAutoOpenBoxesState()) return;
+
+    if (!hasPremiumMarathonAccess()) {
+        disableAutoOpenBoxes();
+        return;
+    }
 
     const lootbox = getLootboxVm();
     if (!lootbox || typeof lootbox.openBox !== 'function') return;
@@ -289,7 +305,7 @@ export const tryOpenNextBox = (): void => {
 
     // Проверяем, есть ли сундуки
     const boxesAvailable = lootbox.getChestNum;
-    if (boxesAvailable <= 0 || !hasPremiumMarathonAccess()) return;
+    if (boxesAvailable <= 0) return;
 
     console.log(`[ArcheAgeExtraUI] Автооткрытие сундука (осталось: ${boxesAvailable})`);
     lootbox.openBox();
@@ -297,6 +313,10 @@ export const tryOpenNextBox = (): void => {
 
 export const startAutoOpenBoxesInterval = (): void => {
     if (autoOpenBoxesIntervalId != null) return;
+    if (!hasPremiumMarathonAccess()) {
+        disableAutoOpenBoxes();
+        return;
+    }
     autoOpenBoxesIntervalId = setInterval(tryOpenNextBox, 1000);
 };
 
@@ -317,13 +337,21 @@ export const initAutoOpenBoxesCheckbox = (): void => {
     // Проверяем, что галочка ещё не добавлена
     if (lootboxTitle.querySelector('.tm-auto-open-label')) return;
 
+    const hasPremium = hasPremiumMarathonAccess();
+    if (!hasPremium) saveAutoOpenBoxesState(false);
+
     const autoOpen = createCheckbox({
         className: 'tm-auto-open-label',
         label: 'Открывать при получении',
-        checked: loadAutoOpenBoxesState(),
+        checked: hasPremium && loadAutoOpenBoxesState(),
+        disabled: !hasPremium,
     });
     const label = autoOpen.root;
     const checkbox = autoOpen.input;
+    autoOpenBoxesCheckbox = checkbox;
+    if (!hasPremium) {
+        label.title = 'Доступно только с Premium-статусом';
+    }
 
     lootboxTitle.appendChild(label);
 

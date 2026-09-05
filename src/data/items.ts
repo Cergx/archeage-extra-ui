@@ -734,6 +734,8 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
 
     { id: 49750, icon: 'https://archeagecodex.com/items/icon_item_4944.png', grade: 4, name: 'Снежный шар «Золотая осень»' },
 
+    { id: 8000641, icon: 'https://archeagecodex.com/items/icon_item_2855.png', name: 'Призрачный единорог' },
+
     { id: 1, icon: '', grade: 1, name: '' },
 ] as ItemBase[]).map(i => [i.id, i])) as Record<number, ItemBase>;
 
