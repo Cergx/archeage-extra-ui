@@ -1,0 +1,20 @@
+.tm-marathon-button {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 8, 24, 0.85);
+  backdrop-filter: blur(4px);
+  color: #cfd6e0;
+  font: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.tm-marathon-button:hover:not(:disabled) {
+  background: rgba(22, 48, 82, 0.9);
+}
+
+.tm-marathon-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}

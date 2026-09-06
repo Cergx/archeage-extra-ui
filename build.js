@@ -118,6 +118,10 @@ async function build() {
         version: META.version,
         description: META.description,
         icons: { '128': 'icon128.png' },
+        action: {
+          default_title: META.name,
+          default_icon: { '128': 'icon128.png' },
+        },
         content_scripts: [{
           matches: META.matches,
           js: ['pageScript.js'],

@@ -2,6 +2,8 @@
   "name": "archeage-extra-ui",
   "private": true,
   "scripts": {
+    "start": "node scripts/startChrome.js",
+    "setup:chromeForTesting": "powershell -ExecutionPolicy Bypass -File scripts/installChromeForTesting.ps1",
     "build": "npm run build:tm:prod",
     "build:tm:dev": "node build.js",
     "build:tm:prod": "node build.js --prod",

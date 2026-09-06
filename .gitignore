@@ -2,6 +2,9 @@
 .test/
 node_modules/
 dist/
+.env
+.chromeDevProfile/
+tools/chromeForTesting/
 
 ArcheAgeExtraUI.user.js
 chrome-extension.zip
