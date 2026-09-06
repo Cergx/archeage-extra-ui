@@ -1,5 +1,5 @@
 import { API_INFO_CACHE } from './core.js';
-import { pageDocument } from '../../utils/env.js';
+import { claimLevelPrizeInPage, pageDocument } from '../../utils/env.js';
 
 const waitForElement = (selector: string, timeoutMs = 5000): Promise<Element | null> => {
     const existing = document.querySelector(selector);
@@ -147,25 +147,13 @@ export const getVueStore = (): VueStore | null => {
  * @returns {Promise<void>}
  */
 export const farmLevelReward = (level: number, isPremium: boolean): Promise<unknown> => {
-    const store = getVueStore();
-    if (!store) return Promise.reject(new Error('Vue store not found'));
-
-    return new Promise((resolve: (value: unknown) => void, reject: (reason?: unknown) => void) => {
-        store.dispatch('maininfo/getLevelPrize', {
-            level,
-            is_premium: isPremium ? 1 : 0,
-            callback_success: (data: LevelPrizeResponse) => {
-                // Синхронизируем собственный кэш с обновлёнными данными
-                const userInfo = API_INFO_CACHE?.data?.user_info;
-                if (userInfo && data?.data?.farmed_rewards) {
-                    userInfo.farmed_rewards = data.data.farmed_rewards;
-                }
-                resolve(data);
-            },
-            callback_error: () => {
-                reject(new Error(`getLevelPrize failed for level=${level}`));
-            },
-        });
+    return claimLevelPrizeInPage(level, isPremium).then((data: LevelPrizeResponse) => {
+        // Синхронизируем собственный кэш с обновлёнными данными
+        const userInfo = API_INFO_CACHE?.data?.user_info;
+        if (userInfo && data?.data?.farmed_rewards) {
+            userInfo.farmed_rewards = data.data.farmed_rewards;
+        }
+        return data;
     });
 };
 
@@ -203,7 +191,6 @@ export const syncNativeRewardsState = (): void => {
 export const claimAllLevelRewards = async (): Promise<void> => {
     const userInfo = API_INFO_CACHE?.data?.user_info;
     if (!userInfo) return;
-    if (!getVueStore()) return;
 
     const currentLevel = userInfo.level || 1;
     const status = userInfo.status || 'trial';

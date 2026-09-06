@@ -24,6 +24,8 @@ export interface ApiDeps {
     updateQuestHistory: () => void;
     onSelectedDateChanged: () => Promise<void>;
     renderTasksForSelectedDay: (opts?: { animateNewlyDone?: boolean }) => Promise<void>;
+    loadAutoClaimState: () => boolean;
+    claimAllLevelRewards: () => Promise<void>;
 }
 
 let deps: ApiDeps | null = null;
@@ -111,8 +113,10 @@ export const hideRefreshLoader = (): void => {
     if (deps?.DOM.refreshLoader) deps.DOM.refreshLoader.classList.remove('tm-refresh-loader--active');
 };
 
-export const refreshApiInfo = async ({ loadAutoClaimState = () => false, claimAllLevelRewards = async () => {} }: RefreshApiInfoOptions = {}): Promise<void> => {
+export const refreshApiInfo = async (options: RefreshApiInfoOptions = {}): Promise<void> => {
     if (!deps) return;
+    const loadAutoClaimState = options.loadAutoClaimState ?? deps.loadAutoClaimState;
+    const claimAllLevelRewards = options.claimAllLevelRewards ?? deps.claimAllLevelRewards;
     if (isRefreshing) return;
     isRefreshing = true;
     showRefreshLoader();

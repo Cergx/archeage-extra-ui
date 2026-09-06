@@ -10,6 +10,53 @@
     const origPopupOpen = window.popup_open;
     const origPopupClose = window.popup_close;
 
+    function getVueStore() {
+        const roots = [
+            document.querySelector('.game__right'),
+            document.querySelector('.page'),
+            document.body,
+        ];
+        for (const root of roots) {
+            let el = root;
+            while (el) {
+                const store = el.__vue__ && el.__vue__.$store;
+                if (store && typeof store.dispatch === 'function') return store;
+                el = el.parentElement;
+            }
+        }
+        return null;
+    }
+
+    function claimLevelPrize(level, isPremium, requestId) {
+        const store = getVueStore();
+        if (!store) {
+            send({ type: 'CLAIM_LEVEL_PRIZE_ERROR', requestId, error: 'Vue store not found' });
+            return;
+        }
+        let settled = false;
+        const succeed = data => {
+            if (settled) return;
+            settled = true;
+            send({ type: 'CLAIM_LEVEL_PRIZE_SUCCESS', requestId, data });
+        };
+        const fail = error => {
+            if (settled) return;
+            settled = true;
+            send({ type: 'CLAIM_LEVEL_PRIZE_ERROR', requestId, error: String(error || 'getLevelPrize failed') });
+        };
+        try {
+            const result = store.dispatch('maininfo/getLevelPrize', {
+                level,
+                is_premium: isPremium ? 1 : 0,
+                callback_success: succeed,
+                callback_error: fail,
+            });
+            if (result && typeof result.then === 'function') result.then(succeed, fail);
+        } catch (error) {
+            fail(error);
+        }
+    }
+
     function send(msg) {
         window.postMessage({ source: 'tmAA-page', ...msg }, '*');
     }
@@ -58,6 +105,9 @@
                 var perPage = vm.per_on_page || 10;
                 vm.current_page = Math.floor((event.data.level - 1) / perPage);
             }
+        }
+        if (event.data.type === 'CLAIM_LEVEL_PRIZE') {
+            claimLevelPrize(event.data.level, event.data.isPremium, event.data.requestId);
         }
     });
 

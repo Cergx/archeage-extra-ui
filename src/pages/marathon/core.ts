@@ -358,6 +358,8 @@ export interface InitOptions {
     startCountdownInterval?: () => void;
     initPrizes?: () => Promise<void>;
     initAutoOpenBoxesCheckbox?: () => void;
+    loadAutoClaimState?: () => boolean;
+    claimAllLevelRewards?: () => Promise<void>;
     makeItemIconLink?: MakeItemIconLink;
     makeIconLink?: MakeIconLink;
 }
@@ -1179,6 +1181,8 @@ export const init = async ({
     startCountdownInterval = () => {},
     initPrizes = async () => {},
     initAutoOpenBoxesCheckbox = () => {},
+    loadAutoClaimState = () => false,
+    claimAllLevelRewards = async () => {},
     makeItemIconLink,
     makeIconLink,
 }: InitOptions = {}): Promise<void> => {
@@ -1200,6 +1204,8 @@ export const init = async ({
         updateQuestHistory,
         onSelectedDateChanged,
         renderTasksForSelectedDay,
+        loadAutoClaimState,
+        claimAllLevelRewards,
     });
     fetchApiInfo().catch(() => {});  // sync server time on init
     injectStyles();

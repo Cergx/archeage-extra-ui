@@ -28,7 +28,12 @@ import {
     resolveVekselUrl,
     getVekselAutoOptionText,
 } from './pages/marathon/core.js';
-import { initPrizes, initAutoOpenBoxesCheckbox } from './pages/marathon/prizes.js';
+import {
+    claimAllLevelRewards,
+    initPrizes,
+    initAutoOpenBoxesCheckbox,
+    loadAutoClaimState,
+} from './pages/marathon/prizes.js';
 import {
     injectSelectedItemsStyles,
     injectMarathonStyles,
@@ -149,6 +154,8 @@ if (!isArcheageSite) {
                     startCountdownInterval,
                     initPrizes,
                     initAutoOpenBoxesCheckbox,
+                    loadAutoClaimState,
+                    claimAllLevelRewards,
                     makeItemIconLink,
                     makeIconLink,
                 });

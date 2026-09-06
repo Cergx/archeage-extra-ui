@@ -183,7 +183,7 @@ export const getMSKTimeOfDaySeconds: (utcMs: number) => number = (utcMs) => {
 };
 
 /** Weekday names for display, where 1=Пн, ..., 7=Вс. */
-export const WEEKDAY_NAMES: Record<number, string> = { 1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт', 6: 'Сб', 7: 'Вс' };
+export const WEEKDAY_NAMES: Record<number, string> = { 1: 'пн', 2: 'вт', 3: 'ср', 4: 'чт', 5: 'пт', 6: 'сб', 7: 'вс' };
 
 /**
  * @param {string} timeStr Time string in HH:MM format.
@@ -204,5 +204,9 @@ export const formatAvailableWeekdaysStatus: (weekdays: number[] | undefined) => 
     if (!weekdays?.length) return '';
     return weekdays.includes(getTodayWeekdayMonFirst())
         ? 'Можно сегодня взять'
-        : 'Сегодня нельзя взять';
+        : `Сегодня нельзя взять (${[...new Set(weekdays)]
+            .sort((a, b) => a - b)
+            .map(weekday => WEEKDAY_NAMES[weekday + 1])
+            .filter(Boolean)
+            .join(', ')})`;
 };

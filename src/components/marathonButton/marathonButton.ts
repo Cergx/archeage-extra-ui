@@ -8,7 +8,12 @@ interface MarathonInfoResponse {
     data?: {
         user_info?: {
             status?: MarathonStatus;
+            week_exp?: number;
         };
+        action_info?: {
+            increase_max_exp_per_week?: number;
+        };
+        next_week_at?: number;
         quests?: Record<string, {
             end_time?: number;
         }>;
@@ -18,6 +23,8 @@ interface MarathonInfoResponse {
 interface MarathonStatusCache {
     available: boolean;
     status?: MarathonStatus;
+    weekExp?: number;
+    maxWeekExp?: number;
     nextCheckAt: number;
 }
 
@@ -71,10 +78,12 @@ const getNextMarathonStatusCheckAt = (info: MarathonInfoResponse): number => {
         .map(quest => Number(quest.end_time || 0))
         .filter(Number.isFinite)
         .filter(endTime => endTime > 0);
+    const now = Date.now();
     const marathonEndMs = endTimes.length ? Math.max(...endTimes) * 1000 : null;
-    return marathonEndMs && marathonEndMs > Date.now()
-        ? marathonEndMs
-        : Date.now() + marathonStatusRecheckMs;
+    const nextWeekMs = Number(info.data?.next_week_at || 0) * 1000;
+    const nextChecks = [marathonEndMs, nextWeekMs]
+        .filter((time): time is number => Number.isFinite(time) && time > now);
+    return nextChecks.length ? Math.min(...nextChecks) : now + marathonStatusRecheckMs;
 };
 
 const scheduleMarathonStatusCheck = (sidePanel: HTMLElement, nextCheckAt: number): void => {
@@ -97,7 +106,7 @@ const hideMarathonButton = (): void => {
     marathonButtonEl = null;
 };
 
-const renderMarathonButton = (sidePanel: HTMLElement, status: MarathonStatus | undefined): void => {
+const renderMarathonButton = (sidePanel: HTMLElement, cache: MarathonStatusCache): void => {
     injectMarathonButtonStyles();
     if (!marathonButtonEl) {
         marathonButtonEl = document.createElement('button');
@@ -107,9 +116,14 @@ const renderMarathonButton = (sidePanel: HTMLElement, status: MarathonStatus | u
     }
 
     const button = marathonButtonEl;
-    const isGuest = status === 'guest';
+    const isGuest = cache.status === 'guest';
     button.disabled = false;
-    button.textContent = isGuest ? 'Начать марафон' : 'Марафон';
+    const weekExp = Number(cache.weekExp);
+    const maxWeekExp = Number(cache.maxWeekExp);
+    const hasWeekProgress = Number.isFinite(weekExp) && Number.isFinite(maxWeekExp) && maxWeekExp > 0;
+    button.textContent = isGuest
+        ? 'Начать марафон'
+        : hasWeekProgress ? `Марафон (${weekExp}/${maxWeekExp})` : 'Марафон';
     button.onclick = isGuest
         ? async () => {
             button.disabled = true;
@@ -131,7 +145,7 @@ export const initMarathonButton = async (sidePanel: HTMLElement, forceCheck = fa
 
     let cache = loadMarathonStatusCache();
     if (cache?.available) {
-        renderMarathonButton(sidePanel, cache.status);
+        renderMarathonButton(sidePanel, cache);
     } else {
         hideMarathonButton();
         if (!forceCheck && cache && cache.nextCheckAt > Date.now()) {
@@ -162,9 +176,11 @@ export const initMarathonButton = async (sidePanel: HTMLElement, forceCheck = fa
     cache = {
         available: true,
         status: info.data?.user_info?.status ?? 'guest',
+        weekExp: Number(info.data?.user_info?.week_exp || 0),
+        maxWeekExp: Number(info.data?.action_info?.increase_max_exp_per_week || 100),
         nextCheckAt: getNextMarathonStatusCheckAt(info),
     };
     saveMarathonStatusCache(cache);
-    renderMarathonButton(sidePanel, cache.status);
+    renderMarathonButton(sidePanel, cache);
     scheduleMarathonStatusCheck(sidePanel, cache.nextCheckAt);
 };

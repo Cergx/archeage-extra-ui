@@ -20,6 +20,28 @@ export const pageWindow = new Proxy(window, {
 
 export const pageDocument: Document = document;
 
+let claimRequestId = 0;
+
+/** Забирает награду через page-script, потому что Vuex недоступен content-script. */
+export const claimLevelPrizeInPage = (level: number, isPremium: boolean): Promise<unknown> => {
+    const requestId = `claim-${Date.now()}-${++claimRequestId}`;
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            window.removeEventListener('message', onMessage);
+            reject(new Error(`getLevelPrize timed out for level=${level}`));
+        }, 10_000);
+        const onMessage = (event: MessageEvent): void => {
+            if (event.source !== window || event.data?.source !== 'tmAA-page' || event.data?.requestId !== requestId) return;
+            clearTimeout(timeout);
+            window.removeEventListener('message', onMessage);
+            if (event.data.type === 'CLAIM_LEVEL_PRIZE_SUCCESS') resolve(event.data.data);
+            else reject(new Error(event.data.error || `getLevelPrize failed for level=${level}`));
+        };
+        window.addEventListener('message', onMessage);
+        window.postMessage({ source: 'tmAA-cs', type: 'CLAIM_LEVEL_PRIZE', requestId, level, isPremium }, '*');
+    });
+};
+
 export const readSharedValue = (key: string): string | undefined =>
     localStorage.getItem(key) ?? undefined;
 
