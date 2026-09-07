@@ -6,12 +6,13 @@ const sass = require('sass');
 const isProd = process.argv.includes('--prod');
 const isWatch = process.argv.includes('--watch');
 const isChrome = process.argv.includes('--chrome');
+const isExtension = isChrome;
 
 const entryPath = path.join(__dirname, 'src', 'main.ts');
 
 const META = JSON.parse(fs.readFileSync(path.join(__dirname, 'src', 'meta.json'), 'utf-8'));
 
-const HEADER = isChrome ? '' : (
+const HEADER = isExtension ? '' : (
 `// ==UserScript==
 // @name         ${META.name}
 // @namespace    https://archeage.ru/
@@ -26,8 +27,9 @@ ${META.matches.map(m => `// @match        ${m}`).join('\n')}
 // ==/UserScript==
 `);
 
-const outPath = isChrome
-    ? path.join(__dirname, 'dist', 'chrome', 'contentScript.js')
+const extensionTarget = 'chrome';
+const outPath = isExtension
+    ? path.join(__dirname, 'dist', extensionTarget, 'contentScript.js')
     : path.join(__dirname, 'ArcheAgeExtraUI.user.js');
 
 function createScssPlugin(prod) {
@@ -54,8 +56,8 @@ function createScssPlugin(prod) {
   };
 }
 
-function createAdapterPlugin(chrome) {
-  if (!chrome) return null;
+function createAdapterPlugin(extension) {
+  if (!extension) return null;
   return {
     name: 'chrome-adapter',
     setup(build) {
@@ -67,7 +69,7 @@ function createAdapterPlugin(chrome) {
 }
 
 const scssPlugin = createScssPlugin(isProd);
-const adapterPlugin = createAdapterPlugin(isChrome);
+const adapterPlugin = createAdapterPlugin(isExtension);
 
 const buildOptions = {
   entryPoints: [entryPath],
@@ -94,7 +96,9 @@ function writeOutput(bundled) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const code = HEADER + (isProd ? bundled : fixVarDeclarations(bundled));
   fs.writeFileSync(outPath, code);
-  const target = isChrome ? (isProd ? 'chrome-prod' : 'chrome') : (isProd ? 'prod' : 'dev');
+  const target = isExtension
+    ? `${extensionTarget}${isProd ? '-prod' : ''}`
+    : (isProd ? 'prod' : 'dev');
   console.log(`[build:${target}]`, outPath, `(${(code.length / 1024).toFixed(1)} KB)`);
 }
 
@@ -103,13 +107,14 @@ async function build() {
     const result = await esbuild.build(buildOptions);
     writeOutput(result.outputFiles[0].text);
 
-    if (isChrome) {
+    if (isExtension) {
       const iconSrc = path.join(__dirname, 'src', 'icons', 'icon128.png');
-      const iconDest = path.join(__dirname, 'dist', 'chrome', 'icon128.png');
+      const extensionDir = path.join(__dirname, 'dist', extensionTarget);
+      const iconDest = path.join(extensionDir, 'icon128.png');
       if (fs.existsSync(iconSrc)) fs.copyFileSync(iconSrc, iconDest);
 
       const pageScriptSrc = path.join(__dirname, 'src', 'adapter', 'pageScript.js');
-      const pageScriptDest = path.join(__dirname, 'dist', 'chrome', 'pageScript.js');
+      const pageScriptDest = path.join(extensionDir, 'pageScript.js');
       fs.copyFileSync(pageScriptSrc, pageScriptDest);
 
       const manifest = {
@@ -134,7 +139,7 @@ async function build() {
         }],
       };
       fs.writeFileSync(
-        path.join(__dirname, 'dist', 'chrome', 'manifest.json'),
+        path.join(extensionDir, 'manifest.json'),
         JSON.stringify(manifest, null, 2),
       );
     }
