@@ -25,6 +25,7 @@ interface MarathonStatusCache {
     status?: MarathonStatus;
     weekExp?: number;
     maxWeekExp?: number;
+    marathonEndAt?: number;
     nextCheckAt: number;
 }
 
@@ -73,17 +74,30 @@ const saveMarathonStatusCache = (cache: MarathonStatusCache): void => {
     }
 };
 
-const getNextMarathonStatusCheckAt = (info: MarathonInfoResponse): number => {
+const getMarathonEndAt = (info: MarathonInfoResponse): number | null => {
     const endTimes = Object.values(info.data?.quests || {})
         .map(quest => Number(quest.end_time || 0))
         .filter(Number.isFinite)
         .filter(endTime => endTime > 0);
+    return endTimes.length ? Math.max(...endTimes) * 1000 : null;
+};
+
+const getNextMarathonStatusCheckAt = (info: MarathonInfoResponse, marathonEndAt: number | null): number => {
     const now = Date.now();
-    const marathonEndMs = endTimes.length ? Math.max(...endTimes) * 1000 : null;
     const nextWeekMs = Number(info.data?.next_week_at || 0) * 1000;
-    const nextChecks = [marathonEndMs, nextWeekMs]
+    const nextChecks = [marathonEndAt, nextWeekMs]
         .filter((time): time is number => Number.isFinite(time) && time > now);
     return nextChecks.length ? Math.min(...nextChecks) : now + marathonStatusRecheckMs;
+};
+
+const isActiveMarathonCache = (cache: MarathonStatusCache | null): cache is MarathonStatusCache =>
+    !!cache?.available && (!Number.isFinite(cache.marathonEndAt) || cache.marathonEndAt > Date.now());
+
+const preserveAvailableMarathonCache = (sidePanel: HTMLElement, cache: MarathonStatusCache): void => {
+    cache.nextCheckAt = Date.now() + marathonUnavailableRecheckMs;
+    saveMarathonStatusCache(cache);
+    renderMarathonButton(sidePanel, cache);
+    scheduleMarathonStatusCheck(sidePanel, cache.nextCheckAt);
 };
 
 const scheduleMarathonStatusCheck = (sidePanel: HTMLElement, nextCheckAt: number): void => {
@@ -144,9 +158,13 @@ export const initMarathonButton = async (sidePanel: HTMLElement, forceCheck = fa
     if (isMarathonPage()) return;
 
     let cache = loadMarathonStatusCache();
-    if (cache?.available) {
+    if (isActiveMarathonCache(cache)) {
         renderMarathonButton(sidePanel, cache);
     } else {
+        if (cache?.available) {
+            cache.available = false;
+            saveMarathonStatusCache(cache);
+        }
         hideMarathonButton();
         if (!forceCheck && cache && cache.nextCheckAt > Date.now()) {
             scheduleMarathonStatusCheck(sidePanel, cache.nextCheckAt);
@@ -158,6 +176,10 @@ export const initMarathonButton = async (sidePanel: HTMLElement, forceCheck = fa
     try {
         info = await fetchMarathonResponse(marathonInfoPath);
     } catch {
+        if (isActiveMarathonCache(cache)) {
+            preserveAvailableMarathonCache(sidePanel, cache);
+            return;
+        }
         cache = { available: false, nextCheckAt: Date.now() + marathonUnavailableRecheckMs };
         saveMarathonStatusCache(cache);
         hideMarathonButton();
@@ -166,6 +188,10 @@ export const initMarathonButton = async (sidePanel: HTMLElement, forceCheck = fa
     }
 
     if (info.state !== 'Success') {
+        if (isActiveMarathonCache(cache)) {
+            preserveAvailableMarathonCache(sidePanel, cache);
+            return;
+        }
         cache = { available: false, nextCheckAt: Date.now() + marathonUnavailableRecheckMs };
         saveMarathonStatusCache(cache);
         hideMarathonButton();
@@ -173,14 +199,20 @@ export const initMarathonButton = async (sidePanel: HTMLElement, forceCheck = fa
         return;
     }
 
+    const marathonEndAt = getMarathonEndAt(info);
     cache = {
-        available: true,
+        available: marathonEndAt == null || marathonEndAt > Date.now(),
         status: info.data?.user_info?.status ?? 'guest',
         weekExp: Number(info.data?.user_info?.week_exp || 0),
         maxWeekExp: Number(info.data?.action_info?.increase_max_exp_per_week || 100),
-        nextCheckAt: getNextMarathonStatusCheckAt(info),
+        marathonEndAt: marathonEndAt ?? undefined,
+        nextCheckAt: getNextMarathonStatusCheckAt(info, marathonEndAt),
     };
     saveMarathonStatusCache(cache);
+    if (!cache.available) {
+        hideMarathonButton();
+        return;
+    }
     renderMarathonButton(sidePanel, cache);
     scheduleMarathonStatusCheck(sidePanel, cache.nextCheckAt);
 };
