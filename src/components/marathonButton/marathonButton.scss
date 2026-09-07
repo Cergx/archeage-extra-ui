@@ -5,10 +5,10 @@
   background: rgba(0, 8, 24, 0.85);
   backdrop-filter: blur(4px);
   color: #cfd6e0;
-  font: inherit;
   line-height: 1.4;
   cursor: pointer;
   font-family: monospace;
+  font-size: 13px;
 }
 
 .tm-marathon-button:hover:not(:disabled) {
