@@ -7,8 +7,6 @@
     window.__tmAA_pageBridge = true;
 
     const origFetch = window.fetch.bind(window);
-    const origPopupOpen = window.popup_open;
-    const origPopupClose = window.popup_close;
 
     function getVueStore() {
         const roots = [
@@ -92,11 +90,13 @@
     window.addEventListener('message', function(event) {
         if (event.data?.source !== 'tmAA-cs') return;
 
-        if (event.data.type === 'POPUP_OPEN' && typeof origPopupOpen === 'function') {
-            origPopupOpen(event.data.args?.[0], event.data.args?.[1]);
+        // popup_open создаётся скриптами сайта после document_start. Получаем
+        // функцию в момент вызова, иначе в расширении остаётся undefined.
+        if (event.data.type === 'POPUP_OPEN' && typeof window.popup_open === 'function') {
+            window.popup_open(event.data.args?.[0], event.data.args?.[1]);
         }
-        if (event.data.type === 'POPUP_CLOSE' && typeof origPopupClose === 'function') {
-            origPopupClose();
+        if (event.data.type === 'POPUP_CLOSE' && typeof window.popup_close === 'function') {
+            window.popup_close();
         }
         if (event.data.type === 'SCROLL_PRIZES') {
             var el = document.querySelector('.game__right');

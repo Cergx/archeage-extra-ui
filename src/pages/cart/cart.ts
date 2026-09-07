@@ -60,6 +60,8 @@ interface InitCartDeps extends Required<Pick<CartUIDeps, 'makeItemIconLink' | 'f
     injectCartStyles: () => void;
 }
 
+let removeCartPopupClickHandler: (() => void) | null = null;
+
 /**
  * Нормализует название предмета из таблицы корзины.
  * @param {string} itemName
@@ -425,41 +427,50 @@ export const makeCartRow = (cartItem: CartItem, makeItemIconLink: ItemIconLinkFn
  * @param {{ label: string, icon: string, action: function|null }[]} params.buttons
  */
 export const showCartPopup = ({ title, body, buttons }: CartPopupParams): void => {
-    // Подготавливаем скрытый div-источник для popup_open
     let src = pageDocument.getElementById('tm_cart_popup_src');
     if (!src) {
         src = pageDocument.createElement('div');
         src.id = 'tm_cart_popup_src';
-        src.style.display = 'none';
         pageDocument.body.appendChild(src);
     }
 
+    // Актуальная реализация popup_open использует исходный элемент напрямую.
+    // Не скрываем его через display:none: иначе сайт создаёт popup в DOM,
+    // но сохраняет скрытое состояние и пользователь его не видит.
+    src.style.removeProperty('display');
     src.innerHTML = `
-            <div class="main_popup_block">
-                <div class="header blue">${title}</div>
-                <div class="inner_cont">${body}</div>
-                <div class="popup_buttons">
-                    ${buttons.map((btn, i) =>
-        `<a href="#" class="guild_button1 ${btn.icon}" data-tm-btn="${i}"><em></em>${btn.label}</a>`
+        <div class="main_popup_block">
+            <div class="header blue">${title}</div>
+            <div class="inner_cont">${body}</div>
+            <div class="popup_buttons">
+                ${buttons.map((button, index) =>
+        `<a href="#" class="guild_button1 ${button.icon}" data-tm-btn="${index}"><em></em>${button.label}</a>`
     ).join('')}
-                </div>
-            </div>`;
+            </div>
+        </div>`;
 
-    // Используем нативную функцию сайта
     pageWindow.popup_open(false, 'tm_cart_popup_src');
 
-    // Навешиваем обработчики на кнопки внутри попапа
-    const popupBlock = pageDocument.getElementById('popup_block');
-    if (popupBlock) {
-        popupBlock.querySelectorAll<HTMLAnchorElement>('a[data-tm-btn]').forEach((a: HTMLAnchorElement) => {
-            const btn = buttons[parseInt(a.dataset.tmBtn || '', 10)];
-            a.addEventListener('click', (e) => {
-                e.preventDefault();
-                pageWindow.popup_close();
-                btn.action?.();
-            });
-        });
-    }
+    removeCartPopupClickHandler?.();
+    const onPopupButtonClick = (event: MouseEvent): void => {
+        if (!(event.target instanceof Element)) return;
+        const buttonEl = event.target.closest<HTMLAnchorElement>('#popup_block a[data-tm-btn]');
+        if (!buttonEl) return;
+
+        const button = buttons[Number(buttonEl.dataset.tmBtn)];
+        if (!button) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        removeCartPopupClickHandler?.();
+        pageWindow.popup_close();
+        void button.action?.();
+    };
+    pageDocument.addEventListener('click', onPopupButtonClick, true);
+    removeCartPopupClickHandler = () => {
+        pageDocument.removeEventListener('click', onPopupButtonClick, true);
+        removeCartPopupClickHandler = null;
+    };
 };
 
 /**
@@ -565,16 +576,17 @@ export const buildCartUI = (cartItems: CartItem[], characters: CartCharacter[], 
     if (origCharSelect) {
         right.appendChild(origCharSelect);
 
-        // Навешиваем свой обработчик выбора
-        origCharSelect.querySelectorAll<HTMLElement>('.js-char').forEach((label: HTMLElement) => {
-            const radio = label.querySelector<HTMLInputElement>('input[name="shard_char"]');
-            if (!radio || radio.disabled) return;
+        const selectCharacter = (radio: HTMLInputElement): void => {
+            if (radio.disabled || !radio.value) return;
+            selectedChar = radio.value;
+            radio.checked = true;
+            updateTransferBtn();
+        };
 
-            label.addEventListener('click', () => {
-                selectedChar = radio.value;
-                radio.checked = true;
-                updateTransferBtn();
-            });
+        // Сайт может обрабатывать клик по label самостоятельно. Слушаем change
+        // самого radio, чтобы состояние расширения всегда совпадало с UI сайта.
+        origCharSelect.querySelectorAll<HTMLInputElement>('input[name="shard_char"]').forEach((radio) => {
+            radio.addEventListener('change', () => selectCharacter(radio));
         });
 
         // Подгружаем аватары персонажей из char_list
@@ -620,7 +632,6 @@ export const buildCartUI = (cartItems: CartItem[], characters: CartCharacter[], 
     transferBtn.className = 'guild_button1 ico_done';
     transferBtn.innerHTML = '<em></em>Передать';
     transferBtn.style.opacity = '0.5';
-    transferBtn.style.pointerEvents = 'none';
     right.appendChild(pageDocument.createElement('br'));
     right.appendChild(transferBtn);
 
@@ -639,8 +650,14 @@ export const buildCartUI = (cartItems: CartItem[], characters: CartCharacter[], 
     const updateTransferBtn = (): void => {
         const enabled = selectedIds.size > 0 && !!selectedChar;
         transferBtn.style.opacity = enabled ? '' : '0.5';
-        transferBtn.style.pointerEvents = enabled ? '' : 'none';
+        transferBtn.setAttribute('aria-disabled', String(!enabled));
     };
+
+    const initiallySelectedChar = origCharSelect?.querySelector<HTMLInputElement>('input[name="shard_char"]:checked');
+    if (initiallySelectedChar?.value) {
+        selectedChar = initiallySelectedChar.value;
+        updateTransferBtn();
+    }
 
     const renderSelectedList = (): void => {
         const selectedArray = [...selectedIds].map(id => cartItems.find(i => i.itemId === id)).filter((item): item is CartItem => Boolean(item));
@@ -690,6 +707,15 @@ export const buildCartUI = (cartItems: CartItem[], characters: CartCharacter[], 
 
     // Кнопка "Передать" — подтверждение + отправка
     transferBtn.addEventListener('click', () => {
+        if (selectedIds.size === 0 || !selectedChar) {
+            showCartPopup({
+                title: 'Выберите получателя',
+                body: '<p>Выберите хотя бы один предмет и персонажа, которому его нужно передать.</p>',
+                buttons: [{ label: 'Ок', icon: 'ico_done', action: null }],
+            });
+            return;
+        }
+
         showCartPopup({
             title: 'Вы уверены?',
             body: '<p>Предметы будут переданы выбранному персонажу</p>',

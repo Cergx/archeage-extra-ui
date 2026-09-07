@@ -168,6 +168,8 @@ interface InterceptedResponses {
     items: { data?: Record<string, Record<string, IRItem>> } | null;
 }
 
+let removeItemRestorePopupClickHandler: (() => void) | null = null;
+
 export const IR_URL = {
     grades: '/dynamic/itemrestore/index.php?a=get_item_grades',
     info: '/dynamic/itemrestore/index.php?a=get_restore_info',
@@ -204,17 +206,29 @@ export const showItemRestorePopup = ({ title, body, buttons }: PopupParams): voi
 
     pageWindow.popup_open(false, 'tm_ir_popup_src');
 
-    const popupBlock = document.getElementById('popup_block');
-    if (popupBlock) {
-        popupBlock.querySelectorAll<HTMLAnchorElement>('a[data-tm-btn]').forEach((a: HTMLAnchorElement) => {
-            const btn = buttons[parseInt(a.dataset.tmBtn || '', 10)];
-            a.addEventListener('click', (e: MouseEvent) => {
-                e.preventDefault();
-                pageWindow.popup_close();
-                btn.action?.();
-            });
-        });
-    }
+    // В расширении popup_open выполняется через мост в контекст страницы.
+    // Обработчик назначается делегированием, так как popup может появиться
+    // после возврата из popup_open.
+    removeItemRestorePopupClickHandler?.();
+    const onPopupButtonClick = (event: MouseEvent): void => {
+        if (!(event.target instanceof Element)) return;
+        const buttonEl = event.target.closest<HTMLAnchorElement>('#popup_block a[data-tm-btn]');
+        if (!buttonEl) return;
+
+        const button = buttons[Number(buttonEl.dataset.tmBtn)];
+        if (!button) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        removeItemRestorePopupClickHandler?.();
+        pageWindow.popup_close();
+        void button.action?.();
+    };
+    document.addEventListener('click', onPopupButtonClick, true);
+    removeItemRestorePopupClickHandler = () => {
+        document.removeEventListener('click', onPopupButtonClick, true);
+        removeItemRestorePopupClickHandler = null;
+    };
 };
 
 /**
