@@ -1,6 +1,6 @@
-import { claimLevelPrizeInPage, pageWindow, pageDocument } from '../adapter/env.js';
+import { claimLevelPrizeInPage, openNextBoxInPage, pageWindow, pageDocument } from '../adapter/env.js';
 
-export { claimLevelPrizeInPage, pageWindow, pageDocument };
+export { claimLevelPrizeInPage, openNextBoxInPage, pageWindow, pageDocument };
 
 /** Whether current page is on gisaa.ru. */
 export const isGisaaSite: boolean = location.hostname.includes('gisaa.ru');

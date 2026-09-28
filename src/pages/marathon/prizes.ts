@@ -1,5 +1,5 @@
 import { API_INFO_CACHE } from './core.js';
-import { claimLevelPrizeInPage, pageDocument } from '../../utils/env.js';
+import { claimLevelPrizeInPage, openNextBoxInPage, pageDocument } from '../../utils/env.js';
 
 const waitForElement = (selector: string, timeoutMs = 5000): Promise<Element | null> => {
     const existing = document.querySelector(selector);
@@ -250,14 +250,18 @@ export const getLootboxVm = (): LootboxVm | null => {
     return (el?.__vue__ as LootboxVm | undefined) ?? null;
 };
 
-export const hasPremiumMarathonAccess = (): boolean => {
-    if (API_INFO_CACHE?.data?.user_info?.status === 'premium') return true;
-
-    const store = getVueStore();
-    return store?.state?.maininfo?.user_info?.status === 'premium'
-        || store?.state?.maininfo?.userInfo?.status === 'premium'
-        || store?.state?.maininfo?.info?.user_info?.status === 'premium';
+// При обновлении API кэш временно пуст. Это не означает потерю Premium.
+const getPremiumMarathonAccess = (): boolean | null => {
+    const maininfo = getVueStore()?.state?.maininfo;
+    const status = API_INFO_CACHE?.data?.user_info?.status
+        ?? maininfo?.user_info?.status
+        ?? maininfo?.userInfo?.status
+        ?? maininfo?.info?.user_info?.status;
+    if (!status) return null;
+    return status === 'premium';
 };
+
+export const hasPremiumMarathonAccess = (): boolean => getPremiumMarathonAccess() === true;
 
 let autoOpenBoxesIntervalId: TimerId | null = null;
 let autoOpenBoxesCheckbox: HTMLInputElement | null = null;
@@ -279,28 +283,19 @@ const disableAutoOpenBoxes = (): void => {
 export const tryOpenNextBox = (): void => {
     if (!loadAutoOpenBoxesState()) return;
 
-    if (!hasPremiumMarathonAccess()) {
+    const access = getPremiumMarathonAccess();
+    if (access === null) return;
+    if (!access) {
         disableAutoOpenBoxes();
         return;
     }
 
-    const lootbox = getLootboxVm();
-    if (!lootbox || typeof lootbox.openBox !== 'function') return;
-
-    // Проверяем, что popup закрыт и не идёт открытие
-    if (lootbox.is_show_popup || lootbox.is_button_pushed) return;
-
-    // Проверяем, есть ли сундуки
-    const boxesAvailable = lootbox.getChestNum;
-    if (boxesAvailable <= 0) return;
-
-    console.log(`[ArcheAgeExtraUI] Автооткрытие сундука (осталось: ${boxesAvailable})`);
-    lootbox.openBox();
+    openNextBoxInPage();
 };
 
 export const startAutoOpenBoxesInterval = (): void => {
     if (autoOpenBoxesIntervalId != null) return;
-    if (!hasPremiumMarathonAccess()) {
+    if (getPremiumMarathonAccess() === false) {
         disableAutoOpenBoxes();
         return;
     }
@@ -324,7 +319,8 @@ export const initAutoOpenBoxesCheckbox = (): void => {
     // Проверяем, что галочка ещё не добавлена
     if (lootboxTitle.querySelector('.tm-auto-open-label')) return;
 
-    const hasPremium = hasPremiumMarathonAccess();
+    const hasPremium = getPremiumMarathonAccess();
+    if (hasPremium === null) return;
     if (!hasPremium) saveAutoOpenBoxesState(false);
 
     const autoOpen = createCheckbox({

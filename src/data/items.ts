@@ -535,8 +535,8 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 8002769, icon: 'https://archeagecodex.com/items/quest/icon_item_quest217.png', grade: 3, bind: 2, name: 'Знак «Ключевая фигура»' },
     { id: 28813, icon: 'https://archeagecodex.com/items/icon_item_1319.png', grade: 5, name: 'Монеты дару x85' },
     { id: 30604, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x100' },
-    { id: 28814, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x180' },
-    { id: 30605, icon: 'https://archeagecodex.com/items/icon_item_1643.png', grade: 5, name: 'Монеты дару x280' },
+    { id: 28814, icon: 'https://archeagecodex.com/items/icon_item_1320.png', grade: 5, name: 'Монеты дару x180' },
+    { id: 30605, icon: 'https://archeagecodex.com/items/icon_item_1645.png', grade: 5, name: 'Монеты дару x280' },
     { id: 8002410, icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', isEquipDescriptionTemporary: true },
     { id: 34684, icon: 'https://archeagecodex.com/items/icon_item_ins_s_0051.png', name: 'Укрепленная аргенитовая лютня' },
     { id: 34685, icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', name: 'Укрепленный аргенитовый кларнет' },
@@ -670,7 +670,10 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
 
     { id: 23920, overlay: 'seal_08', icon: `${GMRU_CDN_ICONS}33aef583629a36356683c8114c5beb46.png`, name: 'Иферийский кларнет' },
 
+    { id: 8002770, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик со скакуном' },
     { id: 8002771, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с глайдером', bind: 2 },
+    { id: 8002772, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем' },
+
     { id: 54847, icon: 'https://archeagecodex.com/items/icon_item_5808.png', grade: 1, name: 'Глайдер «Метеоритное ядро»' },
 
     { id: 39363, icon: 'https://archeagecodex.com/items/icon_item_2275.png', grade: 1, name: 'Осенний Лоскутик' },
@@ -678,7 +681,6 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 34975, icon: 'https://archeagecodex.com/items/doll_pet_bo_001.png', grade: 1, name: 'Кулинарные перчатки в красный горошек' },
     { id: 36183, icon: 'https://archeagecodex.com/items/doll_pet_ar_007.png', grade: 1, name: 'Красный заводной ключик' },
     { id: 34981, icon: 'https://archeagecodex.com/items/icon_item_2720.png', grade: 1, name: 'Детеныш Гартарейн' },
-    { id: 8002772, icon: 'https://archeagecodex.com/items/icon_item_5043.png', grade: 5, name: 'Окованный сталью ящик с боевым питомцем' },
     { id: 56010, icon: benedictIcon, grade: 4, name: 'Бенедикт' },
 
     { id: 38191, icon: `${GMRU_CDN_ICONS}653044b162070498765aa3f01c590bd4.png`, grade: 5, name: 'Упакованный мекка-доспех' },
@@ -735,6 +737,9 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 49750, icon: 'https://archeagecodex.com/items/icon_item_4944.png', grade: 4, name: 'Снежный шар «Золотая осень»' },
 
     { id: 8000641, icon: 'https://archeagecodex.com/items/icon_item_2855.png', name: 'Призрачный единорог' },
+
+    { id: 8001653, icon: 'https://archeagecodex.com/items/icon_item_2184.png', name: 'Хазирский жетон' },
+    { id: 47674, icon: 'https://archeagecodex.com/items/quest/icon_item_quest169.png', name: 'Запечатанная эссенция' },
 
     { id: 1, icon: '', grade: 1, name: '' },
 ] as ItemBase[]).map(i => [i.id, i])) as Record<number, ItemBase>;

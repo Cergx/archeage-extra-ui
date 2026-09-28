@@ -109,6 +109,13 @@
         if (event.data.type === 'CLAIM_LEVEL_PRIZE') {
             claimLevelPrize(event.data.level, event.data.isPremium, event.data.requestId);
         }
+        if (event.source === window && event.data.type === 'OPEN_NEXT_BOX') {
+            const lootbox = document.querySelector('.lootbox');
+            const vm = lootbox && lootbox.__vue__;
+            if (!vm || typeof vm.openBox !== 'function') return;
+            if (vm.is_show_popup || vm.is_button_pushed || !(Number(vm.getChestNum) > 0)) return;
+            vm.openBox();
+        }
     });
 
     send({ type: 'READY' });

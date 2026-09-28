@@ -30,7 +30,6 @@ interface MarathonStatusCache {
 }
 
 const marathonInfoPath = '/minigames/marathon_of_heroes/api/info';
-const marathonRegisterPath = '/minigames/marathon_of_heroes/api/register';
 const marathonPagePath = '/promo/marathon/';
 const marathonStatusCacheKey = 'tm_aa_marathon_status';
 const marathonStatusRecheckMs = 12 * 60 * 60 * 1000;
@@ -130,28 +129,13 @@ const renderMarathonButton = (sidePanel: HTMLElement, cache: MarathonStatusCache
     }
 
     const button = marathonButtonEl;
-    const isGuest = cache.status === 'guest';
     button.disabled = false;
     const weekExp = Number(cache.weekExp);
     const maxWeekExp = Number(cache.maxWeekExp);
-    const hasWeekProgress = Number.isFinite(weekExp) && Number.isFinite(maxWeekExp) && maxWeekExp > 0;
-    button.textContent = isGuest
-        ? 'Начать марафон'
-        : hasWeekProgress ? `Марафон (${weekExp}/${maxWeekExp})` : 'Марафон';
-    button.onclick = isGuest
-        ? async () => {
-            button.disabled = true;
-            button.textContent = 'Регистрация…';
-            try {
-                const registration = await fetchMarathonResponse(marathonRegisterPath);
-                if (registration.state !== 'Success') throw new Error('Marathon registration failed');
-                await initMarathonButton(sidePanel, true);
-            } catch {
-                button.textContent = 'Начать марафон';
-                button.disabled = false;
-            }
-        }
-        : () => { location.assign(marathonPagePath); };
+    const hasWeekProgress = cache.status !== 'guest'
+        && Number.isFinite(weekExp) && Number.isFinite(maxWeekExp) && maxWeekExp > 0;
+    button.textContent = hasWeekProgress ? `Марафон (${weekExp}/${maxWeekExp})` : 'Марафон';
+    button.onclick = () => { location.assign(marathonPagePath); };
 };
 
 export const initMarathonButton = async (sidePanel: HTMLElement, forceCheck = false): Promise<void> => {

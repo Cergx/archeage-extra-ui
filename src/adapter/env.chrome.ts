@@ -20,6 +20,10 @@ export const pageWindow = new Proxy(window, {
 
 export const pageDocument: Document = document;
 
+export const openNextBoxInPage = (): void => {
+    window.postMessage({ source: 'tmAA-cs', type: 'OPEN_NEXT_BOX' }, '*');
+};
+
 let claimRequestId = 0;
 
 /** Забирает награду через page-script, потому что Vuex недоступен content-script. */

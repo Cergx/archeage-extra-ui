@@ -202,11 +202,13 @@ export const getTodayWeekdayMonFirst: () => number = () => {
 /** @param {number[]|undefined} weekdays */
 export const formatAvailableWeekdaysStatus: (weekdays: number[] | undefined) => string = (weekdays) => {
     if (!weekdays?.length) return '';
-    return weekdays.includes(getTodayWeekdayMonFirst())
+    const status = weekdays.includes(getTodayWeekdayMonFirst())
         ? 'Можно сегодня взять'
-        : `Сегодня нельзя взять (${[...new Set(weekdays)]
-            .sort((a, b) => a - b)
-            .map(weekday => WEEKDAY_NAMES[weekday + 1])
-            .filter(Boolean)
-            .join(', ')})`;
+        : 'Сегодня нельзя взять';
+    const days = [...new Set(weekdays)]
+        .sort((a, b) => a - b)
+        .map(weekday => WEEKDAY_NAMES[weekday + 1])
+        .filter(Boolean)
+        .join(', ');
+    return `${status} (${days})`;
 };

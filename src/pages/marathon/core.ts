@@ -218,7 +218,7 @@ export interface EventSchedule {
 export interface MarathonQuestMeta {
     id: number;
     title: string;
-    marathonId: number[];
+    marathonId?: number[];
     short: string;
     veksel?: VekselType;
     locations?: string[];

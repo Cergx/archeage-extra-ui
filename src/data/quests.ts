@@ -26,7 +26,7 @@ export const VEKSEL_BASE = 'https://gisaa.ru/veksel/';
  * @typedef {Object} Quest
  * @property {number} id - ID квеста.
  * @property {string} title - Название квеста.
- * @property {number[]} marathonId - Известные ID заданий в марафоне для точного сопоставления.
+ * @property {number[]} [marathonId] - Известные ID заданий в марафоне для точного сопоставления.
  * @property {string} short - Краткое описание / пояснение.
  * @property {'blue_salt'|'north'} [veksel] - Тип векселя.
  * @property {string[]} [locations] - Локации выполнения.
@@ -51,6 +51,7 @@ export const QUESTS = [
     { marathonId: [8282, 8838], id: 7154, title: "Темница Дауты", short: "" },
     { marathonId: [8284, 8840], id: 9137, title: "Железо для корабелов", short: "", veksel: 'blue_salt', slot: { item: ITEMS[8318], count: 60 } },
     { marathonId: [8286, 8842], id: 8000131, title: "Вдали от обезумевшего мира", short: "Квест Нуи на 500 очков работы" },
+    { id: 8000132, title: "Милосердная жрица", short: "Квест Нуи (взять конверт)" },
     { marathonId: [8288, 8844], id: 10508, title: "Расшитые жемчугом кошельки I", short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 25 } },
     { marathonId: [8290, 8846], id: 10509, title: "Расшитые жемчугом кошельки II", short: "", veksel: 'north', locations: ["Бездна", "Солнечные поля"], slot: { item: ITEMS[40928], count: 75 } },
     { marathonId: [8292, 8848], id: 5092, title: "Отличные фитили", short: `<a href="https://archeageon.ru/kvesty/konsortsiuma-sinej-soli/261-kvesty-ot-parfyumera-na-dz-vostok-arheidj#porychenie" target="_blank">Парфюмер на востоке</a>` },
@@ -122,6 +123,8 @@ export const QUESTS = [
     { marathonId: [8522, 9060], id: 10188, title: "Образцы флоры Сада", short: "", slot: { item: ITEMS[49252], count: 20 } },
     { marathonId: [8524, 9046], id: 8618, title: "Битва за Эфен'Хал", short: "Эфен - мобы" },
     { marathonId: [9064], id: 8000311, title: "Охота на призраков", short: "Предпоследнее испытание для осколков предела" },
+    { id: 5142, title: "Постройка катапульты", short: "2 пака" },
+    { id: 5157, title: "Постройка катапульты", short: "2 пака" },
 ];
 
 /** @param {string} value */
@@ -138,6 +141,8 @@ export const normalizeQuestTitleForMatch = (value) => {
         .replace(/\*+/g, '')
         .replace(/героич/g, 'гер')
         .replace(/[«»"'`´’‘“”()[\]{}.,:;!?\-–—_/\\]+/g, ' ')
+        // В API номер этапа бывает приклеен к русскому названию: «всячинойII».
+        .replace(/([а-я])([ivx]+)(?=\s|$)/gu, '$1 $2')
         .replace(/\s+/g, ' ')
         .trim();
 };
@@ -170,6 +175,27 @@ export const scoreQuestTitleMatch = (apiTitle, localTitle) => {
     return commonWords.join('').length + commonWords.length * 2;
 };
 
+/** Объединяет дни всех упомянутых «Орд»: для задания достаточно любого квеста. */
+const withHordeAvailableWeekdays = (quest, apiTitle) => {
+    if (!quest) return quest;
+    const title = ` ${normalizeQuestTitleForMatch(apiTitle)} `;
+    if (!title.includes(' орды ')) return quest;
+
+    const hordes = QUESTS.filter(candidate => {
+        const localTitle = normalizeQuestTitleForMatch(candidate.title);
+        if (!localTitle.startsWith('орды ') || !candidate.availableWeekdays?.length) return false;
+        const territory = localTitle.slice('орды '.length);
+        return title.includes(` ${territory} `);
+    });
+    if (hordes.length < 2) return quest;
+
+    return {
+        ...quest,
+        availableWeekdays: [...new Set(hordes.flatMap(horde => horde.availableWeekdays!))]
+            .sort((a, b) => a - b),
+    };
+};
+
 /**
  * Находит локальные метаданные QUESTS для марафон-квеста из API.
  * Сначала ищет по текущему ID марафон-квеста, затем по похожести title.
@@ -179,8 +205,8 @@ export const scoreQuestTitleMatch = (apiTitle, localTitle) => {
 export const findQuestMetaForMarathonQuest = (marathonQuest) => {
     const marathonQuestId = Number(marathonQuest?.id || 0);
     if (marathonQuestId) {
-        const byId = QUESTS.find(q => q.marathonId.includes(marathonQuestId));
-        if (byId) return byId;
+        const byId = QUESTS.find(q => q.marathonId?.includes(marathonQuestId));
+        if (byId) return withHordeAvailableWeekdays(byId, marathonQuest?.title);
     }
 
     let bestQuest = null;
@@ -193,5 +219,5 @@ export const findQuestMetaForMarathonQuest = (marathonQuest) => {
         }
     }
 
-    return bestScore >= 12 ? bestQuest : null;
+    return bestScore >= 12 ? withHordeAvailableWeekdays(bestQuest, marathonQuest?.title) : null;
 };
