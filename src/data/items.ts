@@ -76,14 +76,15 @@ export interface ItemSubType {
 }
 
 export const ITEM_SUB_TYPES: Record<string, ItemSubType> = {
-    'ingot':          { title: 'Слиток металла' },
-    'leather':        { title: 'Кожа' },
-    'cloth':          { title: 'Ткань' },
-    'lumber':         { title: 'Древесина' },
+    'ingot':            { title: 'Слиток металла' },
+    'leather':          { title: 'Кожа' },
+    'cloth':            { title: 'Ткань' },
+    'lumber':           { title: 'Древесина' },
 
-    'costume':        { title: 'Костюм' },
-    'cloak':          { title: 'Плащ' },
-    'windInstrument': { title: 'Духовой инструмент' },
+    'costume':          { title: 'Костюм' },
+    'cloak':            { title: 'Плащ' },
+    'windInstrument':   { title: 'Духовой инструмент' },
+    'stringInstrument': { title: 'Струнный инструмент' },
 };
 
 export interface EquipmentSubType {
@@ -538,6 +539,10 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 28814, icon: 'https://archeagecodex.com/items/icon_item_1320.png', grade: 5, name: 'Монеты дару x180' },
     { id: 30605, icon: 'https://archeagecodex.com/items/icon_item_1645.png', grade: 5, name: 'Монеты дару x280' },
     { id: 8002410, icon: 'https://archeagecodex.com/items/icon_item_0936.png', grade: 5, name: 'Алый шарф', isEquipDescriptionTemporary: true },
+    { id: 53295, icon: 'https://archeagecodex.com/items/costume_cp/cp_cloth029.png', grade: 2, name: 'Дизайн Астра`лаира' },
+    { id: 54570, icon: 'https://archeagecodex.com/items/costume_cp/nu_m_cp_cloth058.png', grade: 2, name: 'Материал для трансфигурации: Черно-красный плащ' },
+    { id: 41094, icon: 'https://archeagecodex.com/items/costume_cp/nu_m_cp_cloth069.png', grade: 3, name: 'Дизайн черного плаща с золотой эмблемой' },
+    { id: 51167, icon: 'https://archeagecodex.com/items/costume_cp/cp_cloth038.png', grade: 2, name: 'Дизайн черного шарфа стрелка' },
     { id: 34684, icon: 'https://archeagecodex.com/items/icon_item_ins_s_0051.png', name: 'Укрепленная аргенитовая лютня' },
     { id: 34685, icon: 'https://archeagecodex.com/items/icon_item_ins_w_0025.png', name: 'Укрепленный аргенитовый кларнет' },
     { id: 417, icon: 'https://archeagecodex.com/items/icon_item_0418.png', grade: 1, name: 'Редкий камень странствий', bind: 2, price: 0, reqLevel: 1 },
@@ -566,6 +571,7 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 55490, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Серьга ифнирского героя эпохи чудес', bind: 2 },
     { id: 55495, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 9, name: 'Кольцо ифнирского героя эпохи сказаний' },
     { id: 52808, overlay: 'unconfirmed', icon: 'https://archeagecodex.com/items/icon_item_teleport.png', grade: 1, name: 'Книга порталов (7 д.)', bind: 2 },
+    { id: 34701, subType: 'stringInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_s_0052.png', name: 'Зеркальная аргенитовая лютня' },
     { id: 34702, subType: 'windInstrument', icon: 'https://archeagecodex.com/items/icon_item_ins_w_0049.png', name: 'Зеркальный аргенитовый кларнет', buff: { avgRestoreMana: 16 } },
     { id: 37018, icon: 'https://archeagecodex.com/items/costume_hm/nu_m_hm_cloth560.png', grade: 3, name: 'Вязаная шапочка' },
     { id: 49630, icon: 'https://archeagecodex.com/items/icon_item_4862.png', grade: 5, name: 'Статуэтка «Аранзеб»' },
@@ -740,6 +746,30 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
 
     { id: 8001653, icon: 'https://archeagecodex.com/items/icon_item_2184.png', name: 'Хазирский жетон' },
     { id: 47674, icon: 'https://archeagecodex.com/items/quest/icon_item_quest169.png', name: 'Запечатанная эссенция' },
+
+    { id: 52908, icon: 'https://archeagecodex.com/items/icon_item_5313.png', grade: 2, name: 'Спецпроект: увитый плющом каменный особняк' },
+    { id: 52725, icon: 'https://archeagecodex.com/items/costume_set/nu_{sex}_sk_pajama001.png', grade: 5, name: 'Кроличья пижама' },
+
+    { id: 53643, icon: 'https://archeagecodex.com/items/icon_item_5384.png', grade: 4, name: 'Ящик с огненной мантикорой' },
+    { id: 49421, icon: 'https://archeagecodex.com/items/costume_set/{sex}.png', iconM: 'nu_m_sk_wizard001', iconF: 'nu_f_sk_witch001', grade: 2, name: 'Дизайн костюма студента Ведьминской Академии' },
+
+    { id: 31713, icon: 'https://archeagecodex.com/items/costume_hm/nu_{sex}_hm_cloth531.png', grade: 2, name: '«Кроличьи уши»' },
+    { id: 31714, icon: 'https://archeagecodex.com/items/costume_ar/nu_{sex}_ar_cloth051.png', grade: 2, name: 'Жутковинский костюм' },
+    { id: 31715, icon: 'https://archeagecodex.com/items/costume_pt/{sex}.png', iconM: 'ha_m_pt_cloth236', iconF: 'nu_f_pt_cloth507', grade: 2, name: 'Низ жутковинского костюма' },
+    { id: 31716, icon: 'https://archeagecodex.com/items/costume_bo/nu_{sex}_bo_leather505.png', grade: 2, name: 'Черные сапоги' },
+
+    { id: 56050, icon: 'https://archeagecodex.com/items/icon_item_6051.png', grade: 4, name: 'Фисташка' },
+
+    { id: 55494, icon: 'https://archeagecodex.com/items/icon_item_2375.png', grade: 8, name: 'Кольцо ифнирского героя эпохи чудес' },
+
+    { id: 44881, icon: 'https://archeagecodex.com/items/icon_item_3400.png', grade: 1, name: 'Глайдер «Феникс»' },
+    { id: 46480, icon: 'https://archeagecodex.com/items/icon_item_3814.png', grade: 1, name: 'Глайдер «Черный феникс»' },
+    { id: 55917, icon: 'https://archeagecodex.com/items/icon_item_5970.png', grade: 1, name: 'Глайдер «Летучий корабль»' },
+    { id: 52964, icon: 'https://archeagecodex.com/items/icon_item_5312.png', grade: 1, name: 'Глайдер «Серый кот»' },
+
+    { id: 55839, icon: 'https://archeagecodex.com/items/icon_item_3524.png', grade: 12, name: 'Руна «Эфе» эпохи Двенадцати' },
+    { id: 55229, icon: 'https://archeagecodex.com/items/icon_item_4893.png', grade: 10, name: 'Свиток пробудившихся преданий' },
+    { id: 8003135, icon: 'https://archeagecodex.com/items/icon_item_6043.png', grade: 12, name: 'Зачарованный свиток пробуждения предела' },
 
     { id: 1, icon: '', grade: 1, name: '' },
 ] as ItemBase[]).map(i => [i.id, i])) as Record<number, ItemBase>;
