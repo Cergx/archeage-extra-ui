@@ -121,6 +121,11 @@ export const CART_GRADE_BY_CAMPAIGN: CartGradeCampaignRule[] = [
         campaign: 'Неверинский марафон героев',
         item: { grade: 8 },
     },
+    {
+        itemId: [34701, 34702], // зеркальный аргенитовый кларнет/лютня
+        campaign: 'Марафон героев – крепкий орешек',
+        item: { grade: 12 },
+    },
 ];
 
 /**

@@ -61,26 +61,25 @@
 
     // Перехват itemrestore API
     const intercepted = { grades: null, info: null, items: null };
-    let count = 0;
+    let latestIrData = null;
 
     window.fetch = async function(...args) {
         const res = await origFetch(...args);
         const urlStr = typeof args[0] === 'string' ? args[0] : String(args[0]?.url || args[0]);
 
+        let field;
         if (urlStr.includes('a=get_item_grades')) {
-            intercepted.grades = await res.clone().json();
-            count++;
+            field = 'grades';
         } else if (urlStr.includes('a=get_restore_info')) {
-            intercepted.info = await res.clone().json();
-            count++;
+            field = 'info';
         } else if (urlStr.includes('a=get_user_items')) {
-            intercepted.items = await res.clone().json();
-            count++;
+            field = 'items';
         }
 
-        if (count >= 3) {
-            count = -1;
-            send({ type: 'IR_DATA', body: JSON.parse(JSON.stringify(intercepted)) });
+        if (field) intercepted[field] = await res.clone().json();
+        if (field && Object.values(intercepted).every(value => value !== null)) {
+            latestIrData = JSON.parse(JSON.stringify(intercepted));
+            send({ type: 'IR_DATA', body: latestIrData });
         }
 
         return res;
@@ -89,6 +88,10 @@
     // popup_open / popup_close + scroll prizes
     window.addEventListener('message', function(event) {
         if (event.data?.source !== 'tmAA-cs') return;
+
+        if (event.source === window && event.data.type === 'REQUEST_IR_DATA' && latestIrData) {
+            send({ type: 'IR_DATA', body: latestIrData });
+        }
 
         // popup_open создаётся скриптами сайта после document_start. Получаем
         // функцию в момент вызова, иначе в расширении остаётся undefined.

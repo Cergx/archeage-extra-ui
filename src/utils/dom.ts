@@ -1,16 +1,8 @@
 /**
- * Добавляет <style> в <head>. Если head ещё не готов (document_start),
- * ждёт DOMContentLoaded.
+ * Удаляет пустой style, созданный прежними функциями инициализации.
+ * Стили расширения подключаются отдельными CSS-файлами через manifest.
  */
 export const appendStyleElement = (style: HTMLStyleElement): void => {
-    const tryAppend = () => {
-        if (document.head) {
-            document.head.appendChild(style);
-        } else {
-            document.addEventListener('DOMContentLoaded', () => {
-                document.head.appendChild(style);
-            }, { once: true });
-        }
-    };
-    tryAppend();
+    // SCSS imports are injected as standalone stylesheets through manifest.json.
+    style.remove();
 };

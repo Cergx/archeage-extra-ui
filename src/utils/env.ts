@@ -2,6 +2,14 @@ import { claimLevelPrizeInPage, openNextBoxInPage, pageWindow, pageDocument } fr
 
 export { claimLevelPrizeInPage, openNextBoxInPage, pageWindow, pageDocument };
 
+/** Resolve esbuild-emitted assets through the extension API from the isolated world. */
+export const resolveExtensionAsset = (url: string): string => {
+    const assetPath = url.replace(/^\.\//, '');
+    if (!assetPath.startsWith('assets/')) return url;
+    const extensionApi = (globalThis as any).browser ?? (globalThis as any).chrome;
+    return extensionApi?.runtime?.getURL(assetPath) ?? url;
+};
+
 /** Whether current page is on gisaa.ru. */
 export const isGisaaSite: boolean = location.hostname.includes('gisaa.ru');
 

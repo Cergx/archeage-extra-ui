@@ -58,6 +58,7 @@ let irDataHandler: IrDataHandler | null = null;
 
 export const onIrData = (handler: IrDataHandler): void => {
     irDataHandler = handler;
+    window.postMessage({ source: 'tmAA-cs', type: 'REQUEST_IR_DATA' }, '*');
 };
 
 window.addEventListener('message', (event: MessageEvent) => {

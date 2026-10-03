@@ -1,4 +1,4 @@
-import { pageDocument, pageWindow, isArcheageSite } from '../../utils/env.js';
+import { pageDocument, pageWindow, isArcheageSite, resolveExtensionAsset } from '../../utils/env.js';
 import { appendStyleElement } from '../../utils/dom.js';
 import { makeEmptyCell } from '../emptyCell/emptyCell.js';
 import { makeLoader } from '../loader/loader.js';
@@ -627,7 +627,7 @@ export const makeItemIconLink = ({ itemId, slot, linked = false, size = 'medium'
 
     const itemImg = pageDocument.createElement('img');
     itemImg.className = 'tm-item-icon-img';
-    itemImg.src = getItemIconUrl(item);
+    itemImg.src = resolveExtensionAsset(getItemIconUrl(item));
     itemImg.dataset.itemId = String(item.id);
     itemImg.dataset.iconTemplate = item.icon || '';
     itemImg.dataset.iconM = item.iconM || '';
@@ -638,7 +638,7 @@ export const makeItemIconLink = ({ itemId, slot, linked = false, size = 'medium'
     if (overlay) {
         const overlayImg = pageDocument.createElement('img');
         overlayImg.className = 'tm-item-icon-overlay';
-        overlayImg.src = overlay;
+        overlayImg.src = resolveExtensionAsset(overlay);
         icon.appendChild(overlayImg);
     }
 
@@ -646,7 +646,7 @@ export const makeItemIconLink = ({ itemId, slot, linked = false, size = 'medium'
     if (gradeInfo) {
         const gradeImg = pageDocument.createElement('img');
         gradeImg.className = 'tm-item-icon-grade';
-        gradeImg.src = gradeInfo.overlay;
+        gradeImg.src = resolveExtensionAsset(gradeInfo.overlay);
         gradeImg.alt = gradeInfo.title || '';
         icon.appendChild(gradeImg);
     }

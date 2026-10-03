@@ -87,8 +87,7 @@ export const updateServerClockContent: () => void = () => {
 export const initServerClock: (
     openEventsPopup: () => void,
     checkEventNotifications?: () => void,
-) => Promise<void> = async (openEventsPopup, checkEventNotifications) => {
-    await syncServerTime();
+) => void = (openEventsPopup, checkEventNotifications) => {
     injectServerClockStyles();
     const sidePanel = createSidePanel();
     serverClockEl = document.createElement('div');
@@ -97,6 +96,7 @@ export const initServerClock: (
     sidePanel.appendChild(serverClockEl);
     document.body.appendChild(sidePanel);
     updateServerClockContent();
+    void syncServerTime().then(updateServerClockContent);
     void initMarathonButton(sidePanel);
     setInterval(updateServerClockContent, 1000);
     if (checkEventNotifications) setInterval(checkEventNotifications, 30000);

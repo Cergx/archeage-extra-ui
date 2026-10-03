@@ -771,6 +771,8 @@ export const ITEMS: Record<number, ItemBase> = Object.fromEntries(([
     { id: 55229, icon: 'https://archeagecodex.com/items/icon_item_4893.png', grade: 10, name: 'Свиток пробудившихся преданий' },
     { id: 8003135, icon: 'https://archeagecodex.com/items/icon_item_6043.png', grade: 12, name: 'Зачарованный свиток пробуждения предела' },
 
+    { id: 54455, icon: 'https://archeagecodex.com/items/icon_item_5683.png', grade: 1, name: 'Мешок для мусора дару' },
+
     { id: 1, icon: '', grade: 1, name: '' },
 ] as ItemBase[]).map(i => [i.id, i])) as Record<number, ItemBase>;
 

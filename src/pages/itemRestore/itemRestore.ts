@@ -55,6 +55,14 @@ interface ItemRestoreCatalogSnapshot {
     data: Partial<ItemBase>;
 }
 
+/**
+ * Сопоставляет качество из API с индексом в {@link GRADES} по названию.
+ *
+ * @param apiGrade - Идентификатор качества из API восстановления.
+ * @param grades - Справочник качеств из того же API.
+ * @returns Индекс в GRADES; если название не найдено — числовой идентификатор
+ * качества, либо 0, если идентификатор не удалось преобразовать в число.
+ */
 const mapItemRestoreGrade = (apiGrade: string, grades: IRGrade[]): number => {
     const gradeInfo = grades.find(grade => String(grade.id) === String(apiGrade));
     if (gradeInfo) {
@@ -64,6 +72,14 @@ const mapItemRestoreGrade = (apiGrade: string, grades: IRGrade[]): number => {
     return parseInt(apiGrade, 10) || 0;
 };
 
+/**
+ * Преобразует данные удалённого предмета в слот для иконки и подсказки.
+ * Сохраняет исходное качество API для подсказки сайта; при отсутствии качества
+ * пытается определить его по названию предмета.
+ *
+ * @param item - Предмет из API восстановления.
+ * @param grades - Справочник для сопоставления качеств.
+ */
 const mapItemRestoreSlot = (item: IRItem, grades: IRGrade[]): ItemTooltipSlot => {
     const numericId = Number(item.type);
     const rawGrade = Number(item.grade);
@@ -84,6 +100,14 @@ const mapItemRestoreSlot = (item: IRItem, grades: IRGrade[]): ItemTooltipSlot =>
     return { item: tooltipItem, count: parseInt(item.stack, 10) || 1 };
 };
 
+/**
+ * Обновляет локальный каталог предметов по ключу «тип предмета|качество».
+ * Объединяет новые данные с сохранёнными, пропуская пустые строки и undefined,
+ * и преобразует записи прежнего формата. Ошибки чтения и записи выводит в консоль.
+ *
+ * @param items - Удалённые предметы, данные которых нужно сохранить.
+ * @param grades - Справочник для сопоставления качеств.
+ */
 export const saveItemRestoreCatalog = (items: IRItem[], grades: IRGrade[]): void => {
     if (items.length === 0) return;
 
@@ -178,11 +202,13 @@ export const IR_URL = {
 };
 
 /**
- * Показывает модальное окно для страницы восстановления.
- * @param {Object} params
- * @param {string} params.title
- * @param {string} params.body
- * @param {{ label: string, icon: string, action: function|null }[]} params.buttons
+ * Открывает модальное окно восстановления через мост к popup_open сайта.
+ * При нажатии кнопки закрывает окно и вызывает её обработчик, если он задан.
+ *
+ * @param params - Содержимое модального окна и действия кнопок.
+ * @param params.title - Заголовок окна.
+ * @param params.body - HTML содержимого окна.
+ * @param params.buttons - Кнопки с подписями, CSS-классами и обработчиками.
  */
 export const showItemRestorePopup = ({ title, body, buttons }: PopupParams): void => {
     let src = document.getElementById('tm_ir_popup_src');
@@ -232,12 +258,14 @@ export const showItemRestorePopup = ({ title, body, buttons }: PopupParams): voi
 };
 
 /**
- * Строит UI страницы восстановления предметов.
- * @param {HTMLElement} container
- * @param {Array<{id: number, name: string}>} grades
- * @param {{lastRestored_at: number, restoreIsAvailable: number, restoredByeLastMonth: number}} info
- * @param {Array<Object>} items
- * @param {ItemRestoreUIDeps} deps
+ * Добавляет в контейнер интерфейс поиска, выбора и восстановления предметов.
+ * Сохраняет каталог предметов и настраивает фильтрацию, сортировку и пагинацию.
+ *
+ * @param container - Контейнер, в который добавляется интерфейс.
+ * @param grades - Справочник качеств из API восстановления.
+ * @param info - Сведения о последнем восстановлении и месячном лимите.
+ * @param items - Удалённые предметы, доступные для выбора.
+ * @param deps - Функции для создания иконок с подсказками.
  */
 export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], info: IRInfo, items: IRItem[], deps: ItemRestoreUIDeps): void => {
     const { makeItemIconLink } = deps;
@@ -257,30 +285,40 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
 
     // --- Helpers ---
 
-    /**
-     * Маппинг grade из API (строка) → индекс в GRADES.
-     * API grade → название из grades API → ищем совпадение title в GRADES.
-     * Если не нашли — используем числовое значение grade напрямую.
-     * @param {string} apiGrade
-     * @returns {number}
-     */
+    /** Добавляет ведущий ноль к числу меньше 10. */
     const addZero = (n: number): string => n < 10 ? '0' + n : '' + n;
 
+    /**
+     * Форматирует дату в местном часовом поясе как ДД.ММ.ГГГГ.
+     * @param ts - Время в миллисекундах с начала Unix-эпохи.
+     */
     const formatDate = (ts: number): string => {
         const dt = new Date(ts);
         return `${addZero(dt.getDate())}.${addZero(dt.getMonth() + 1)}.${dt.getFullYear()}`;
     };
 
+    /**
+     * Форматирует местные дату и время как ДД.ММ.ГГГГ ЧЧ:ММ.
+     * @param ts - Время в миллисекундах с начала Unix-эпохи.
+     */
     const formatDateTime = (ts: number): string => {
         const dt = new Date(ts);
         return `${addZero(dt.getDate())}.${addZero(dt.getMonth() + 1)}.${dt.getFullYear()} ${addZero(dt.getHours())}:${addZero(dt.getMinutes())}`;
     };
 
+    /**
+     * Форматирует местные время и дату как ЧЧ:ММ:СС ДД.ММ.ГГГГ.
+     * @param ts - Время в миллисекундах с начала Unix-эпохи.
+     */
     const formatDateTimeFull = (ts: number): string => {
         const dt = new Date(ts);
         return `${addZero(dt.getHours())}:${addZero(dt.getMinutes())}:${addZero(dt.getSeconds())} ${addZero(dt.getDate())}.${addZero(dt.getMonth() + 1)}.${dt.getFullYear()}`;
     };
 
+    /**
+     * Возвращает оставшееся время до удаления в днях и часах.
+     * @param dateStr - Дата удаления в формате, распознаваемом Date.parse.
+     */
     const getExpireTime = (dateStr: string): string => {
         const expire = Date.parse(dateStr);
         const now = Date.now();
@@ -792,14 +830,23 @@ export const buildItemRestoreUI = (container: HTMLElement, grades: IRGrade[], in
     renderSelected();
 };
 
-/** Инициализация страницы восстановления предметов. */
-/** Инжектит стили для страницы восстановления предметов. */
+/**
+ * Сохраняет совместимость с прежним вызовом инициализации стилей.
+ * CSS подключается через manifest; созданный пустой style удаляется.
+ */
 export const injectItemRestoreStyles = (): void => {
     const style = document.createElement('style');
     style.textContent = itemRestoreStyles;
     appendStyleElement(style);
 };
 
+/**
+ * Инициализирует страницу восстановления и подписывается на данные API
+ * из моста страницы. При получении данных заменяет содержимое app_itemrestore
+ * интерфейсом расширения; если контейнер отсутствует, пропускает обновление.
+ *
+ * @param deps - Функции инициализации стилей и создания иконок с подсказками.
+ */
 export const initItemRestore = ({ injectItemIconStyles, injectSelectedItemsStyles, makeItemIconLink }: InitItemRestoreDeps): void => {
     injectItemIconStyles();
     injectSelectedItemsStyles();
@@ -837,7 +884,7 @@ export const initItemRestore = ({ injectItemIconStyles, injectSelectedItemsStyle
         return;
     }
 
-    // Tampermonkey: перехватываем fetch страницы
+    // Extension content scripts cannot intercept page fetch directly.
     const origFetch = pageWindow.fetch.bind(pageWindow);
     pageWindow.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
         const res = await origFetch(...args);
